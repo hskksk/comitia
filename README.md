@@ -30,3 +30,4 @@
 | [08 改善ループ](docs/08-improvement-loop.md) | ルール・型・テンプレ・スキルの自己改善 |
 | [09 未決事項](docs/09-open-questions.md) | 仕様としてまだ決まっていないこと |
 | [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 次のステップ: 検証シナリオ 4 本と MVP の切断線 |
+| [シナリオ検証の結果](docs/scenarios/README.md) | 4 本の紙上検証の書き下し、発見と処置 |
