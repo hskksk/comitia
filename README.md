@@ -31,3 +31,4 @@
 | [09 未決事項](docs/09-open-questions.md) | 仕様としてまだ決まっていないこと |
 | [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 次のステップ: 検証シナリオ 4 本と MVP の切断線 |
 | [シナリオ検証の結果](docs/scenarios/README.md) | 4 本の紙上検証の書き下し、発見と処置 |
+| [設計 01: 第 1 層の実現方法](docs/design/01-layer1.md) | データモデル、状態機械、門の強制、セッションランナー（たたき台） |
