@@ -20,7 +20,7 @@ export type { Db } from "./db/test-setup.js";
 export { createPostgresDb } from "./db/postgres.js";
 export { createBoardApp } from "./http/app.js";
 export type { BoardGateway } from "./http/app.js";
-export { startBoardServer } from "./http/server.js";
+export { startBoardServer, startLoops } from "./http/server.js";
 export { createRelay } from "./gateway/relay.js";
 export type { Relay, RelayOptions } from "./gateway/relay.js";
 export { sendTick, flushMailbox } from "./gateway/send-tick.js";
@@ -28,6 +28,13 @@ export type {
   SendTickInput,
   SendTickResult,
 } from "./gateway/send-tick.js";
+export { resendUndigested } from "./gateway/resend.js";
+export { runScheduler, utcMinutes, utcMidnight } from "./gateway/scheduler.js";
+export {
+  touchConnection,
+  expireStaleConnections,
+  maybeSendEndWarning,
+} from "./gateway/health.js";
 export {
   createBoardMcpServer,
   createBoardToolRuntime,

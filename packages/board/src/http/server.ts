@@ -1,19 +1,75 @@
 import { createServer } from "node:http";
 import { eq } from "drizzle-orm";
 import { getRequestListener } from "@hono/node-server";
-import type { TickType } from "@comitia/shared";
+import { GATEWAY, type TickType } from "@comitia/shared";
 import { agentConnections, agentCredentials } from "../db/schema.js";
-import type { Db } from "../db/types.js";
+import type { Db, DbClient } from "../db/types.js";
 import { authenticateToken } from "../domain/credentials.js";
 import { recordEvent } from "../domain/events.js";
-import { findUndigestedSession } from "../domain/sessions.js";
+import {
+  findUndigestedSession,
+  interruptStaleSessions,
+} from "../domain/sessions.js";
+import { expireStaleConnections, touchConnection } from "../gateway/health.js";
 import { createRelay, type Relay } from "../gateway/relay.js";
+import { resendUndigested } from "../gateway/resend.js";
+import { runScheduler } from "../gateway/scheduler.js";
 import {
   flushMailbox,
   sendTick,
+  type SendTickInput,
   type SendTickResult,
 } from "../gateway/send-tick.js";
 import { createBoardApp, type BoardGateway } from "./app.js";
+
+export function startLoops(input: {
+  db: DbClient;
+  send: (payload: SendTickInput) => Promise<SendTickResult>;
+  relay: Relay;
+  now?: () => Date;
+  intervalMs?: number;
+}): () => void {
+  const getNow = input.now ?? (() => new Date());
+  const intervalMs = input.intervalMs ?? 15_000;
+  const timer = setInterval(() => {
+    void runLoopTick(input, getNow);
+  }, intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}
+
+async function runLoopTick(
+  input: {
+    db: DbClient;
+    send: (payload: SendTickInput) => Promise<SendTickResult>;
+    relay: Relay;
+  },
+  getNow: () => Date,
+): Promise<void> {
+  const now = getNow();
+  try {
+    const expired = await expireStaleConnections(input.db, {
+      now,
+      ttlMs: GATEWAY.healthTtlMs,
+    });
+    for (const participantId of expired) {
+      input.relay.disconnect(participantId);
+    }
+    await resendUndigested(input.db, input.send, {
+      now,
+      timeoutMs: GATEWAY.digestTimeoutMs,
+    });
+    await interruptStaleSessions(input.db, {
+      now,
+      timeoutMs: GATEWAY.sessionTimeoutMs,
+    });
+    if (now.getUTCSeconds() < 15) {
+      await runScheduler(input.db, input.send, { now });
+    }
+  } catch {
+    // Keep the production loop alive if a single tick fails.
+  }
+}
 
 export async function startBoardServer(input: {
   db: Db;
@@ -99,6 +155,9 @@ export async function startBoardServer(input: {
         });
       }
     },
+    onPong: async ({ agentId }) => {
+      await touchConnection(db, agentId, new Date());
+    },
   });
 
   const listener = getRequestListener(app.fetch);
@@ -127,6 +186,11 @@ export async function startBoardServer(input: {
   const baseUrl = `http://127.0.0.1:${port}`;
   relay.baseUrl = baseUrl;
   send = (payload) => sendTick(db, relay, payload);
+  const stopLoops = startLoops({
+    db: db as DbClient,
+    send: (payload) => send(payload),
+    relay,
+  });
 
   return {
     port,
@@ -135,6 +199,7 @@ export async function startBoardServer(input: {
     app,
     sendTick: send,
     close: async () => {
+      stopLoops();
       relay.close();
       if (typeof server.closeAllConnections === "function") {
         server.closeAllConnections();

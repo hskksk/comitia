@@ -17,6 +17,7 @@ import {
 import {
   parseTickFromMetadata,
   type Tick,
+  type TunnelControl,
   type TunnelHttpRequest,
   type TunnelHttpResponse,
 } from "@comitia/shared";
@@ -260,8 +261,16 @@ export async function createTestAdapter(
   function attachTunnelHandlers(ws: WebSocket): void {
     ws.on("message", (data) => {
       try {
-        const msg = JSON.parse(String(data)) as TunnelHttpRequest;
-        if (msg.type !== "http" || !msg.id) {
+        const msg = JSON.parse(String(data)) as
+          | TunnelHttpRequest
+          | TunnelControl;
+        if (msg.type === "ping") {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "pong" }));
+          }
+          return;
+        }
+        if (msg.type !== "http" || !("id" in msg) || !msg.id) {
           return;
         }
         void handleTunnelRequest(ws, msg);

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Duplex } from "node:stream";
 import {
+  GATEWAY,
   type TunnelHttpRequest,
   type TunnelHttpResponse,
 } from "@comitia/shared";
@@ -16,6 +17,7 @@ interface PendingRequest {
 interface AgentConnection {
   ws: WebSocket;
   pending: Map<string, PendingRequest>;
+  pingTimer?: ReturnType<typeof setInterval>;
 }
 
 export interface RelayConnectionEvent {
@@ -29,7 +31,9 @@ export interface RelayOptions {
   ) => boolean | Promise<boolean>;
   onConnect?: (event: RelayConnectionEvent) => void | Promise<void>;
   onDisconnect?: (event: RelayConnectionEvent) => void | Promise<void>;
+  onPong?: (event: RelayConnectionEvent) => void | Promise<void>;
   requestTimeoutMs?: number;
+  pingIntervalMs?: number;
 }
 
 export interface Relay {
@@ -37,6 +41,7 @@ export interface Relay {
   isConnected(agentId: string): boolean;
   handleHttp(req: IncomingMessage, res: ServerResponse): void;
   handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void;
+  disconnect(agentId: string): void;
   close(): void;
 }
 
@@ -76,8 +81,28 @@ function requestPathname(req: IncomingMessage): string {
 
 export function createRelay(options: RelayOptions): Relay {
   const requestTimeoutMs = options.requestTimeoutMs ?? 30_000;
+  const pingIntervalMs = options.pingIntervalMs ?? GATEWAY.healthPingMs;
   const connections = new Map<string, AgentConnection>();
   const wss = new WebSocketServer({ noServer: true });
+
+  function stopPing(conn: AgentConnection) {
+    if (conn.pingTimer) {
+      clearInterval(conn.pingTimer);
+      conn.pingTimer = undefined;
+    }
+  }
+
+  function startPing(conn: AgentConnection) {
+    if (pingIntervalMs <= 0) {
+      return;
+    }
+    conn.pingTimer = setInterval(() => {
+      if (conn.ws.readyState === WebSocket.OPEN) {
+        conn.ws.send(JSON.stringify({ type: "ping" }));
+      }
+    }, pingIntervalMs);
+    conn.pingTimer.unref?.();
+  }
 
   const relay: Relay = {
     baseUrl: "",
@@ -91,8 +116,16 @@ export function createRelay(options: RelayOptions): Relay {
     handleUpgrade(req, socket, head) {
       void handleUpgradeRequest(req, socket, head);
     },
+    disconnect(agentId: string): void {
+      const conn = connections.get(agentId);
+      if (!conn) {
+        return;
+      }
+      conn.ws.close();
+    },
     close() {
       for (const conn of connections.values()) {
+        stopPing(conn);
         conn.ws.close();
       }
       connections.clear();
@@ -199,6 +232,7 @@ export function createRelay(options: RelayOptions): Relay {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const existing = connections.get(agentId);
       if (existing) {
+        stopPing(existing);
         existing.ws.close();
         for (const pending of existing.pending.values()) {
           clearTimeout(pending.timer);
@@ -209,10 +243,18 @@ export function createRelay(options: RelayOptions): Relay {
 
       const conn: AgentConnection = { ws, pending: new Map() };
       connections.set(agentId, conn);
+      startPing(conn);
 
       ws.on("message", (data) => {
         try {
-          const msg = JSON.parse(String(data)) as TunnelHttpResponse;
+          const msg = JSON.parse(String(data)) as {
+            type?: string;
+            id?: string;
+          };
+          if (msg.type === "pong") {
+            void options.onPong?.({ agentId });
+            return;
+          }
           if (msg.type !== "http-response" || !msg.id) {
             return;
           }
@@ -222,13 +264,14 @@ export function createRelay(options: RelayOptions): Relay {
           }
           clearTimeout(pending.timer);
           conn.pending.delete(msg.id);
-          pending.resolve(msg);
+          pending.resolve(msg as TunnelHttpResponse);
         } catch {
           // ignore malformed tunnel messages
         }
       });
 
       ws.on("close", () => {
+        stopPing(conn);
         if (connections.get(agentId)?.ws === ws) {
           connections.delete(agentId);
           void options.onDisconnect?.({ agentId });

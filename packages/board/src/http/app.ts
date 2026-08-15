@@ -1,13 +1,18 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z, ZodError } from "zod";
 import type { TickType } from "@comitia/shared";
-import { sessions } from "../db/schema.js";
+import { agentConnections, agentCredentials, sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { addTokenUsage } from "../domain/activity.js";
 import { bootstrapBoard, registerAgent } from "../domain/bootstrap.js";
-import { DomainError, PermissionDenied } from "../domain/errors.js";
-import { getSessionById } from "../domain/sessions.js";
+import {
+  DomainError,
+  NotFoundError,
+  PermissionDenied,
+} from "../domain/errors.js";
+import { findOpenSession, getSessionById } from "../domain/sessions.js";
+import { maybeSendEndWarning } from "../gateway/health.js";
 import { createBoardToolRuntime } from "../mcp/create-server.js";
 import {
   type BoardEnv,
@@ -109,7 +114,50 @@ export function createBoardApp(input: {
       const status = message.startsWith("未知のツール") ? 404 : 400;
       return c.json({ error: message }, status);
     }
+    const gateway = input.getGateway?.();
+    if (gateway) {
+      const open = await findOpenSession(db, {
+        participantId: participant.id,
+        projectId,
+      });
+      if (open) {
+        await maybeSendEndWarning(db, gateway.sendTick, {
+          participantId: participant.id,
+          sessionId: open.id,
+        });
+      }
+    }
     return c.json(runtime.parseJsonContent(result));
+  });
+
+  app.get("/v1/agents/:id/connection", auth, owner, async (c) => {
+    const agentId = c.req.param("id");
+    const projectId = c.get("projectId");
+    const [cred] = await db
+      .select()
+      .from(agentCredentials)
+      .where(
+        and(
+          eq(agentCredentials.participantId, agentId),
+          eq(agentCredentials.projectId, projectId),
+        ),
+      )
+      .limit(1);
+    if (!cred) {
+      throw new NotFoundError("エージェントが見つかりません");
+    }
+    const [conn] = await db
+      .select()
+      .from(agentConnections)
+      .where(eq(agentConnections.participantId, agentId))
+      .limit(1);
+    if (!conn) {
+      throw new NotFoundError("エージェント接続が見つかりません");
+    }
+    return c.json({
+      status: conn.status,
+      lastSeenAt: conn.lastSeenAt ? conn.lastSeenAt.toISOString() : null,
+    });
   });
 
   app.post("/v1/me/request-session", auth, agent, async (c) => {
