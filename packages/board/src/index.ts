@@ -17,5 +17,14 @@ export * from "./domain/read-thread.js";
 export * from "./domain/sessions.js";
 export { schema } from "./db/schema.js";
 export type { Db } from "./db/test-setup.js";
-export { createBoardMcpServer } from "./mcp/create-server.js";
-export type { BoardMcpServer, ToolCallResult } from "./mcp/create-server.js";
+export { createPostgresDb } from "./db/postgres.js";
+export { createBoardApp } from "./http/app.js";
+export {
+  createBoardMcpServer,
+  createBoardToolRuntime,
+} from "./mcp/create-server.js";
+export type {
+  BoardMcpServer,
+  BoardToolRuntime,
+  ToolCallResult,
+} from "./mcp/create-server.js";

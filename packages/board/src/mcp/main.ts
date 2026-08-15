@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 /**
- * Stdio MCP entry point for @comitia/board (M2).
+ * Stdio MCP entry point for @comitia/board.
  *
  * Environment variables:
  *   COMITIA_PARTICIPANT_ID - agent participant UUID (required)
  *   COMITIA_PROJECT_ID     - project UUID (required)
- *   DATABASE_URL           - PostgreSQL connection string (required for stdio; tests use PGlite in-process)
+ *   DATABASE_URL           - PostgreSQL connection string (required)
  */
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createPostgresDb } from "../db/postgres.js";
+import { createBoardMcpServer } from "./create-server.js";
+
 async function main(): Promise<void> {
   const participantId = process.env.COMITIA_PARTICIPANT_ID;
   const projectId = process.env.COMITIA_PROJECT_ID;
@@ -20,17 +24,14 @@ async function main(): Promise<void> {
   }
 
   if (!databaseUrl) {
-    console.error(
-      "DATABASE_URL is not set. M2 stdio entry requires a PostgreSQL connection (not wired in M2 tests).",
-    );
+    console.error("DATABASE_URL is not set.");
     process.exit(1);
   }
 
-  // Production PG driver wiring is deferred; factory + in-process tests are the M2 deliverable.
-  console.error(
-    "DATABASE_URL is set but live Postgres bootstrap is not implemented in M2. Use createBoardMcpServer() with your Db instance.",
-  );
-  process.exit(1);
+  const { db } = createPostgresDb(databaseUrl);
+  const { server } = createBoardMcpServer({ db, participantId, projectId });
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 }
 
 main().catch((error: unknown) => {

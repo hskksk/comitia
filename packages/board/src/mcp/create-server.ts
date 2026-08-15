@@ -66,7 +66,7 @@ function mapDomainError(error: unknown): ToolCallResult | null {
   return null;
 }
 
-export function createBoardMcpServer(input: {
+export function createBoardToolRuntime(input: {
   db: Db;
   participantId: string;
   projectId: string;
@@ -304,6 +304,34 @@ export function createBoardMcpServer(input: {
     },
   };
 
+  async function callTool(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<ToolCallResult> {
+    const handler = handlers[name];
+    if (!handler) {
+      return toolError(`未知のツール: ${name}`);
+    }
+    return handler(args);
+  }
+
+  function parseJsonContent(result: ToolCallResult): Record<string, unknown> {
+    const text = result.content[0]?.text ?? "{}";
+    return JSON.parse(text) as Record<string, unknown>;
+  }
+
+  return { callTool, parseJsonContent };
+}
+
+export type BoardToolRuntime = ReturnType<typeof createBoardToolRuntime>;
+
+export function createBoardMcpServer(input: {
+  db: Db;
+  participantId: string;
+  projectId: string;
+}) {
+  const runtime = createBoardToolRuntime(input);
+
   const server = new McpServer({
     name: "comitia-board",
     version: "0.0.1",
@@ -315,7 +343,7 @@ export function createBoardMcpServer(input: {
       description: "コンテキストパック（申し送り・ルール・状況）を取得する",
       inputSchema: {},
     },
-    async () => handlers.get_briefing!({}),
+    async () => runtime.callTool("get_briefing"),
   );
 
   server.registerTool(
@@ -326,7 +354,7 @@ export function createBoardMcpServer(input: {
         goals: z.array(z.string()).min(1),
       },
     },
-    async (args) => handlers.set_goals!(args as Record<string, unknown>),
+    async (args) => runtime.callTool("set_goals", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -337,7 +365,8 @@ export function createBoardMcpServer(input: {
         goal_id: z.string().uuid(),
       },
     },
-    async (args) => handlers.complete_goal!(args as Record<string, unknown>),
+    async (args) =>
+      runtime.callTool("complete_goal", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -349,7 +378,8 @@ export function createBoardMcpServer(input: {
         state: z.enum(THREAD_STATES).optional(),
       },
     },
-    async (args) => handlers.search_threads!(args as Record<string, unknown>),
+    async (args) =>
+      runtime.callTool("search_threads", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -360,7 +390,8 @@ export function createBoardMcpServer(input: {
         onlyActiveBinding: z.boolean().optional(),
       },
     },
-    async (args) => handlers.search_decisions!(args as Record<string, unknown>),
+    async (args) =>
+      runtime.callTool("search_decisions", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -371,7 +402,8 @@ export function createBoardMcpServer(input: {
         thread_id: z.string().uuid(),
       },
     },
-    async (args) => handlers.read_thread!(args as Record<string, unknown>),
+    async (args) =>
+      runtime.callTool("read_thread", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -391,7 +423,8 @@ export function createBoardMcpServer(input: {
         parentThreadId: z.string().uuid().optional(),
       },
     },
-    async (args) => handlers.create_thread!(args as Record<string, unknown>),
+    async (args) =>
+      runtime.callTool("create_thread", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -403,7 +436,8 @@ export function createBoardMcpServer(input: {
         content: z.string().min(1),
       },
     },
-    async (args) => handlers.add_proposal!(args as Record<string, unknown>),
+    async (args) =>
+      runtime.callTool("add_proposal", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -419,7 +453,7 @@ export function createBoardMcpServer(input: {
         proposal_version_id: z.string().uuid().optional(),
       },
     },
-    async (args) => handlers.post!(args as Record<string, unknown>),
+    async (args) => runtime.callTool("post", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -432,7 +466,7 @@ export function createBoardMcpServer(input: {
         payload: z.record(z.string(), z.unknown()).optional(),
       },
     },
-    async (args) => handlers.declare!(args as Record<string, unknown>),
+    async (args) => runtime.callTool("declare", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -443,26 +477,15 @@ export function createBoardMcpServer(input: {
         handover: z.string(),
       },
     },
-    async (args) => handlers.end_session!(args as Record<string, unknown>),
+    async (args) =>
+      runtime.callTool("end_session", args as Record<string, unknown>),
   );
 
-  async function callTool(
-    name: string,
-    args: Record<string, unknown> = {},
-  ): Promise<ToolCallResult> {
-    const handler = handlers[name];
-    if (!handler) {
-      return toolError(`未知のツール: ${name}`);
-    }
-    return handler(args);
-  }
-
-  function parseJsonContent(result: ToolCallResult): Record<string, unknown> {
-    const text = result.content[0]?.text ?? "{}";
-    return JSON.parse(text) as Record<string, unknown>;
-  }
-
-  return { server, callTool, parseJsonContent };
+  return {
+    server,
+    callTool: runtime.callTool,
+    parseJsonContent: runtime.parseJsonContent,
+  };
 }
 
 export type BoardMcpServer = ReturnType<typeof createBoardMcpServer>;
