@@ -1,0 +1,77 @@
+import "../test/helpers.js";
+import { asc } from "drizzle-orm";
+import { describe, expect, it } from "vitest";
+import { agentConnections } from "../db/schema.js";
+import { db } from "../test/helpers.js";
+import { authenticateToken } from "./credentials.js";
+import { assignSessionStartMinute } from "./connections.js";
+import { bootstrapBoard, registerAgent } from "./bootstrap.js";
+
+describe("bootstrap", () => {
+  it("creates owner, project, and owner token once", async () => {
+    const first = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    expect(first.owner.kind).toBe("human");
+    expect(first.ownerToken.startsWith("comt_")).toBe(true);
+
+    await expect(
+      bootstrapBoard(db, {
+        ownerDisplayName: "別",
+        projectName: "x",
+      }),
+    ).rejects.toThrow(/already initialized/);
+
+    const auth = await authenticateToken(db, first.ownerToken);
+    expect(auth?.participant.id).toBe(first.owner.id);
+
+    const registered = await registerAgent(db, {
+      ownerParticipantId: first.owner.id,
+      displayName: "ミカ",
+      engine: "claude-code",
+    });
+    expect(registered.projectId).toBe(first.project.id);
+    const agentAuth = await authenticateToken(db, registered.agentToken);
+    expect(agentAuth?.participant.id).toBe(registered.agent.id);
+    expect(agentAuth?.projectId).toBe(first.project.id);
+  });
+
+  it("rejects engine other than claude-code", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    await expect(
+      registerAgent(db, {
+        ownerParticipantId: boot.owner.id,
+        displayName: "ソウ",
+        engine: "opencode",
+      }),
+    ).rejects.toThrow(/claude-code/);
+  });
+
+  it("assigns staggered connection start minutes", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "ミカ",
+      engine: "claude-code",
+    });
+    await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "ソウ",
+      engine: "claude-code",
+    });
+
+    const connections = await db
+      .select()
+      .from(agentConnections)
+      .orderBy(asc(agentConnections.sessionStartMinute));
+    expect(connections.map((connection) => connection.sessionStartMinute)).toEqual([0, 15]);
+    expect(assignSessionStartMinute(96)).toBe(0);
+  });
+});
