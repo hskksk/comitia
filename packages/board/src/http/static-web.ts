@@ -14,7 +14,31 @@ const TYPES: Record<string, string> = {
 };
 
 function isApi(url: string): boolean {
-  return url.startsWith("/v1/") || url === "/healthz" || url.startsWith("/agents/");
+  return (
+    url === "/v1" ||
+    url.startsWith("/v1/") ||
+    url === "/healthz" ||
+    url.startsWith("/agents/")
+  );
+}
+
+function fallThrough(
+  req: IncomingMessage,
+  res: ServerResponse,
+  previous: Array<(req: IncomingMessage, res: ServerResponse) => void>,
+): void {
+  if (res.headersSent || res.writableEnded) {
+    res.end();
+    return;
+  }
+  if (previous.length > 0) {
+    for (const listener of previous) {
+      listener(req, res);
+    }
+    return;
+  }
+  res.statusCode = 500;
+  res.end();
 }
 
 export function attachSpaFallback(server: Server, webDist: string): void {
@@ -31,22 +55,24 @@ export function attachSpaFallback(server: Server, webDist: string): void {
       isApi(path) ||
       req.headers.upgrade === "websocket"
     ) {
-      for (const listener of previous) {
-        listener(req, res);
-      }
+      fallThrough(req, res, previous);
       return;
     }
     const relative = path === "/" ? "index.html" : path.slice(1);
     const candidate = resolve(join(dist, relative));
     const inside = candidate === dist || candidate.startsWith(dist + sep);
-    const file =
-      inside && existsSync(candidate) && statSync(candidate).isFile()
-        ? candidate
-        : join(dist, "index.html");
-    if (!existsSync(file)) {
-      for (const listener of previous) {
-        listener(req, res);
+    let file: string;
+    try {
+      file =
+        inside && existsSync(candidate) && statSync(candidate).isFile()
+          ? candidate
+          : join(dist, "index.html");
+      if (!existsSync(file)) {
+        fallThrough(req, res, previous);
+        return;
       }
+    } catch {
+      fallThrough(req, res, previous);
       return;
     }
     res.statusCode = 200;
@@ -54,7 +80,13 @@ export function attachSpaFallback(server: Server, webDist: string): void {
       "content-type",
       TYPES[extname(file)] ?? "application/octet-stream",
     );
-    createReadStream(file).pipe(res);
+    try {
+      const stream = createReadStream(file);
+      stream.once("error", () => fallThrough(req, res, previous));
+      stream.pipe(res);
+    } catch {
+      fallThrough(req, res, previous);
+    }
   });
 }
 
@@ -63,8 +95,12 @@ export function resolveWebDist(env = process.env): string | null {
     return env.WEB_DIST;
   }
   const sibling = fileURLToPath(new URL("../../../web/dist", import.meta.url));
-  if (existsSync(sibling)) {
-    return sibling;
+  try {
+    if (existsSync(sibling)) {
+      return sibling;
+    }
+  } catch {
+    return null;
   }
   return null;
 }

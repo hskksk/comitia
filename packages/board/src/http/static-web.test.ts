@@ -37,6 +37,9 @@ describe("SPA fallback", () => {
       expect(me.status).toBe(401);
       expect(me.headers.get("content-type")).toContain("application/json");
 
+      const apiRoot = await fetch(`${base}/v1`);
+      expect(await apiRoot.text()).not.toContain("Comitia");
+
       const agent = await fetch(`${base}/agents/x/`);
       expect(agent.status).not.toBe(200);
       expect(await agent.text()).not.toContain("Comitia");
