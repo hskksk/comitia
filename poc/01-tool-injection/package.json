@@ -1,0 +1,25 @@
+{
+  "name": "@comitia/poc-01-tool-injection",
+  "version": "0.0.1",
+  "private": true,
+  "description": "PoC-1: セッション限りの MCP ツール注入スパイク",
+  "type": "module",
+  "scripts": {
+    "fake": "tsx src/run-fake-engine.ts",
+    "claude": "tsx src/run-claude.ts",
+    "opencode": "tsx src/run-opencode.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}
