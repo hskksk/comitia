@@ -19,6 +19,12 @@
 - どのエンジンも「一時作業ディレクトリ＋起動時設定」で注入でき、**プラグイン SPI（設計 02 §6）の `start(session)` に「作業ディレクトリの生成と設定の注入」を含める**のが共通形になる
 - チャットログの捕捉（設計 02 §6-7）は Claude Code / Antigravity は `stream-json` で構造化取得できる。他エンジンは標準出力の捕捉で足りるかを PoC で確認
 
+**PoC-1 実証結果（2026-08-15、`poc/01-tool-injection/`、実エンジン含め全 PASS）**。机上判定に加えて実測で分かったこと（M3 アダプタの必須要素）:
+
+- Claude Code: ヘッドレスでは **`--permission-mode bypassPermissions`**（MCP 権限プロンプトの回避）と **`HOME` の一時ディレクトリ隔離**（`~/.claude` 汚染防止）が必要
+- OpenCode: **`XDG_*` 環境変数を一時ディレクトリへ向けて** 標準設定を隔離する。無料モデル（`opencode/*-free`）でも検証可能
+- 両 CLI とも **npm devDependency として同梱できる**（`@anthropic-ai/claude-code` / `opencode-ai` + postinstall）— アダプタがエンジンを同梱配布する選択肢が開けた
+
 ## 2. プロトコル選定
 
 ### 現況（2026-08）

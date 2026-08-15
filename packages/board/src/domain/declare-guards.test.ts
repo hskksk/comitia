@@ -1,0 +1,201 @@
+import "../test/helpers.js";
+import { describe, expect, it } from "vitest";
+import { and, eq } from "drizzle-orm";
+import { db } from "../test/helpers.js";
+import { agreements, events, posts } from "../db/schema.js";
+import { declare } from "./declare.js";
+import { InvalidTransition, PermissionDenied } from "./errors.js";
+import { registerParticipant } from "./participants.js";
+import { addProposal } from "./proposals.js";
+import { createProject } from "./projects.js";
+import { createThread } from "./threads.js";
+
+/** レビューで見つけた穴の回帰テスト: 失敗した宣言の痕跡、決定済みへの再宣言、完了後の不採用 */
+describe("宣言のガード（トランザクションと状態遷移）", () => {
+  async function setup(consensusType: "owner_decision" | "rough") {
+    const owner = await registerParticipant(db, {
+      kind: "human",
+      displayName: "ハル",
+    });
+    const agent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "ソウ",
+      ownerParticipantId: owner.id,
+      engine: "claude",
+    });
+    const outsider = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "ユイ",
+      ownerParticipantId: owner.id,
+      engine: "opencode",
+    });
+    const project = await createProject(db, {
+      name: `guards-${consensusType}-${Date.now()}-${Math.random()}`,
+      ownerParticipantId: owner.id,
+    });
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "implementation",
+      title: "ガード検証",
+      trigger: "テスト",
+      duplicateSearchQuery: "guards",
+      consensusType,
+    });
+    const { version } = await addProposal(db, {
+      threadId: thread.id,
+      authorId: agent.id,
+      content: "案 v1",
+    });
+    return { owner, agent, outsider, project, thread, version };
+  }
+
+  it("失敗した宣言は、宣言投稿もイベントも残さない（ロールバック）", async () => {
+    const { outsider, thread, version, project, agent } =
+      await setup("owner_decision");
+
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+
+    // スレッドオーナーでない参加者のオーナー決定 → PermissionDenied
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: outsider.id,
+        kind: "owner_decide",
+        payload: { binding: false, summary: "不正な決定" },
+      }),
+    ).rejects.toThrow(PermissionDenied);
+
+    // 失敗した宣言の declaration 投稿が残っていないこと
+    const declarationPosts = await db
+      .select()
+      .from(posts)
+      .where(
+        and(
+          eq(posts.threadId, thread.id),
+          eq(posts.type, "declaration"),
+          eq(posts.authorParticipantId, outsider.id),
+        ),
+      );
+    expect(declarationPosts).toHaveLength(0);
+
+    // 失敗した宣言のイベントが残っていないこと
+    const declarationEvents = (
+      await db.select().from(events).where(eq(events.projectId, project.id))
+    ).filter(
+      (e) =>
+        e.kind === "thread_declaration" &&
+        e.actorParticipantId === outsider.id,
+    );
+    expect(declarationEvents).toHaveLength(0);
+  });
+
+  it("決定済みスレッドへの再宣言はできず、合意物が二重記録されない", async () => {
+    const { agent, thread, version } = await setup("owner_decision");
+
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "owner_decide",
+      payload: { binding: false, summary: "採用" },
+    });
+
+    // 2 回目のオーナー決定 → InvalidTransition
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: agent.id,
+        kind: "owner_decide",
+        payload: { binding: true, summary: "二重決定" },
+      }),
+    ).rejects.toThrow(InvalidTransition);
+
+    // 決定済みスレッドでの候補再選定も不可
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: agent.id,
+        kind: "select_candidate",
+        payload: { proposalVersionId: version.id },
+      }),
+    ).rejects.toThrow(InvalidTransition);
+
+    const rows = await db
+      .select()
+      .from(agreements)
+      .where(eq(agreements.threadId, thread.id));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("完了済みスレッドは不採用にできない", async () => {
+    const { agent, thread, version } = await setup("owner_decision");
+
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "owner_decide",
+      payload: { binding: false, summary: "採用" },
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "complete_thread",
+      payload: {},
+    });
+
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: agent.id,
+        kind: "reject_thread",
+        payload: { summary: "やっぱりやめる" },
+      }),
+    ).rejects.toThrow(InvalidTransition);
+  });
+
+  it("成立の宣言には binding と summary が必須", async () => {
+    const { agent, thread, version } = await setup("rough");
+
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: agent.id,
+        kind: "declare_rough",
+        payload: { summary: "binding なし" },
+      }),
+    ).rejects.toThrow(InvalidTransition);
+
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: agent.id,
+        kind: "declare_rough",
+        payload: { binding: true },
+      }),
+    ).rejects.toThrow(InvalidTransition);
+  });
+});
