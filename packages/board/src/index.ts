@@ -19,6 +19,15 @@ export { schema } from "./db/schema.js";
 export type { Db } from "./db/test-setup.js";
 export { createPostgresDb } from "./db/postgres.js";
 export { createBoardApp } from "./http/app.js";
+export type { BoardGateway } from "./http/app.js";
+export { startBoardServer } from "./http/server.js";
+export { createRelay } from "./gateway/relay.js";
+export type { Relay, RelayOptions } from "./gateway/relay.js";
+export { sendTick, flushMailbox } from "./gateway/send-tick.js";
+export type {
+  SendTickInput,
+  SendTickResult,
+} from "./gateway/send-tick.js";
 export {
   createBoardMcpServer,
   createBoardToolRuntime,

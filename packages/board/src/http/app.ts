@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z, ZodError } from "zod";
+import type { TickType } from "@comitia/shared";
 import { sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { addTokenUsage } from "../domain/activity.js";
@@ -15,7 +16,21 @@ import {
   requireOwner,
 } from "./auth.js";
 
-export function createBoardApp(input: { db: Db }) {
+export type BoardGateway = {
+  sendTick: (input: {
+    participantId: string;
+    type: TickType;
+  }) => Promise<{
+    tickId: string;
+    sessionId?: string;
+    status: "delivered" | "queued";
+  }>;
+};
+
+export function createBoardApp(input: {
+  db: Db;
+  getGateway?: () => BoardGateway | undefined;
+}) {
   const { db } = input;
   const app = new Hono<BoardEnv>();
   const auth = requireAuth(db);
@@ -100,6 +115,18 @@ export function createBoardApp(input: { db: Db }) {
   app.post("/v1/me/request-session", auth, agent, async (c) => {
     const participant = c.get("participant");
     const projectId = c.get("projectId");
+    const gateway = input.getGateway?.();
+    if (gateway) {
+      const result = await gateway.sendTick({
+        participantId: participant.id,
+        type: "session.start",
+      });
+      return c.json({
+        sessionId: result.sessionId,
+        tickId: result.tickId,
+        status: result.status,
+      });
+    }
     const session = await prepareSessionStart(db, {
       participantId: participant.id,
       projectId,
