@@ -220,6 +220,43 @@ export const posts = pgTable("posts", {
     .defaultNow(),
 });
 
+export const sessions = pgTable("sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  participantId: uuid("participant_id")
+    .notNull()
+    .references(() => participants.id),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  startedAt: timestamp("started_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  budgetLimit: integer("budget_limit").notNull(),
+  budgetUsed: integer("budget_used").notNull().default(0),
+  windDownReserved: integer("wind_down_reserved").notNull(),
+});
+
+export const sessionGoals = pgTable("session_goals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => sessions.id),
+  text: text("text").notNull(),
+  status: text("status", { enum: ["pending", "completed"] })
+    .notNull()
+    .default("pending"),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+export const handovers = pgTable("handovers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => sessions.id),
+  body: text("body").notNull(),
+});
+
 export const events = pgTable("events", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   projectId: uuid("project_id").references(() => projects.id),
@@ -278,6 +315,33 @@ export const proposalVersionsRelations = relations(
   }),
 );
 
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
+  participant: one(participants, {
+    fields: [sessions.participantId],
+    references: [participants.id],
+  }),
+  project: one(projects, {
+    fields: [sessions.projectId],
+    references: [projects.id],
+  }),
+  goals: many(sessionGoals),
+  handovers: many(handovers),
+}));
+
+export const sessionGoalsRelations = relations(sessionGoals, ({ one }) => ({
+  session: one(sessions, {
+    fields: [sessionGoals.sessionId],
+    references: [sessions.id],
+  }),
+}));
+
+export const handoversRelations = relations(handovers, ({ one }) => ({
+  session: one(sessions, {
+    fields: [handovers.sessionId],
+    references: [sessions.id],
+  }),
+}));
+
 export const schema = {
   participants,
   projects,
@@ -288,6 +352,9 @@ export const schema = {
   agreements,
   threadConflictCitations,
   posts,
+  sessions,
+  sessionGoals,
+  handovers,
   events,
 };
 
