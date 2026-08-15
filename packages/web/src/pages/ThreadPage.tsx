@@ -126,6 +126,17 @@ export function ThreadPage() {
           {error ? <p className="error">{error}</p> : null}
         </form>
       ) : null}
+      {view.thread.state === "decided" &&
+      (view.thread.type === "implementation" || view.thread.type === "review") ? (
+        <div className="actions">
+          <button
+            type="button"
+            onClick={() => void runDeclare({ kind: "complete_thread" })}
+          >
+            完了にする
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }
