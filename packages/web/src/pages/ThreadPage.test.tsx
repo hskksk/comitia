@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThreadPage } from "./ThreadPage.js";
 
 const declareMock = vi.fn().mockResolvedValue({ thread: { state: "decided" } });
@@ -46,6 +46,13 @@ vi.mock("../api.js", () => ({
 }));
 
 describe("ThreadPage", () => {
+  afterEach(cleanup);
+
+  beforeEach(() => {
+    declareMock.mockClear();
+    declareMock.mockResolvedValue({ thread: { state: "decided" } });
+  });
+
   it("ratifies with summary", async () => {
     const user = userEvent.setup();
     render(
@@ -56,6 +63,10 @@ describe("ThreadPage", () => {
       </MemoryRouter>,
     );
     expect((await screen.findAllByText("争点は遡及")).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("提案 · 判断待ち · 人間による批准"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("統合")).toBeInTheDocument();
     await user.type(screen.getByLabelText("要約"), "批准する");
     await user.click(screen.getByRole("button", { name: "批准する" }));
     expect(declareMock).toHaveBeenCalledWith("t1", {
@@ -63,5 +74,65 @@ describe("ThreadPage", () => {
       binding: true,
       summary: "批准する",
     });
+  });
+
+  it("sends back with the entered reason", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/threads/t1"]}>
+        <Routes>
+          <Route path="/threads/:id" element={<ThreadPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("ルール改正");
+    await user.type(screen.getByLabelText("差し戻し理由"), "影響範囲を明確にしてください");
+    await user.click(screen.getByRole("button", { name: "差し戻す" }));
+
+    expect(declareMock).toHaveBeenCalledWith("t1", {
+      kind: "send_back",
+      reason: "影響範囲を明確にしてください",
+    });
+  });
+
+  it("rejects with the entered summary", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/threads/t1"]}>
+        <Routes>
+          <Route path="/threads/:id" element={<ThreadPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("ルール改正");
+    await user.type(screen.getByLabelText("要約"), "現時点では不採用");
+    await user.click(screen.getByRole("button", { name: "不採用" }));
+
+    expect(declareMock).toHaveBeenCalledWith("t1", {
+      kind: "reject_thread",
+      summary: "現時点では不採用",
+    });
+  });
+
+  it("disables every declaration action while a declaration is in flight", async () => {
+    const user = userEvent.setup();
+    declareMock.mockImplementationOnce(() => new Promise(() => undefined));
+    render(
+      <MemoryRouter initialEntries={["/threads/t1"]}>
+        <Routes>
+          <Route path="/threads/:id" element={<ThreadPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("ルール改正");
+    await user.type(screen.getByLabelText("要約"), "批准する");
+    await user.click(screen.getByRole("button", { name: "批准する" }));
+
+    expect(screen.getByRole("button", { name: "批准する" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "差し戻す" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "不採用" })).toBeDisabled();
   });
 });

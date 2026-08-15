@@ -2,6 +2,12 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { boardClient, type HumanThreadView } from "../api.js";
 import { SynthesisCard } from "../components/SynthesisCard.js";
+import {
+  consensusTypeLabel,
+  postTypeLabel,
+  threadStateLabel,
+  threadTypeLabel,
+} from "../labels.js";
 
 export function ThreadPage() {
   const { id } = useParams<{ id: string }>();
@@ -10,6 +16,7 @@ export function ThreadPage() {
   const [summary, setSummary] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isDeclaring, setIsDeclaring] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -26,11 +33,14 @@ export function ThreadPage() {
       return;
     }
     setError(null);
+    setIsDeclaring(true);
     try {
       await boardClient.declare(id, payload);
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "失敗しました");
+    } finally {
+      setIsDeclaring(false);
     }
   }
 
@@ -52,7 +62,9 @@ export function ThreadPage() {
     <article>
       <h1>{view.thread.title}</h1>
       <p className="muted">
-        {view.thread.type} · {view.thread.state} · {view.thread.consensusType}
+        {threadTypeLabel(view.thread.type)} ·{" "}
+        {threadStateLabel(view.thread.state)} ·{" "}
+        {consensusTypeLabel(view.thread.consensusType)}
       </p>
       <SynthesisCard
         synthesis={view.synthesis}
@@ -63,7 +75,7 @@ export function ThreadPage() {
         {view.posts.map((post) => (
           <li key={post.id}>
             <strong>{post.authorDisplayName}</strong>{" "}
-            <span className="muted">{post.type}</span>
+            <span className="muted">{postTypeLabel(post.type)}</span>
             <p>{post.body}</p>
           </li>
         ))}
@@ -79,9 +91,12 @@ export function ThreadPage() {
             />
           </label>
           <div className="actions">
-            <button type="submit">批准する</button>
+            <button type="submit" disabled={isDeclaring}>
+              批准する
+            </button>
             <button
               type="button"
+              disabled={isDeclaring}
               onClick={() =>
                 void runDeclare({
                   kind: "send_back",
@@ -93,6 +108,7 @@ export function ThreadPage() {
             </button>
             <button
               type="button"
+              disabled={isDeclaring}
               onClick={() =>
                 void runDeclare({
                   kind: "reject_thread",

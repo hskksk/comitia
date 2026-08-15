@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { boardClient, type QueueItem } from "../api.js";
+import {
+  consensusTypeLabel,
+  threadStateLabel,
+  threadTypeLabel,
+} from "../labels.js";
 
 export function QueuePage() {
   const [items, setItems] = useState<QueueItem[] | null>(null);
@@ -32,9 +37,17 @@ export function QueuePage() {
             <Link to={`/threads/${item.threadId}`}>{item.title}</Link>
           </h2>
           <p className="muted">
-            {item.consensusType ?? "合意種類なし"} · {item.enteredAt}
+            {threadTypeLabel(item.type)} · {threadStateLabel(item.state)} ·{" "}
+            {consensusTypeLabel(item.consensusType)}
           </p>
+          <h3>争点要約</h3>
           <p>{item.synthesis?.body ?? "争点要約はまだありません"}</p>
+          <h3>
+            {item.candidateProposal
+              ? `候補提案 v${item.candidateProposal.versionNumber}`
+              : "候補提案"}
+          </h3>
+          <p>{item.candidateProposal?.content ?? "候補は未選定です"}</p>
         </article>
       ))}
     </section>

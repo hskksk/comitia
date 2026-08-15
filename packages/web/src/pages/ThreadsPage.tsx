@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { boardClient, type ThreadListItem } from "../api.js";
+import { threadStateLabel, threadTypeLabel } from "../labels.js";
 
 export function ThreadsPage() {
   const [items, setItems] = useState<ThreadListItem[] | null>(null);
@@ -29,7 +30,7 @@ export function ThreadsPage() {
             <Link to={`/threads/${item.id}`}>{item.title}</Link>
           </h2>
           <p className="muted">
-            {item.type} · {item.state}
+            {threadTypeLabel(item.type)} · {threadStateLabel(item.state)}
           </p>
         </article>
       ))}

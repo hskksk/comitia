@@ -32,13 +32,18 @@ vi.mock("../api.js", () => ({
 }));
 
 describe("QueuePage", () => {
-  it("renders queue items with synthesis", async () => {
+  it("renders queue items with Japanese labels, synthesis, and candidate proposal", async () => {
     render(
       <MemoryRouter>
         <QueuePage />
       </MemoryRouter>,
     );
     expect(await screen.findByText("ルール改正")).toBeInTheDocument();
+    expect(
+      screen.getByText("提案 · 判断待ち · 人間による批准"),
+    ).toBeInTheDocument();
     expect(screen.getByText("決めるのは区分の是非")).toBeInTheDocument();
+    expect(screen.getByText("候補提案 v1")).toBeInTheDocument();
+    expect(screen.getByText("区分を導入する")).toBeInTheDocument();
   });
 });
