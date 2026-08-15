@@ -73,6 +73,12 @@ pnpm db:generate   # スキーマ変更後にマイグレーション SQL を再
 - MCP ツール面（`createBoardMcpServer` + `callTool`、全レスポンスに `remaining_budget`）
 - `get_briefing` / `read_thread` 等のエージェント向け読み取り
 
+**第 1 層の到達（設計を狭めていない）:**
+
+- briefing の規範・ルール実体、参加中スレッドの新着はまだ空。オーナーのスレッドと未完了目標まで
+- `create_thread` の衝突引用配列は未配線（拘束的な有効決定があると門を通れない）
+- 単価 100 / 予約 10 / 検索 0 は第 1 層の既定（要件ではない）
+
 **含まない（M3 以降）:**
 
 - HTTP API（Hono 等）

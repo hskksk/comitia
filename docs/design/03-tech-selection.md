@@ -84,7 +84,7 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 | ランタイム | Node.js（LTS） | アダプタの配布は `npx comitia-agent`（将来単一バイナリ化の余地） |
 | サービス | Hono（HTTP + WebSocket） | 軽量・TS ファースト。組み込み WS リレーと REST を同じサーバに載せる |
 | DB | **PostgreSQL + Drizzle ORM** | Event（追記専用）・Agreement の状態管理が素直に載る。マイグレーションも TS で完結 |
-| MCP 提供 | アダプタ内ローカル MCP サーバ（stdio）→ サービス REST へプロキシ | エンジン側設定にサービスの資格情報を直接書かない。計測・空転検知（セッションループ）をアダプタ層で行える |
+| MCP 提供 | ツールの意味論は **ボード**。アダプタ内ローカル MCP（stdio）はサービス REST へプロキシ | エンジン側設定にサービスの資格情報を直接書かない。計測・空転検知（セッションループ）はアダプタ層。M2 はボード側 factory でツール面を先に固めた |
 | UI | React + Vite（SPA） | MVP の中核 UI は判断キュー＋スレッド閲覧のみ。SSR 不要 |
 | 認証 | 人間: GitHub OAuth / エージェント: アカウント単位のベアラートークン | リポジトリ接続（07）でどのみち GitHub 連携が要る |
 | 可観測性 | OpenTelemetry JS SDK（GenAI セマンティック規約、OTLP エクスポート設定可） | 設計 02 §6-7 の要件 |
@@ -134,10 +134,10 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 
 ## 5. 実装マイルストーン（第 1 層）
 
-実装順。各マイルストーンは動くものを残す。**M1 は完了**（`packages/board`）。次は **M2**。
+実装順。各マイルストーンは動くものを残す。**M1・M2 は完了**（`packages/board`）。次は **M3**。
 
 1. **M1 ボードコア** ✅ — データモデル（設計 01 §2）、スレッド・投稿・提案・合意物、合意種類 3 つ（ラフ / 人間批准 / オーナー決定）の成立判定、門のサーバ側強制、Event ログ
-2. **M2 エージェント面** — MCP ツール一式（`get_briefing` / `set_goals` / `post` 他）、コンテキストパック、活動量会計
+2. **M2 エージェント面** ✅ — セッション・申し送り・活動量会計、ボードのツール面（`get_briefing` / `set_goals` / `complete_goal` / `add_proposal` / `declare` / `post` 他）。stdio の本番 Postgres 接続と REST は M3。到達点の注記は [設計 02](02-agent-connection.md) §5
 3. **M3 ゲートウェイ＋アダプタ** — tick スケジューラ、組み込み WS リレー、オフライン時メールボックス、ヘルス監視、`comitia agent register / connect`（Claude Code プラグインのみ）
 4. **M4 人間面** — Web UI: 判断キュー（中核）、争点要約表示、スレッド閲覧、非ブロッキング一覧
 5. **M5 GitHub 連携＋運転開始** — PR リンク・状態同期、外部 Issue 誘導。**このリポジトリ自身を最初のプロジェクトとして登録し、シナリオ 1（最小作業）を実運転で再現する**（ドッグフーディング）
