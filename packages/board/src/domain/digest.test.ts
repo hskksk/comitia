@@ -1,6 +1,6 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../test/helpers.js";
 import { events, sessions } from "../db/schema.js";
 import { getBriefing } from "./briefing.js";
@@ -102,6 +102,16 @@ describe("session digest", () => {
       .where(eq(sessions.id, session.id));
     expect(row?.endedReason).toBe("interrupted");
     expect(row?.endedAt).not.toBeNull();
+    const recorded = await db
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.projectId, project.id),
+          eq(events.kind, "session_interrupted"),
+        ),
+      );
+    expect(recorded).toHaveLength(1);
   });
 
   it("markSessionDigested is idempotent", async () => {
@@ -125,6 +135,59 @@ describe("session digest", () => {
         ),
       );
     expect(recorded).toHaveLength(1);
+  });
+
+  it("rolls back digestion when recording its event fails", async () => {
+    const { agent, project } = await setup();
+    const session = await prepareSessionStart(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    await db.execute(sql`
+      ALTER TABLE events
+      ADD CONSTRAINT reject_session_digested
+      CHECK (kind <> 'session_digested')
+    `);
+
+    await expect(markSessionDigested(db, session.id)).rejects.toThrow();
+
+    const [row] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, session.id));
+    expect(row?.briefingAt).toBeNull();
+  });
+
+  it("rolls back interruption when recording its event fails", async () => {
+    const { agent, project } = await setup();
+    const session = await prepareSessionStart(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    await markSessionDigested(db, session.id);
+    await db
+      .update(sessions)
+      .set({ startedAt: new Date(Date.now() - 40 * 60_000) })
+      .where(eq(sessions.id, session.id));
+    await db.execute(sql`
+      ALTER TABLE events
+      ADD CONSTRAINT reject_session_interrupted
+      CHECK (kind <> 'session_interrupted')
+    `);
+
+    await expect(
+      interruptStaleSessions(db, {
+        now: new Date(),
+        timeoutMs: 30 * 60_000,
+      }),
+    ).rejects.toThrow();
+
+    const [row] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, session.id));
+    expect(row?.endedAt).toBeNull();
+    expect(row?.endedReason).toBeNull();
   });
 
   it("does not interrupt undigested or fresh sessions", async () => {

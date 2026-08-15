@@ -8,7 +8,7 @@ import {
   sessionGoals,
   sessions,
 } from "../db/schema.js";
-import type { Db } from "../db/test-setup.js";
+import type { Db, DbClient } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError } from "./errors.js";
 import { getProject } from "./helpers.js";
@@ -125,83 +125,87 @@ export async function findUndigestedSession(
   return session ?? null;
 }
 
-export async function markSessionDigested(db: Db, sessionId: string) {
-  const session = await getSessionById(db, sessionId);
-  if (session.briefingAt) {
-    return session;
-  }
+export async function markSessionDigested(db: DbClient, sessionId: string) {
+  return db.transaction(async (tx) => {
+    const session = await getSessionById(tx, sessionId);
+    if (session.briefingAt) {
+      return session;
+    }
 
-  const briefingAt = new Date();
-  const [updated] = await db
-    .update(sessions)
-    .set({ briefingAt })
-    .where(and(eq(sessions.id, sessionId), isNull(sessions.briefingAt)))
-    .returning();
+    const briefingAt = new Date();
+    const [updated] = await tx
+      .update(sessions)
+      .set({ briefingAt })
+      .where(and(eq(sessions.id, sessionId), isNull(sessions.briefingAt)))
+      .returning();
 
-  if (!updated) {
-    return getSessionById(db, sessionId);
-  }
+    if (!updated) {
+      return getSessionById(tx, sessionId);
+    }
 
-  await recordEvent(db, {
-    projectId: updated.projectId,
-    actorParticipantId: updated.participantId,
-    kind: "session_digested",
-    payload: {
-      sessionId,
-      briefingAt: briefingAt.toISOString(),
-    },
+    await recordEvent(tx, {
+      projectId: updated.projectId,
+      actorParticipantId: updated.participantId,
+      kind: "session_digested",
+      payload: {
+        sessionId,
+        briefingAt: briefingAt.toISOString(),
+      },
+    });
+
+    return updated;
   });
-
-  return updated;
 }
 
 export async function interruptStaleSessions(
-  db: Db,
+  db: DbClient,
   input: { now: Date; timeoutMs: number },
 ): Promise<number> {
-  const cutoff = new Date(input.now.getTime() - input.timeoutMs);
-  const stale = await db
-    .select()
-    .from(sessions)
-    .where(
-      and(
-        isNull(sessions.endedAt),
-        isNotNull(sessions.briefingAt),
-        lt(sessions.startedAt, cutoff),
-      ),
-    );
-
-  let interrupted = 0;
-  for (const session of stale) {
-    const [updated] = await db
-      .update(sessions)
-      .set({ endedAt: input.now, endedReason: "interrupted" })
+  return db.transaction(async (tx) => {
+    const cutoff = new Date(input.now.getTime() - input.timeoutMs);
+    const stale = await tx
+      .select()
+      .from(sessions)
       .where(
         and(
-          eq(sessions.id, session.id),
           isNull(sessions.endedAt),
           isNotNull(sessions.briefingAt),
           lt(sessions.startedAt, cutoff),
         ),
-      )
-      .returning();
-    if (!updated) {
-      continue;
+      );
+
+    let interrupted = 0;
+    for (const session of stale) {
+      const [updated] = await tx
+        .update(sessions)
+        .set({ endedAt: input.now, endedReason: "interrupted" })
+        .where(
+          and(
+            eq(sessions.id, session.id),
+            isNull(sessions.endedAt),
+            isNotNull(sessions.briefingAt),
+            lt(sessions.startedAt, cutoff),
+          ),
+        )
+        .returning();
+      if (!updated) {
+        continue;
+      }
+
+      await recordEvent(tx, {
+        projectId: updated.projectId,
+        actorParticipantId: updated.participantId,
+        kind: "session_interrupted",
+        payload: {
+          sessionId: updated.id,
+          endedAt: input.now.toISOString(),
+        },
+      });
+      interrupted += 1;
     }
 
-    await recordEvent(db, {
-      projectId: updated.projectId,
-      actorParticipantId: updated.participantId,
-      kind: "session_interrupted",
-      payload: {
-        sessionId: updated.id,
-        endedAt: input.now.toISOString(),
-      },
-    });
-    interrupted += 1;
-  }
-
-  return interrupted;
+    return interrupted;
+  });
 }
 
 export async function listSessionGoals(db: Db, sessionId: string) {
