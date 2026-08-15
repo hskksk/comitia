@@ -24,11 +24,13 @@ button, input, textarea {
 }
 .nav a[aria-current="page"] { font-weight: 700; }
 .card {
+  display: block;
   background: #fff;
   border: 1px solid #e2e0db;
   border-radius: 8px;
   padding: 1rem;
   margin: 0 0 0.75rem;
+  text-decoration: none;
 }
 .muted { color: #666; font-size: 0.9rem; }
 .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }

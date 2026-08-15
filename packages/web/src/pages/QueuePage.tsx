@@ -32,10 +32,12 @@ export function QueuePage() {
     <section>
       <h1>判断キュー</h1>
       {items.map((item) => (
-        <article key={item.threadId} className="card">
-          <h2>
-            <Link to={`/threads/${item.threadId}`}>{item.title}</Link>
-          </h2>
+        <Link
+          key={item.threadId}
+          to={`/threads/${item.threadId}`}
+          className="card"
+        >
+          <h2>{item.title}</h2>
           <p className="muted">
             {threadTypeLabel(item.type)} · {threadStateLabel(item.state)} ·{" "}
             {consensusTypeLabel(item.consensusType)}
@@ -48,7 +50,7 @@ export function QueuePage() {
               : "候補提案"}
           </h3>
           <p>{item.candidateProposal?.content ?? "候補は未選定です"}</p>
-        </article>
+        </Link>
       ))}
     </section>
   );
