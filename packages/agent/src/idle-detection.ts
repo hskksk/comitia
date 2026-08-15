@@ -1,4 +1,4 @@
-/** 1 run 分の空転判定結果 */
+/** Idle analysis for a single run. */
 export interface IdleRunAnalysis {
   idle: boolean;
   reason?: string;
@@ -18,7 +18,7 @@ function stableJson(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
-/** run 内のツール呼び出しが空転かどうか */
+/** Whether a run's tool calls count as idle. */
 export function analyzeRunIdle(runEntries: ToolLogEntry[]): IdleRunAnalysis {
   const toolEntries = runEntries.filter((entry) => !entry.isError);
   const toolCount = toolEntries.length;
@@ -47,7 +47,7 @@ export function analyzeRunIdle(runEntries: ToolLogEntry[]): IdleRunAnalysis {
   return { idle: false, toolCount };
 }
 
-/** 末尾から連続空転 run 数を数える */
+/** Count consecutive idle runs from the end of the log. */
 export function countTrailingIdleRuns(
   entries: ToolLogEntry[],
   runCount: number,

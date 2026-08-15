@@ -19,6 +19,7 @@ import { saveConfig } from "./config.js";
 import { createMcpProxyRuntime } from "./mcp-proxy.js";
 import { createFakeEnginePlugin } from "./plugins/fake.js";
 import type { EnginePlugin } from "./plugins/types.js";
+import { runSessionLoop } from "./session-loop.js";
 
 const cleanups: Array<() => Promise<void> | void> = [];
 
@@ -75,16 +76,21 @@ function wrapPlugin(inner: EnginePlugin): {
   plugin: EnginePlugin;
   stopped: () => boolean;
   workDir: () => string | undefined;
+  prompts: () => string[];
 } {
   let stopped = false;
   let workDir: string | undefined;
+  const prompts: string[] = [];
   return {
     plugin: {
       start: async (session) => {
         workDir = session.workDir;
         await inner.start(session);
       },
-      run: (prompt) => inner.run(prompt),
+      run: (prompt) => {
+        prompts.push(prompt);
+        return inner.run(prompt);
+      },
       report: () => inner.report(),
       stop: async () => {
         await inner.stop();
@@ -93,6 +99,7 @@ function wrapPlugin(inner: EnginePlugin): {
     },
     stopped: () => stopped,
     workDir: () => workDir,
+    prompts: () => prompts,
   };
 }
 
@@ -208,5 +215,74 @@ describe("session loop with fake engine", () => {
       },
       { timeout: 15_000 },
     );
+  }, 20_000);
+
+  it("still runs wind-down and end_session when maxRuns is reached", async () => {
+    const { db, registered, boardUrl } = await bootAgent(await createDb());
+    const requested = await fetch(`${boardUrl}/v1/me/request-session`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${registered.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(requested.ok).toBe(true);
+    const body = (await requested.json()) as { sessionId: string };
+    const sessionId = body.sessionId;
+    expect(sessionId).toBeTruthy();
+
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const toolsCalled: string[] = [];
+    const wrapped = wrapPlugin(
+      createFakeEnginePlugin({
+        callTool: async (name, args) => {
+          toolsCalled.push(name);
+          return runtime.callTool(name, args);
+        },
+        script: [
+          { tool: "get_briefing", args: {} },
+          {
+            tool: "set_goals",
+            args: { goals: ["docs/sample.md の typo を直す"] },
+          },
+        ],
+        handover: "maxRuns で終了",
+      }),
+    );
+
+    await runSessionLoop({
+      plugin: wrapped.plugin,
+      callTool: (name, args) => runtime.callTool(name, args),
+      onChatLog: async () => undefined,
+      maxRuns: 1,
+      idleRunLimit: 2,
+      windDownRequestedRef: { current: false },
+      sessionId,
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+
+    const prompts = wrapped.prompts();
+    expect(prompts.length).toBeGreaterThan(1);
+    expect(prompts.at(-1)).toContain("セッション終了作業");
+    expect(toolsCalled.filter((name) => name === "end_session")).toEqual([
+      "end_session",
+    ]);
+
+    const [session] = await db
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.id, sessionId));
+    expect(session?.endedReason).toBe("completed");
+    const [handover] = await db
+      .select()
+      .from(schema.handovers)
+      .where(eq(schema.handovers.sessionId, sessionId));
+    expect(handover?.body).toBe("maxRuns で終了");
+    expect(wrapped.stopped()).toBe(true);
   }, 20_000);
 });

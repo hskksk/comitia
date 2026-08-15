@@ -86,7 +86,8 @@ export async function runSessionLoop(
       },
     });
 
-    while (runIndex < maxRuns) {
+    // One extra iteration is allowed after maxRuns so a wind-down run can call end_session.
+    while (runIndex < maxRuns || phase === "wind-down") {
       runIndex += 1;
       const priorDecision =
         runIndex === 1

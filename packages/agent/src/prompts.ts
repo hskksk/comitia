@@ -1,4 +1,4 @@
-/** 初回 run 用プロンプト */
+/** Prompt for the first run. */
 export const INITIAL_PROMPT = `comitia ボード MCP が利用可能。次の順で進めよ。
 
 1. get_briefing を呼ぶ
@@ -8,7 +8,7 @@ export const INITIAL_PROMPT = `comitia ボード MCP が利用可能。次の順
 
 この run では end_session を呼ばない。チャット出力での長文回答は不要。`;
 
-/** 再駆動プロンプトを組み立てる */
+/** Build a redrive prompt. */
 export function buildRedrivePrompt(input: {
   remainingBudget: number | null;
   incompleteGoals: string[];
@@ -26,7 +26,7 @@ ${goalsText}
 続きに取り組め。完了した目標は complete_goal を呼ぶ。end_session はまだ呼ばない。`;
 }
 
-/** 終了作業プロンプト */
+/** Wind-down prompt. */
 export function buildWindDownPrompt(input: {
   remainingBudget: number | null;
   reason: string;

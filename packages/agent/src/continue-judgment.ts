@@ -100,7 +100,7 @@ function allGoalsCompleted(entries: ToolLogEntry[]): boolean {
   return goals.length > 0 && goals.every((goal) => goal.status === "completed");
 }
 
-/** run 終了後の継続判定 */
+/** Decide whether the session loop should continue after a run. */
 export function judgeContinue(
   options: ContinueJudgmentOptions,
 ): ContinueDecision {

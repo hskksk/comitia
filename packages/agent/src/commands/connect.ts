@@ -46,6 +46,7 @@ export async function connectCommand(
   const ticks: Tick[] = [];
   const windDownRequestedRef = { current: false };
   let activeSessionId: string | undefined;
+  let runningSessionId: string | undefined;
   let loopChain = Promise.resolve();
 
   const proxy = createMcpProxyRuntime({
@@ -59,6 +60,15 @@ export async function connectCommand(
     onTick: (tick) => {
       ticks.push(tick);
       if (tick.type === "session.end_warning") {
+        if (runningSessionId === undefined) {
+          return;
+        }
+        if (
+          tick.sessionId !== undefined &&
+          tick.sessionId !== runningSessionId
+        ) {
+          return;
+        }
         windDownRequestedRef.current = true;
         return;
       }
@@ -71,8 +81,10 @@ export async function connectCommand(
       activeSessionId = tick.sessionId;
       const sessionId = tick.sessionId;
       loopChain = loopChain
-        .then(() =>
-          runSessionLoop({
+        .then(() => {
+          runningSessionId = sessionId;
+          windDownRequestedRef.current = false;
+          return runSessionLoop({
             plugin,
             callTool: (name, args) => proxy.callTool(name, args),
             onChatLog: async (chunk) => {
@@ -90,11 +102,15 @@ export async function connectCommand(
             boardUrl: config.boardUrl,
             agentToken: agent.token,
           }).finally(() => {
+            windDownRequestedRef.current = false;
+            if (runningSessionId === sessionId) {
+              runningSessionId = undefined;
+            }
             if (activeSessionId === sessionId) {
               activeSessionId = undefined;
             }
-          }),
-        )
+          });
+        })
         .catch((error: unknown) => {
           console.error(error);
         });
