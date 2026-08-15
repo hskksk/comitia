@@ -123,7 +123,6 @@ export function ThreadPage() {
             差し戻し理由
             <input value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
-          {error ? <p className="error">{error}</p> : null}
         </form>
       ) : null}
       {view.thread.state === "decided" &&
@@ -138,6 +137,7 @@ export function ThreadPage() {
           </button>
         </div>
       ) : null}
+      {error ? <p className="error">{error}</p> : null}
     </article>
   );
 }
