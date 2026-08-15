@@ -148,12 +148,15 @@ export async function sendTick(
   }
 
   const tick = createTick(input.type, sessionId ? { sessionId } : {});
-  const delivered = await deliverTick(relay, input.participantId, tick);
   await insertTick(db, {
     tick,
     participantId: input.participantId,
-    status: delivered ? "delivered" : "queued",
+    status: "queued",
   });
+  const delivered = await deliverTick(relay, input.participantId, tick);
+  if (delivered) {
+    await markTickDelivered(db, tick.id);
+  }
 
   return {
     tickId: tick.id,

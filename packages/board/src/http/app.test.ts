@@ -2,8 +2,11 @@ import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
-import { sessions } from "../db/schema.js";
-import { createBoardApp } from "./app.js";
+import { sessions, ticks } from "../db/schema.js";
+import { prepareSessionStart } from "../domain/sessions.js";
+import type { TickType } from "@comitia/shared";
+import { createBoardApp, type BoardGateway } from "./app.js";
+import { startBoardServer } from "./server.js";
 
 async function bootstrapOwnerAndAgent(app: ReturnType<typeof createBoardApp>) {
   const initRes = await app.request("/v1/init", {
@@ -101,8 +104,22 @@ describe("board HTTP", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  it("prepares a session without sending a tick", async () => {
-    const app = createBoardApp({ db });
+  it("sends a tick through the injected gateway", async () => {
+    const calls: Array<{ participantId: string; type: TickType }> = [];
+    const fake: BoardGateway = {
+      sendTick: async (input) => {
+        calls.push(input);
+        return {
+          tickId: "tick-from-fake",
+          sessionId: "sess-from-fake",
+          status: "queued",
+        };
+      },
+    };
+    const app = createBoardApp({
+      db,
+      getGateway: () => fake,
+    });
     const { agentBody } = await bootstrapOwnerAndAgent(app);
 
     const res = await app.request("/v1/me/request-session", {
@@ -114,21 +131,21 @@ describe("board HTTP", () => {
       body: "{}",
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      sessionId: string;
-      tickId: string | null;
-      status: string;
-    };
-    expect(body.sessionId).toBeTruthy();
-    expect(body.tickId).toBeNull();
-    expect(body.status).toBe("prepared");
+    expect(await res.json()).toEqual({
+      sessionId: "sess-from-fake",
+      tickId: "tick-from-fake",
+      status: "queued",
+    });
+    expect(calls).toEqual([
+      { participantId: agentBody.agentId, type: "session.start" },
+    ]);
   });
 
-  it("appends chat log and token usage on the agent's own session", async () => {
+  it("returns 503 when gateway is missing", async () => {
     const app = createBoardApp({ db });
     const { agentBody } = await bootstrapOwnerAndAgent(app);
 
-    const prepared = await app.request("/v1/me/request-session", {
+    const res = await app.request("/v1/me/request-session", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -136,7 +153,100 @@ describe("board HTTP", () => {
       },
       body: "{}",
     });
-    const { sessionId } = (await prepared.json()) as { sessionId: string };
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "tick gateway is unavailable" });
+  });
+
+  it("returns 503 when getGateway returns undefined", async () => {
+    const app = createBoardApp({ db, getGateway: () => undefined });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request("/v1/me/request-session", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "tick gateway is unavailable" });
+  });
+
+  it(
+    "POST /v1/me/request-session over HTTP calls sendTick",
+    async () => {
+      const server = await startBoardServer({ db, port: 0 });
+      try {
+        const initRes = await fetch(`${server.baseUrl}/v1/init`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ownerDisplayName: "ハル",
+            projectName: "comitia",
+          }),
+        });
+        expect(initRes.status).toBe(201);
+        const initBody = (await initRes.json()) as { ownerToken: string };
+
+        const regRes = await fetch(`${server.baseUrl}/v1/agents`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${initBody.ownerToken}`,
+          },
+          body: JSON.stringify({
+            displayName: "ミカ",
+            engine: "claude-code",
+          }),
+        });
+        expect(regRes.status).toBe(201);
+        const agentBody = (await regRes.json()) as {
+          agentId: string;
+          agentToken: string;
+        };
+
+        const res = await fetch(`${server.baseUrl}/v1/me/request-session`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${agentBody.agentToken}`,
+          },
+          body: "{}",
+        });
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          sessionId: string;
+          tickId: string;
+          status: "delivered" | "queued";
+        };
+        expect(body.tickId).toBeTruthy();
+        expect(body.sessionId).toBeTruthy();
+        expect(body.status).toBe("queued");
+
+        const [row] = await db
+          .select()
+          .from(ticks)
+          .where(eq(ticks.id, body.tickId));
+        expect(row?.type).toBe("session.start");
+        expect(row?.status).toBe("queued");
+        expect(row?.participantId).toBe(agentBody.agentId);
+      } finally {
+        await server.close();
+      }
+    },
+    30_000,
+  );
+
+  it("appends chat log and token usage on the agent's own session", async () => {
+    const app = createBoardApp({ db });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const session = await prepareSessionStart(db, {
+      participantId: agentBody.agentId,
+      projectId: agentBody.projectId,
+    });
+    const sessionId = session.id;
 
     const chatRes = await app.request(`/v1/sessions/${sessionId}/chat-log`, {
       method: "POST",

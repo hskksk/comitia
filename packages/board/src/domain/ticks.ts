@@ -1,7 +1,12 @@
 import { and, asc, eq, max } from "drizzle-orm";
 import type { Tick } from "@comitia/shared";
-import { agentCredentials, ticks } from "../db/schema.js";
-import type { Db } from "../db/types.js";
+import {
+  agentConnections,
+  agentCredentials,
+  ticks,
+} from "../db/schema.js";
+import type { Db, DbClient } from "../db/types.js";
+import { NotFoundError } from "./errors.js";
 import { recordEvent } from "./events.js";
 
 export async function nextTickSequence(
@@ -15,6 +20,24 @@ export async function nextTickSequence(
   return (row?.maxSeq ?? 0) + 1;
 }
 
+async function lockAgentConnection(db: Db, participantId: string) {
+  const [locked] = await db
+    .select({ participantId: agentConnections.participantId })
+    .from(agentConnections)
+    .where(eq(agentConnections.participantId, participantId))
+    .for("update");
+  if (!locked) {
+    throw new NotFoundError("エージェント接続が見つかりません");
+  }
+}
+
+function runInTransaction<T>(db: Db, fn: (tx: Db) => Promise<T>): Promise<T> {
+  if (typeof (db as DbClient).transaction === "function") {
+    return (db as DbClient).transaction((tx) => fn(tx));
+  }
+  return fn(db);
+}
+
 export async function insertTick(
   db: Db,
   input: {
@@ -23,39 +46,42 @@ export async function insertTick(
     status: "queued" | "delivered";
   },
 ) {
-  const sequence = await nextTickSequence(db, input.participantId);
-  const [row] = await db
-    .insert(ticks)
-    .values({
-      id: input.tick.id,
-      participantId: input.participantId,
-      sessionId: input.tick.sessionId ?? null,
-      type: input.tick.type,
-      issuedAt: new Date(input.tick.issuedAt),
-      status: input.status,
-      sequence,
-      deliveredAt: input.status === "delivered" ? new Date() : null,
-    })
-    .returning();
+  return runInTransaction(db, async (tx) => {
+    await lockAgentConnection(tx, input.participantId);
+    const sequence = await nextTickSequence(tx, input.participantId);
+    const [row] = await tx
+      .insert(ticks)
+      .values({
+        id: input.tick.id,
+        participantId: input.participantId,
+        sessionId: input.tick.sessionId ?? null,
+        type: input.tick.type,
+        issuedAt: new Date(input.tick.issuedAt),
+        status: input.status,
+        sequence,
+        deliveredAt: input.status === "delivered" ? new Date() : null,
+      })
+      .returning();
 
-  const [cred] = await db
-    .select()
-    .from(agentCredentials)
-    .where(eq(agentCredentials.participantId, input.participantId))
-    .limit(1);
+    const [cred] = await tx
+      .select()
+      .from(agentCredentials)
+      .where(eq(agentCredentials.participantId, input.participantId))
+      .limit(1);
 
-  await recordEvent(db, {
-    projectId: cred?.projectId,
-    actorParticipantId: input.participantId,
-    kind: input.status === "delivered" ? "tick_delivered" : "tick_queued",
-    payload: {
-      tickId: input.tick.id,
-      type: input.tick.type,
-      sequence,
-    },
+    await recordEvent(tx, {
+      projectId: cred?.projectId,
+      actorParticipantId: input.participantId,
+      kind: input.status === "delivered" ? "tick_delivered" : "tick_queued",
+      payload: {
+        tickId: input.tick.id,
+        type: input.tick.type,
+        sequence,
+      },
+    });
+
+    return row!;
   });
-
-  return row!;
 }
 
 export async function markTickDelivered(db: Db, tickId: string) {

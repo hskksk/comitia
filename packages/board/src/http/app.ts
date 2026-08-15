@@ -7,7 +7,7 @@ import type { Db } from "../db/types.js";
 import { addTokenUsage } from "../domain/activity.js";
 import { bootstrapBoard, registerAgent } from "../domain/bootstrap.js";
 import { DomainError, PermissionDenied } from "../domain/errors.js";
-import { getSessionById, prepareSessionStart } from "../domain/sessions.js";
+import { getSessionById } from "../domain/sessions.js";
 import { createBoardToolRuntime } from "../mcp/create-server.js";
 import {
   type BoardEnv,
@@ -114,27 +114,18 @@ export function createBoardApp(input: {
 
   app.post("/v1/me/request-session", auth, agent, async (c) => {
     const participant = c.get("participant");
-    const projectId = c.get("projectId");
     const gateway = input.getGateway?.();
-    if (gateway) {
-      const result = await gateway.sendTick({
-        participantId: participant.id,
-        type: "session.start",
-      });
-      return c.json({
-        sessionId: result.sessionId,
-        tickId: result.tickId,
-        status: result.status,
-      });
+    if (!gateway) {
+      return c.json({ error: "tick gateway is unavailable" }, 503);
     }
-    const session = await prepareSessionStart(db, {
+    const result = await gateway.sendTick({
       participantId: participant.id,
-      projectId,
+      type: "session.start",
     });
     return c.json({
-      sessionId: session.id,
-      tickId: null,
-      status: "prepared",
+      sessionId: result.sessionId,
+      tickId: result.tickId,
+      status: result.status,
     });
   });
 

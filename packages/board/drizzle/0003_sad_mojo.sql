@@ -1,0 +1,1 @@
+ALTER TABLE "ticks" ADD CONSTRAINT "ticks_participant_id_sequence_unique" UNIQUE("participant_id","sequence");

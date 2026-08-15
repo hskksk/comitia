@@ -301,22 +301,26 @@ export const agentConnections = pgTable("agent_connections", {
   sessionStartMinute: integer("session_start_minute").notNull().default(0),
 });
 
-export const ticks = pgTable("ticks", {
-  id: uuid("id").primaryKey(),
-  participantId: uuid("participant_id")
-    .notNull()
-    .references(() => participants.id),
-  sessionId: uuid("session_id").references(() => sessions.id),
-  type: text("type").notNull(),
-  issuedAt: timestamp("issued_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  status: text("status", { enum: ["queued", "delivered"] })
-    .notNull()
-    .default("queued"),
-  sequence: integer("sequence").notNull(),
-  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
-});
+export const ticks = pgTable(
+  "ticks",
+  {
+    id: uuid("id").primaryKey(),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id),
+    sessionId: uuid("session_id").references(() => sessions.id),
+    type: text("type").notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    status: text("status", { enum: ["queued", "delivered"] })
+      .notNull()
+      .default("queued"),
+    sequence: integer("sequence").notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  },
+  (table) => [unique().on(table.participantId, table.sequence)],
+);
 
 export const participantsRelations = relations(participants, ({ one, many }) => ({
   projects: many(projects),

@@ -51,5 +51,16 @@ describe("M3 schema", () => {
 
     const [tick] = await db.select().from(ticks);
     expect(tick?.status).toBe("queued");
+
+    await expect(
+      db.insert(ticks).values({
+        id: "22222222-2222-4222-8222-222222222222",
+        participantId: agent.id,
+        sessionId: session.id,
+        type: "nudge",
+        status: "queued",
+        sequence: 1,
+      }),
+    ).rejects.toThrow();
   });
 });
