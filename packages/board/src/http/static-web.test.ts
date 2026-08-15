@@ -10,7 +10,7 @@ import { createBoardApp } from "./app.js";
 import { attachSpaFallback } from "./static-web.js";
 
 describe("SPA fallback", () => {
-  it("serves index.html for / and leaves /healthz to the API", async () => {
+  it("serves SPA routes and leaves API, agent, and non-GET routes to prior listeners", async () => {
     const dir = join(tmpdir(), `comitia-web-${Date.now()}`);
     mkdirSync(dir);
     writeFileSync(join(dir, "index.html"), "<!doctype html><title>Comitia</title>");
@@ -32,6 +32,18 @@ describe("SPA fallback", () => {
       const health = await fetch(`${base}/healthz`);
       expect(health.status).toBe(200);
       expect(await health.json()).toEqual({ ok: true });
+
+      const me = await fetch(`${base}/v1/me`);
+      expect(me.status).toBe(401);
+      expect(me.headers.get("content-type")).toContain("application/json");
+
+      const agent = await fetch(`${base}/agents/x/`);
+      expect(agent.status).not.toBe(200);
+      expect(await agent.text()).not.toContain("Comitia");
+
+      const post = await fetch(`${base}/threads/abc`, { method: "POST" });
+      expect(post.status).not.toBe(200);
+      expect(await post.text()).not.toContain("Comitia");
     } finally {
       await new Promise<void>((resolve, reject) =>
         server.close((err) => (err ? reject(err) : resolve())),

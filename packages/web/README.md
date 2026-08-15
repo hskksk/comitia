@@ -16,7 +16,7 @@ Vite が `/v1` と `/healthz` をボードへプロキシする。ログイン�
 
 ```bash
 pnpm --filter @comitia/web build
-WEB_DIST=packages/web/dist DATABASE_URL=postgres://... pnpm --filter @comitia/board start
+WEB_DIST=../web/dist DATABASE_URL=postgres://... pnpm --filter @comitia/board start
 ```
 
 `packages/web/dist` がボードから見て存在するときは `WEB_DIST` なしでも配信する。

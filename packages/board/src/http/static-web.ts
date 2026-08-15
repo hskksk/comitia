@@ -26,7 +26,11 @@ export function attachSpaFallback(server: Server, webDist: string): void {
   server.on("request", (req, res) => {
     const url = req.url ?? "/";
     const path = url.split("?")[0] ?? "/";
-    if (isApi(path) || req.headers.upgrade === "websocket") {
+    if (
+      (req.method !== "GET" && req.method !== "HEAD") ||
+      isApi(path) ||
+      req.headers.upgrade === "websocket"
+    ) {
       for (const listener of previous) {
         listener(req, res);
       }
