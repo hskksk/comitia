@@ -1,0 +1,294 @@
+import { relations } from "drizzle-orm";
+import {
+  bigint,
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+export const participants = pgTable("participants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kind: text("kind", { enum: ["human", "agent"] }).notNull(),
+  displayName: text("display_name").notNull(),
+  ownerParticipantId: uuid("owner_participant_id"),
+  engine: text("engine"),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const projects = pgTable("projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  repoUrl: text("repo_url"),
+  ownerParticipantId: uuid("owner_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const roleAssignments = pgTable(
+  "role_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id),
+    role: text("role", {
+      enum: [
+        "facilitator",
+        "proposer",
+        "reviewer",
+        "recorder",
+        "executor",
+      ],
+    }).notNull(),
+  },
+  (table) => [unique().on(table.projectId, table.participantId, table.role)],
+);
+
+export const threads = pgTable("threads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  type: text("type", {
+    enum: [
+      "consultation",
+      "proposal",
+      "implementation",
+      "review",
+      "brainstorm",
+    ],
+  }).notNull(),
+  state: text("state", {
+    enum: [
+      "discussing",
+      "awaiting_decision",
+      "decided",
+      "rejected",
+      "completed",
+    ],
+  })
+    .notNull()
+    .default("discussing"),
+  ownerParticipantId: uuid("owner_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  consensusType: text("consensus_type", {
+    enum: ["rough", "human_ratification", "owner_decision"],
+  }),
+  humanRequired: boolean("human_required").notNull().default(false),
+  target: text("target", { enum: ["repo_artifact", "shared_artifact"] }),
+  sharedArtifactKind: text("shared_artifact_kind", {
+    enum: ["project_rule", "thread_template", "skill"],
+  }),
+  title: text("title").notNull(),
+  trigger: text("trigger").notNull(),
+  duplicateSearchQuery: text("duplicate_search_query").notNull(),
+  candidateProposalVersionId: uuid("candidate_proposal_version_id"),
+  parentThreadId: uuid("parent_thread_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+});
+
+export const proposals = pgTable("proposals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => threads.id),
+  number: integer("number").notNull(),
+  authorParticipantId: uuid("author_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  outcome: text("outcome", {
+    enum: ["open", "adopted", "rejected", "withdrawn"],
+  })
+    .notNull()
+    .default("open"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const proposalVersions = pgTable("proposal_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  proposalId: uuid("proposal_id")
+    .notNull()
+    .references(() => proposals.id),
+  versionNumber: integer("version_number").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const agreements = pgTable("agreements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => threads.id),
+  proposalVersionId: uuid("proposal_version_id")
+    .notNull()
+    .references(() => proposalVersions.id),
+  outcome: text("outcome", { enum: ["adopted", "rejected"] }).notNull(),
+  binding: boolean("binding").notNull(),
+  state: text("state", { enum: ["active", "superseded", "revoked"] })
+    .notNull()
+    .default("active"),
+  supersededByAgreementId: uuid("superseded_by_agreement_id"),
+  summary: text("summary").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const threadConflictCitations = pgTable("thread_conflict_citations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => threads.id),
+  agreementId: uuid("agreement_id")
+    .notNull()
+    .references(() => agreements.id),
+  note: text("note").notNull(),
+});
+
+export const posts = pgTable("posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => threads.id),
+  authorParticipantId: uuid("author_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  type: text("type", {
+    enum: [
+      "proposal",
+      "position",
+      "synthesis",
+      "question",
+      "objection",
+      "approval",
+      "declaration",
+      "report",
+      "comment",
+    ],
+  }).notNull(),
+  body: text("body").notNull(),
+  rationale: text("rationale"),
+  blocking: boolean("blocking"),
+  proposalVersionId: uuid("proposal_version_id").references(
+    () => proposalVersions.id,
+  ),
+  declarationKind: text("declaration_kind", {
+    enum: [
+      "select_candidate",
+      "declare_rough",
+      "owner_decide",
+      "request_ratification",
+      "ratify",
+      "send_back",
+      "reject_thread",
+      "complete_thread",
+      "resolve_objection",
+    ],
+  }),
+  declarationPayload: jsonb("declaration_payload"),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  resolvedBy: uuid("resolved_by"),
+  resolutionNote: text("resolution_note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const events = pgTable("events", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  projectId: uuid("project_id").references(() => projects.id),
+  threadId: uuid("thread_id").references(() => threads.id),
+  actorParticipantId: uuid("actor_participant_id").references(
+    () => participants.id,
+  ),
+  kind: text("kind").notNull(),
+  payload: jsonb("payload").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const participantsRelations = relations(participants, ({ many }) => ({
+  projects: many(projects),
+}));
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  owner: one(participants, {
+    fields: [projects.ownerParticipantId],
+    references: [participants.id],
+  }),
+  threads: many(threads),
+  agreements: many(agreements),
+}));
+
+export const threadsRelations = relations(threads, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [threads.projectId],
+    references: [projects.id],
+  }),
+  owner: one(participants, {
+    fields: [threads.ownerParticipantId],
+    references: [participants.id],
+  }),
+  proposals: many(proposals),
+  posts: many(posts),
+}));
+
+export const proposalsRelations = relations(proposals, ({ one, many }) => ({
+  thread: one(threads, {
+    fields: [proposals.threadId],
+    references: [threads.id],
+  }),
+  versions: many(proposalVersions),
+}));
+
+export const proposalVersionsRelations = relations(
+  proposalVersions,
+  ({ one }) => ({
+    proposal: one(proposals, {
+      fields: [proposalVersions.proposalId],
+      references: [proposals.id],
+    }),
+  }),
+);
+
+export const schema = {
+  participants,
+  projects,
+  roleAssignments,
+  threads,
+  proposals,
+  proposalVersions,
+  agreements,
+  threadConflictCitations,
+  posts,
+  events,
+};
+
+export type BoardSchema = typeof schema;

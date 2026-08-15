@@ -1,0 +1,116 @@
+/** スレッド型 */
+export const THREAD_TYPES = [
+  "consultation",
+  "proposal",
+  "implementation",
+  "review",
+  "brainstorm",
+] as const;
+export type ThreadType = (typeof THREAD_TYPES)[number];
+
+/** スレッド状態 */
+export const THREAD_STATES = [
+  "discussing",
+  "awaiting_decision",
+  "decided",
+  "rejected",
+  "completed",
+] as const;
+export type ThreadState = (typeof THREAD_STATES)[number];
+
+/** 投稿型 */
+export const POST_TYPES = [
+  "proposal",
+  "position",
+  "synthesis",
+  "question",
+  "objection",
+  "approval",
+  "declaration",
+  "report",
+  "comment",
+] as const;
+export type PostType = (typeof POST_TYPES)[number];
+
+/** 合意種類（M1 実装分） */
+export const CONSENSUS_TYPES = [
+  "rough",
+  "human_ratification",
+  "owner_decision",
+] as const;
+export type ConsensusType = (typeof CONSENSUS_TYPES)[number];
+
+/** 提案スレッドの対象 */
+export const PROPOSAL_TARGETS = ["repo_artifact", "shared_artifact"] as const;
+export type ProposalTarget = (typeof PROPOSAL_TARGETS)[number];
+
+/** 共有物の種類 */
+export const SHARED_ARTIFACT_KINDS = [
+  "project_rule",
+  "thread_template",
+  "skill",
+] as const;
+export type SharedArtifactKind = (typeof SHARED_ARTIFACT_KINDS)[number];
+
+/** 宣言の種類 */
+export const DECLARATION_KINDS = [
+  "select_candidate",
+  "declare_rough",
+  "owner_decide",
+  "request_ratification",
+  "ratify",
+  "send_back",
+  "reject_thread",
+  "complete_thread",
+  "resolve_objection",
+] as const;
+export type DeclarationKind = (typeof DECLARATION_KINDS)[number];
+
+/** 合意物の帰結 */
+export const AGREEMENT_OUTCOMES = ["adopted", "rejected"] as const;
+export type AgreementOutcome = (typeof AGREEMENT_OUTCOMES)[number];
+
+/** 合意物の状態 */
+export const AGREEMENT_STATES = ["active", "superseded", "revoked"] as const;
+export type AgreementState = (typeof AGREEMENT_STATES)[number];
+
+/** 提案の帰結 */
+export const PROPOSAL_OUTCOMES = [
+  "open",
+  "adopted",
+  "rejected",
+  "withdrawn",
+] as const;
+export type ProposalOutcome = (typeof PROPOSAL_OUTCOMES)[number];
+
+/** ロール */
+export const ROLES = [
+  "facilitator",
+  "proposer",
+  "reviewer",
+  "recorder",
+  "executor",
+] as const;
+export type Role = (typeof ROLES)[number];
+
+/** 参加者の種類 */
+export const PARTICIPANT_KINDS = ["human", "agent"] as const;
+export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
+
+/** イベント種別 */
+export const EVENT_KINDS = [
+  "participant_registered",
+  "project_created",
+  "role_assigned",
+  "thread_created",
+  "proposal_added",
+  "proposal_version_added",
+  "post_added",
+  "objection_resolved",
+  "candidate_selected",
+  "state_changed",
+  "agreement_recorded",
+  "agreement_superseded",
+  "thread_declaration",
+] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
