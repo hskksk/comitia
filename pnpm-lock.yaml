@@ -14,9 +14,24 @@ importers:
 
   packages/agent:
     dependencies:
+      '@a2a-js/sdk':
+        specifier: 1.0.0
+        version: 1.0.0(express@5.2.1)
       '@comitia/shared':
         specifier: workspace:*
         version: link:../shared
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.30.0
+        version: 1.30.0(zod@4.4.3)
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      ws:
+        specifier: ^8.18.3
+        version: 8.21.3
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@comitia/board':
         specifier: workspace:*
@@ -24,9 +39,15 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.5.5
         version: 0.5.5
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.1
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@electric-sql/pglite@0.5.5)(postgres@3.4.9)
