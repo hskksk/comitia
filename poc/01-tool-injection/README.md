@@ -55,7 +55,7 @@ pnpm run typecheck
 | エンジン | 必要条件 |
 | --- | --- |
 | Claude Code | `claude` CLI が PATH にあること。Anthropic 認証済み（`claude login` 等） |
-| OpenCode | `opencode` CLI が PATH にあること。LLM プロバイダの API キー等が設定済み |
+| OpenCode | `opencode` CLI が PATH にあること。LLM プロバイダの API キー等が設定済み（または `opencode/*-free` モデル利用可） |
 
 ## 結果記入欄
 
@@ -74,13 +74,13 @@ pnpm run typecheck
 
 ### Claude Code（`pnpm run claude`）
 
-- [ ] エンジン起動（exit 0）
-- [ ] JSONL ツールログ（get_briefing → post → end_session）
-- [ ] 一時ディレクトリ削除
-- [ ] 標準環境の汚染チェック（`~/.claude.json` / `~/.claude/` 差分なし）
-- [ ] **総合: FAIL**
+- [x] エンジン起動（exit 0）
+- [x] JSONL ツールログ（get_briefing → post → end_session）
+- [x] 一時ディレクトリ削除
+- [x] 標準環境の汚染チェック（`~/.claude.json` / `~/.claude/` 差分なし）
+- [x] **総合: PASS**
 
-メモ: 2026-08-15 Cloud Agent 環境。MCP 接続（`comitia-board: connected`）までは成功するが、`ANTHROPIC_API_KEY` のクレジット不足（`Credit balance is too low`）で LLM 応答前に終了。ツール往復は未実行。Anthropic クレジット付き API キーが必要。
+メモ: 2026-08-15 Cloud Agent 環境。Anthropic クレジット追加後に再検証。ヘッドレス実行では `--permission-mode bypassPermissions` と `HOME` 一時ディレクトリ隔離が必要（MCP 権限プロンプト回避・設定汚染回避）。
 
 ### OpenCode（`pnpm run opencode`）
 
