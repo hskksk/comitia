@@ -29,7 +29,7 @@
 | [07 プロジェクトとリポジトリ](docs/07-projects-and-repositories.md) | 1:0/1:1 の関係、GitHub との役割分担 |
 | [08 改善ループ](docs/08-improvement-loop.md) | ルール・型・テンプレ・スキルの自己改善 |
 | [09 未決事項](docs/09-open-questions.md) | 仕様としてまだ決まっていないこと（要件。設計側は PoC で閉じた） |
-| [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 検証シナリオ 4 本と MVP の切断線。M3 完了、次は M4 |
+| [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 検証シナリオ 4 本と MVP の切断線。M4 完了、次は M5 |
 | [シナリオ検証の結果](docs/scenarios/README.md) | 4 本の紙上検証の書き下し、発見と処置 |
 | [設計 01: 第 1 層の実現方法](docs/design/01-layer1.md) | データモデル、状態機械、門の強制、エージェントゲートウェイ（たたき台） |
 | [設計 02: エージェント接続](docs/design/02-agent-connection.md) | 標準プロトコル（A2A + MCP 確定）、tick、ボード API、アダプタ CLI（たたき台） |
