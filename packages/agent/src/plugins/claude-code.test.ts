@@ -1,5 +1,14 @@
+import { execFileSync } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildClaudeArgs, parseClaudeStream } from "./claude-code.js";
+import {
+  buildClaudeArgs,
+  commandExists,
+  parseClaudeStream,
+} from "./claude-code.js";
 
 describe("buildClaudeArgs", () => {
   it("uses isolated MCP with bypass permissions and stream JSON", () => {
@@ -56,6 +65,7 @@ describe("parseClaudeStream", () => {
         type: "user",
         message: {
           content: [
+            { type: "text", text: "raw user message" },
             {
               type: "tool_result",
               tool_use_id: "tool-1",
@@ -72,4 +82,69 @@ describe("parseClaudeStream", () => {
       toolLog: [{ run: 2, tool: "get_briefing", args: {} }],
     });
   });
+});
+
+
+describe("Claude Code live CLI", () => {
+  it.skipIf(process.env.COMITIA_LIVE_CLAUDE !== "1")(
+    "calls get_briefing through the real Claude CLI",
+    async (context) => {
+      if (!commandExists("claude")) context.skip();
+
+      execFileSync("pnpm", ["--filter", "@comitia/agent", "build"], {
+        cwd: join(import.meta.dirname, "../../../.."),
+        stdio: "inherit",
+      });
+
+      const requests: string[] = [];
+      const server = createServer((request, response) => {
+        requests.push(request.url ?? "");
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ remaining_budget: 7, goals: [] }));
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        throw new Error("Live test server did not bind to a TCP port");
+      }
+
+      const workDir = await mkdtemp(join(tmpdir(), "comitia-live-claude-"));
+      const { createClaudeCodePlugin } = await import(
+        `../../dist/plugins/claude-code.js?live=${Date.now()}`
+      );
+      const plugin = createClaudeCodePlugin();
+
+      try {
+        await plugin.start({
+          sessionId: "live-claude-test",
+          workDir,
+          mcp: {
+            command: process.execPath,
+            args: [join(import.meta.dirname, "../../dist/mcp-stdio-main.js")],
+            env: {
+              COMITIA_BOARD_URL: `http://127.0.0.1:${address.port}`,
+              COMITIA_AGENT_TOKEN: "live-test-token",
+            },
+          },
+        });
+        const result = await plugin.run(
+          "Call the comitia-board get_briefing tool exactly once, then briefly summarize it.",
+        );
+
+        expect(requests).toContain("/v1/tools/get_briefing");
+        expect(result.toolLog).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ tool: "get_briefing" }),
+          ]),
+        );
+      } finally {
+        await plugin.stop();
+        await rm(workDir, { recursive: true, force: true });
+        await new Promise<void>((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve())),
+        );
+      }
+    },
+    300_000,
+  );
 });

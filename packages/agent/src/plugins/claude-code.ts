@@ -111,7 +111,11 @@ export function parseClaudeStream(output: string, run: number) {
         for (const block of content) {
           if (block === null || typeof block !== "object") continue;
           const item = block as Record<string, unknown>;
-          if (item.type === "text" && typeof item.text === "string") {
+          if (
+            record.type === "assistant" &&
+            item.type === "text" &&
+            typeof item.text === "string"
+          ) {
             transcript.push(item.text);
           } else if (item.type === "tool_use" && typeof item.name === "string") {
             const index = toolLog.push({
