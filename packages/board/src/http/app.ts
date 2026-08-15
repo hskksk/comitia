@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z, ZodError } from "zod";
 import { sessions } from "../db/schema.js";
@@ -121,7 +121,7 @@ export function createBoardApp(input: { db: Db }) {
     }
     await db
       .update(sessions)
-      .set({ chatLog: session.chatLog + body.chunk })
+      .set({ chatLog: sql`${sessions.chatLog} || ${body.chunk}` })
       .where(eq(sessions.id, sessionId));
     return c.json({ ok: true });
   });
