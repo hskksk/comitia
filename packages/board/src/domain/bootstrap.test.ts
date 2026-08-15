@@ -1,7 +1,7 @@
 import "../test/helpers.js";
-import { asc } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { agentConnections } from "../db/schema.js";
+import { agentConnections, agentCredentials, participants } from "../db/schema.js";
 import { db } from "../test/helpers.js";
 import { authenticateToken } from "./credentials.js";
 import { assignSessionStartMinute } from "./connections.js";
@@ -35,6 +35,55 @@ describe("bootstrap", () => {
     const agentAuth = await authenticateToken(db, registered.agentToken);
     expect(agentAuth?.participant.id).toBe(registered.agent.id);
     expect(agentAuth?.projectId).toBe(first.project.id);
+  });
+
+  it("rolls back bootstrap when project creation fails", async () => {
+    await db.execute(sql`
+      ALTER TABLE projects
+      ADD CONSTRAINT reject_bootstrap_project
+      CHECK (name <> 'reject')
+    `);
+
+    await expect(
+      bootstrapBoard(db, {
+        ownerDisplayName: "ハル",
+        projectName: "reject",
+      }),
+    ).rejects.toThrow();
+
+    const retried = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    expect(retried.project.name).toBe("comitia");
+  });
+
+  it("rolls back agent registration when connection creation fails", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    await db.execute(sql`
+      ALTER TABLE agent_connections
+      ADD CONSTRAINT reject_agent_connection
+      CHECK (session_start_minute < 0)
+    `);
+
+    await expect(
+      registerAgent(db, {
+        ownerParticipantId: boot.owner.id,
+        displayName: "ミカ",
+        engine: "claude-code",
+      }),
+    ).rejects.toThrow();
+
+    const orphanedAgents = await db
+      .select()
+      .from(participants)
+      .where(eq(participants.kind, "agent"));
+    const credentials = await db.select().from(agentCredentials);
+    expect(orphanedAgents).toEqual([]);
+    expect(credentials).toHaveLength(1);
   });
 
   it("rejects engine other than claude-code", async () => {
