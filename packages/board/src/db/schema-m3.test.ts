@@ -1,7 +1,7 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { db } from "../test/helpers.js";
-import { agentConnections, agentCredentials, ticks } from "../db/schema.js";
+import { agentConnections, agentCredentials, sessions, ticks } from "../db/schema.js";
 import { registerParticipant } from "../domain/participants.js";
 import { createProject } from "../domain/projects.js";
 import { openOrGetSession } from "../domain/sessions.js";
@@ -60,6 +60,16 @@ describe("M3 schema", () => {
         type: "nudge",
         status: "queued",
         sequence: 1,
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      db.insert(sessions).values({
+        participantId: agent.id,
+        projectId: project.id,
+        budgetLimit: 100,
+        budgetUsed: 0,
+        windDownReserved: 10,
       }),
     ).rejects.toThrow();
   });

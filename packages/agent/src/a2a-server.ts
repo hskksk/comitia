@@ -21,6 +21,12 @@ class TickExecutor implements AgentExecutor {
 
   constructor(private readonly onTick: (tick: Tick) => void) {}
 
+  clearActiveSession(sessionId?: string): void {
+    if (sessionId === undefined || this.activeSessionId === sessionId) {
+      this.activeSessionId = undefined;
+    }
+  }
+
   async execute(
     requestContext: RequestContext,
     eventBus: ExecutionEventBus,
@@ -105,6 +111,7 @@ export interface LocalA2aServerOptions {
 
 export interface LocalA2aServer {
   readonly localBaseUrl: string;
+  clearActiveSession: (sessionId?: string) => void;
   close: () => Promise<void>;
 }
 
@@ -174,6 +181,7 @@ export async function startLocalA2aServer(
 
   return {
     localBaseUrl,
+    clearActiveSession: (sessionId) => tickExecutor.clearActiveSession(sessionId),
     close: async () => {
       if (typeof httpServer.closeAllConnections === "function") {
         httpServer.closeAllConnections();

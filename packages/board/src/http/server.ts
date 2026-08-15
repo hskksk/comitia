@@ -31,8 +31,15 @@ export function startLoops(input: {
 }): () => void {
   const getNow = input.now ?? (() => new Date());
   const intervalMs = input.intervalMs ?? 15_000;
+  let running = false;
   const timer = setInterval(() => {
-    void runLoopTick(input, getNow);
+    if (running) {
+      return;
+    }
+    running = true;
+    void runLoopTick(input, getNow).finally(() => {
+      running = false;
+    });
   }, intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);
@@ -66,8 +73,8 @@ async function runLoopTick(
     if (now.getUTCSeconds() < 15) {
       await runScheduler(input.db, input.send, { now });
     }
-  } catch {
-    // Keep the production loop alive if a single tick fails.
+  } catch (error) {
+    console.error(error);
   }
 }
 
@@ -173,9 +180,10 @@ export async function startBoardServer(input: {
     relay.handleUpgrade(req, socket, head);
   });
 
+  const host = process.env.HOST ?? "127.0.0.1";
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(input.port ?? 0, () => resolve());
+    server.listen(input.port ?? 0, host, () => resolve());
   });
 
   const addr = server.address();

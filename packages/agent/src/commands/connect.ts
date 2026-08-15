@@ -17,6 +17,8 @@ export interface ConnectCommandHandle {
   close: () => Promise<void>;
 }
 
+const SESSION_START_WAIT_MS = 1_500;
+
 async function postAuthorized(
   boardUrl: string,
   token: string,
@@ -31,6 +33,21 @@ async function postAuthorized(
     },
     body: JSON.stringify(body),
   });
+}
+
+async function waitForTick(
+  ticks: Tick[],
+  predicate: (tick: Tick) => boolean,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (ticks.some(predicate)) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return ticks.some(predicate);
 }
 
 export async function connectCommand(
@@ -48,13 +65,14 @@ export async function connectCommand(
   let activeSessionId: string | undefined;
   let runningSessionId: string | undefined;
   let loopChain = Promise.resolve();
+  let adapter: Awaited<ReturnType<typeof startLocalA2aServer>>;
 
   const proxy = createMcpProxyRuntime({
     boardUrl: config.boardUrl,
     agentToken: agent.token,
   });
 
-  const adapter = await startLocalA2aServer({
+  adapter = await startLocalA2aServer({
     agentId: agent.agentId,
     relayBaseUrl: config.boardUrl,
     onTick: (tick) => {
@@ -109,6 +127,7 @@ export async function connectCommand(
             if (activeSessionId === sessionId) {
               activeSessionId = undefined;
             }
+            adapter.clearActiveSession(sessionId);
           });
         })
         .catch((error: unknown) => {
@@ -128,14 +147,21 @@ export async function connectCommand(
   }
 
   try {
-    const requested = await postAuthorized(
-      config.boardUrl,
-      agent.token,
-      "/v1/me/request-session",
-      {},
+    const gotStart = await waitForTick(
+      ticks,
+      (tick) => tick.type === "session.start",
+      SESSION_START_WAIT_MS,
     );
-    if (!requested.ok) {
-      throw new Error(`request-session failed: ${requested.status}`);
+    if (!gotStart) {
+      const requested = await postAuthorized(
+        config.boardUrl,
+        agent.token,
+        "/v1/me/request-session",
+        {},
+      );
+      if (!requested.ok) {
+        throw new Error(`request-session failed: ${requested.status}`);
+      }
     }
   } catch (error) {
     tunnel.disconnect();

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -8,6 +8,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -220,25 +221,33 @@ export const posts = pgTable("posts", {
     .defaultNow(),
 });
 
-export const sessions = pgTable("sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  participantId: uuid("participant_id")
-    .notNull()
-    .references(() => participants.id),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id),
-  startedAt: timestamp("started_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  endedAt: timestamp("ended_at", { withTimezone: true }),
-  briefingAt: timestamp("briefing_at", { withTimezone: true }),
-  endedReason: text("ended_reason", { enum: ["completed", "interrupted"] }),
-  chatLog: text("chat_log").notNull().default(""),
-  budgetLimit: integer("budget_limit").notNull(),
-  budgetUsed: integer("budget_used").notNull().default(0),
-  windDownReserved: integer("wind_down_reserved").notNull(),
-});
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    briefingAt: timestamp("briefing_at", { withTimezone: true }),
+    endedReason: text("ended_reason", { enum: ["completed", "interrupted"] }),
+    chatLog: text("chat_log").notNull().default(""),
+    budgetLimit: integer("budget_limit").notNull(),
+    budgetUsed: integer("budget_used").notNull().default(0),
+    windDownReserved: integer("wind_down_reserved").notNull(),
+  },
+  (table) => [
+    uniqueIndex("sessions_one_open_per_participant_project")
+      .on(table.participantId, table.projectId)
+      .where(sql`${table.endedAt} is null`),
+  ],
+);
 
 export const sessionGoals = pgTable("session_goals", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -1,9 +1,10 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../test/helpers.js";
 import { events, sessions } from "../db/schema.js";
 import { getBriefing } from "./briefing.js";
+import { recordEvent } from "./events.js";
 import {
   endSession,
   findUndigestedSession,
@@ -30,6 +31,18 @@ async function setup() {
     ownerParticipantId: owner.id,
   });
   return { agent, project };
+}
+
+async function ageSession(sessionId: string, ageMs: number) {
+  const at = new Date(Date.now() - ageMs);
+  await db
+    .update(sessions)
+    .set({ startedAt: at, briefingAt: at })
+    .where(eq(sessions.id, sessionId));
+  await db
+    .update(events)
+    .set({ createdAt: at })
+    .where(sql`${events.payload}->>'sessionId' = ${sessionId}`);
 }
 
 describe("session digest", () => {
@@ -79,6 +92,32 @@ describe("session digest", () => {
     expect(a.id).toBe(b.id);
   });
 
+  it("concurrent prepareSessionStart calls return one open session", async () => {
+    const { agent, project } = await setup();
+    const [a, b] = await Promise.all([
+      prepareSessionStart(db, {
+        participantId: agent.id,
+        projectId: project.id,
+      }),
+      prepareSessionStart(db, {
+        participantId: agent.id,
+        projectId: project.id,
+      }),
+    ]);
+    expect(a.id).toBe(b.id);
+    const rows = await db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.participantId, agent.id),
+          eq(sessions.projectId, project.id),
+          isNull(sessions.endedAt),
+        ),
+      );
+    expect(rows).toHaveLength(1);
+  });
+
   it("interruptStaleSessions closes digested sessions past timeout", async () => {
     const { agent, project } = await setup();
     const session = await prepareSessionStart(db, {
@@ -86,10 +125,7 @@ describe("session digest", () => {
       projectId: project.id,
     });
     await markSessionDigested(db, session.id);
-    await db
-      .update(sessions)
-      .set({ startedAt: new Date(Date.now() - 40 * 60_000) })
-      .where(eq(sessions.id, session.id));
+    await ageSession(session.id, 40 * 60_000);
 
     const n = await interruptStaleSessions(db, {
       now: new Date(),
@@ -165,10 +201,7 @@ describe("session digest", () => {
       projectId: project.id,
     });
     await markSessionDigested(db, session.id);
-    await db
-      .update(sessions)
-      .set({ startedAt: new Date(Date.now() - 40 * 60_000) })
-      .where(eq(sessions.id, session.id));
+    await ageSession(session.id, 40 * 60_000);
     await db.execute(sql`
       ALTER TABLE events
       ADD CONSTRAINT reject_session_interrupted
@@ -214,6 +247,34 @@ describe("session digest", () => {
     expect(row?.endedAt).toBeNull();
   });
 
+  it("does not interrupt when a recent session event exists", async () => {
+    const { agent, project } = await setup();
+    const session = await prepareSessionStart(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    await markSessionDigested(db, session.id);
+    await ageSession(session.id, 40 * 60_000);
+    await recordEvent(db, {
+      projectId: project.id,
+      actorParticipantId: agent.id,
+      kind: "budget_spent",
+      payload: { sessionId: session.id },
+    });
+
+    const n = await interruptStaleSessions(db, {
+      now: new Date(),
+      timeoutMs: 30 * 60_000,
+    });
+
+    expect(n).toBe(0);
+    const [row] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, session.id));
+    expect(row?.endedAt).toBeNull();
+  });
+
   it("reports interruption instead of an older handover", async () => {
     const { agent, project } = await setup();
     const completed = await prepareSessionStart(db, {
@@ -231,10 +292,7 @@ describe("session digest", () => {
       projectId: project.id,
     });
     await markSessionDigested(db, session.id);
-    await db
-      .update(sessions)
-      .set({ startedAt: new Date(Date.now() - 40 * 60_000) })
-      .where(eq(sessions.id, session.id));
+    await ageSession(session.id, 40 * 60_000);
     await interruptStaleSessions(db, {
       now: new Date(),
       timeoutMs: 30 * 60_000,

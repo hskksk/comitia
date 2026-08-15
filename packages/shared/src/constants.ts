@@ -106,7 +106,7 @@ export const WIND_DOWN_RESERVE = 10;
 /** Gateway timing and capacity limits (M3). */
 export const GATEWAY = {
   digestTimeoutMs: 60_000,
-  sessionTimeoutMs: 30 * 60_000,
+  sessionTimeoutMs: 60 * 60_000,
   healthPingMs: 30_000,
   healthTtlMs: 90_000,
   idleRunLimit: 2,

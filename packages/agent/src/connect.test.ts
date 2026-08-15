@@ -149,6 +149,57 @@ describe("adapter connect", () => {
     expect(received).toHaveLength(1);
   });
 
+  it("delivers a duplicate session.start after clearActiveSession", async () => {
+    const db = await createDb();
+    const server = await startBoardServer({ db, port: 0 });
+    cleanups.push(() => server.close());
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const registered = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "mika",
+      engine: "claude-code",
+    });
+
+    const received: Tick[] = [];
+    const adapter = await startLocalA2aServer({
+      agentId: registered.agent.id,
+      relayBaseUrl: server.baseUrl,
+      onTick: (tick) => received.push(tick),
+    });
+    cleanups.push(() => adapter.close());
+    const tunnel = await connectTunnel({
+      relayWsUrl: buildRelayWsUrl(
+        server.baseUrl,
+        registered.agent.id,
+        registered.agentToken,
+      ),
+      localBaseUrl: adapter.localBaseUrl,
+    });
+    cleanups.push(() => tunnel.disconnect());
+
+    const first = await server.sendTick({
+      participantId: registered.agent.id,
+      type: "session.start",
+    });
+    await vi.waitFor(() =>
+      expect(received.map((t) => t.id)).toContain(first.tickId),
+    );
+
+    adapter.clearActiveSession();
+
+    const second = await server.sendTick({
+      participantId: registered.agent.id,
+      type: "session.start",
+    });
+    await vi.waitFor(() =>
+      expect(received.map((t) => t.id)).toContain(second.tickId),
+    );
+    expect(second.status).toBe("delivered");
+  });
+
   it("connectCommand accumulates received ticks", async () => {
     const db = await createDb();
     const server = await startBoardServer({ db, port: 0 });
