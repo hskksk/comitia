@@ -9,6 +9,7 @@ import { bootstrapBoard, registerAgent } from "../domain/bootstrap.js";
 import {
   DomainError,
   NotFoundError,
+  PermissionDenied,
 } from "../domain/errors.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
 import { maybeSendEndWarning } from "../gateway/health.js";
