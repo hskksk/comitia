@@ -70,5 +70,6 @@ describe("sessions", () => {
       .from(sessions)
       .where(eq(sessions.id, session.id));
     expect(row?.endedAt).not.toBeNull();
+    expect(row?.endedReason).toBe("completed");
   });
 });

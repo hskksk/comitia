@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 import {
   DEFAULT_SESSION_BUDGET,
   WIND_DOWN_RESERVE,
@@ -66,6 +66,142 @@ export async function openOrGetSession(
   });
 
   return session!;
+}
+
+export async function prepareSessionStart(
+  db: Db,
+  input: { participantId: string; projectId: string },
+) {
+  await getProject(db, input.projectId);
+
+  const existing = await findOpenSession(db, input);
+  if (existing) {
+    return existing;
+  }
+
+  const [session] = await db
+    .insert(sessions)
+    .values({
+      participantId: input.participantId,
+      projectId: input.projectId,
+      briefingAt: null,
+      budgetLimit: DEFAULT_SESSION_BUDGET,
+      budgetUsed: 0,
+      windDownReserved: WIND_DOWN_RESERVE,
+    })
+    .returning();
+
+  await recordEvent(db, {
+    projectId: input.projectId,
+    actorParticipantId: input.participantId,
+    kind: "session_started",
+    payload: {
+      sessionId: session!.id,
+      budgetLimit: DEFAULT_SESSION_BUDGET,
+      windDownReserved: WIND_DOWN_RESERVE,
+    },
+  });
+
+  return session!;
+}
+
+export async function findUndigestedSession(
+  db: Db,
+  input: { participantId: string; projectId: string },
+) {
+  const [session] = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.participantId, input.participantId),
+        eq(sessions.projectId, input.projectId),
+        isNull(sessions.endedAt),
+        isNull(sessions.briefingAt),
+      ),
+    )
+    .orderBy(desc(sessions.startedAt))
+    .limit(1);
+  return session ?? null;
+}
+
+export async function markSessionDigested(db: Db, sessionId: string) {
+  const session = await getSessionById(db, sessionId);
+  if (session.briefingAt) {
+    return session;
+  }
+
+  const briefingAt = new Date();
+  const [updated] = await db
+    .update(sessions)
+    .set({ briefingAt })
+    .where(and(eq(sessions.id, sessionId), isNull(sessions.briefingAt)))
+    .returning();
+
+  if (!updated) {
+    return getSessionById(db, sessionId);
+  }
+
+  await recordEvent(db, {
+    projectId: updated.projectId,
+    actorParticipantId: updated.participantId,
+    kind: "session_digested",
+    payload: {
+      sessionId,
+      briefingAt: briefingAt.toISOString(),
+    },
+  });
+
+  return updated;
+}
+
+export async function interruptStaleSessions(
+  db: Db,
+  input: { now: Date; timeoutMs: number },
+): Promise<number> {
+  const cutoff = new Date(input.now.getTime() - input.timeoutMs);
+  const stale = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        isNull(sessions.endedAt),
+        isNotNull(sessions.briefingAt),
+        lt(sessions.startedAt, cutoff),
+      ),
+    );
+
+  let interrupted = 0;
+  for (const session of stale) {
+    const [updated] = await db
+      .update(sessions)
+      .set({ endedAt: input.now, endedReason: "interrupted" })
+      .where(
+        and(
+          eq(sessions.id, session.id),
+          isNull(sessions.endedAt),
+          isNotNull(sessions.briefingAt),
+          lt(sessions.startedAt, cutoff),
+        ),
+      )
+      .returning();
+    if (!updated) {
+      continue;
+    }
+
+    await recordEvent(db, {
+      projectId: updated.projectId,
+      actorParticipantId: updated.participantId,
+      kind: "session_interrupted",
+      payload: {
+        sessionId: updated.id,
+        endedAt: input.now.toISOString(),
+      },
+    });
+    interrupted += 1;
+  }
+
+  return interrupted;
 }
 
 export async function listSessionGoals(db: Db, sessionId: string) {
@@ -170,7 +306,7 @@ export async function endSession(
   const endedAt = new Date();
   const [updated] = await db
     .update(sessions)
-    .set({ endedAt })
+    .set({ endedAt, endedReason: "completed" })
     .where(eq(sessions.id, input.sessionId))
     .returning();
 
@@ -235,4 +371,26 @@ export async function getLatestPreviousHandover(
   }
 
   return "";
+}
+
+export async function wasLatestPreviousSessionInterrupted(
+  db: Db,
+  input: { participantId: string; projectId: string; beforeSessionId?: string },
+): Promise<boolean> {
+  const endedSessions = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.participantId, input.participantId),
+        eq(sessions.projectId, input.projectId),
+        isNotNull(sessions.endedAt),
+      ),
+    )
+    .orderBy(desc(sessions.endedAt));
+
+  const latest = endedSessions.find(
+    (session) => session.id !== input.beforeSessionId,
+  );
+  return latest?.endedReason === "interrupted";
 }
