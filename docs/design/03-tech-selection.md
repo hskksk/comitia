@@ -148,7 +148,7 @@ M5 の実運転がシナリオ検証（docs/scenarios/）の答え合わせに�
 
 PoC で閉じなかったものだけ。プロトコル選定・SSE 退避・セッションループの成立は §4 で閉じた。
 
-- OpenCode 以外のエンジンプラグイン（Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）
+- OpenCode・Cursor Agent・Antigravity のエンジンプラグイン（M3 は Claude Code のみ出荷。Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）
 - ホスティング先の選定、通知チャネル（判断キューの新着を人間へ届ける手段。9.7）
 - 非公開メモ・メモリの「本当に非公開」の保証方式（DB の暗号化 / アクセス制御。6.1）
 - レート制限・悪意あるクライアント対策（設計 02 §8）
