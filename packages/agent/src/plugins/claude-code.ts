@@ -1,7 +1,8 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EnginePlugin } from "./types.js";
 
@@ -36,6 +37,58 @@ export function commandExists(command: string): boolean {
     timeout: 15_000,
   });
   return !result.error && result.status === 0;
+}
+
+export function buildMcpConfig(mcp: {
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+}) {
+  return {
+    mcpServers: {
+      "comitia-board": {
+        command: mcp.command,
+        args: mcp.args,
+        env: mcp.env,
+        alwaysLoad: true as const,
+      },
+    },
+  };
+}
+
+export function buildClaudeRunEnv(isolatedHome: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    HOME: isolatedHome,
+    MCP_CONNECTION_NONBLOCKING: "0",
+  };
+}
+
+export function resolveMcpStdioEntrypoint(fromUrl = import.meta.url): string {
+  let dir = dirname(fileURLToPath(fromUrl));
+  for (;;) {
+    const pkgFile = join(dir, "package.json");
+    if (existsSync(pkgFile)) {
+      const pkg = JSON.parse(readFileSync(pkgFile, "utf8")) as {
+        name?: string;
+        bin?: Record<string, string>;
+      };
+      if (pkg.name === "@comitia/agent") {
+        const bin = pkg.bin?.["comitia-mcp-proxy"];
+        if (typeof bin !== "string") {
+          throw new Error(
+            "@comitia/agent package.json is missing bin.comitia-mcp-proxy",
+          );
+        }
+        return join(dir, bin);
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new Error("Could not locate @comitia/agent package.json");
+    }
+    dir = parent;
+  }
 }
 
 function claudeHasBare(): boolean {
@@ -167,20 +220,21 @@ export function createClaudeCodePlugin(): EnginePlugin {
       isolatedHome = await mkdtemp(join(tmpdir(), "comitia-claude-home-"));
       runtimeDir = await mkdtemp(join(tmpdir(), "comitia-claude-runtime-"));
       mcpConfigPath = join(runtimeDir, "mcp-config.json");
-      const mcpEntrypoint = fileURLToPath(
-        new URL("../mcp-stdio-main.js", import.meta.url),
-      );
+      const mcpEntrypoint = resolveMcpStdioEntrypoint();
+      if (!existsSync(mcpEntrypoint)) {
+        throw new Error(
+          `MCP stdio entry not found at ${mcpEntrypoint}. Build @comitia/agent first.`,
+        );
+      }
       await writeFile(
         mcpConfigPath,
-        JSON.stringify({
-          mcpServers: {
-            "comitia-board": {
-              command: session.mcp.command,
-              args: [...session.mcp.args, mcpEntrypoint],
-              env: session.mcp.env,
-            },
-          },
-        }),
+        JSON.stringify(
+          buildMcpConfig({
+            command: session.mcp.command,
+            args: [...session.mcp.args, mcpEntrypoint],
+            env: session.mcp.env,
+          }),
+        ),
         "utf8",
       );
       hasBare = claudeHasBare();
@@ -192,13 +246,14 @@ export function createClaudeCodePlugin(): EnginePlugin {
       if (!workDir || !isolatedHome || !mcpConfigPath) {
         throw new Error("Claude Code plugin has not been started");
       }
+      const home = isolatedHome;
       runIndex += 1;
       const args = buildClaudeArgs({ prompt, mcpConfigPath, hasBare });
       const result = await new Promise<{ stdout: string; stderr: string }>(
         (resolve, reject) => {
           const running = spawn("claude", args, {
             cwd: workDir,
-            env: { ...process.env, HOME: isolatedHome },
+            env: buildClaudeRunEnv(home),
             stdio: ["ignore", "pipe", "pipe"],
           });
           child = running;
@@ -221,7 +276,11 @@ export function createClaudeCodePlugin(): EnginePlugin {
             clearTimeout(timeout);
             child = undefined;
             if (code !== 0) {
-              reject(new Error(`claude exited with code ${code}: ${stderr.trim()}`));
+              reject(
+                new Error(
+                  `claude exited with code ${code}: ${(stderr || stdout).trim()}`,
+                ),
+              );
               return;
             }
             resolve({ stdout, stderr });

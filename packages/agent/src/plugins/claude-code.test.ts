@@ -6,8 +6,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildClaudeArgs,
+  buildClaudeRunEnv,
+  buildMcpConfig,
   commandExists,
+  createClaudeCodePlugin,
   parseClaudeStream,
+  resolveMcpStdioEntrypoint,
 } from "./claude-code.js";
 
 describe("buildClaudeArgs", () => {
@@ -85,11 +89,59 @@ describe("parseClaudeStream", () => {
 });
 
 
+describe("buildMcpConfig", () => {
+  it("marks the board proxy as alwaysLoad so tools are present on the first turn", () => {
+    expect(
+      buildMcpConfig({
+        command: "/usr/bin/node",
+        args: ["/tmp/mcp-stdio-main.js"],
+        env: {
+          COMITIA_BOARD_URL: "http://127.0.0.1:9",
+          COMITIA_AGENT_TOKEN: "t",
+        },
+      }),
+    ).toEqual({
+      mcpServers: {
+        "comitia-board": {
+          command: "/usr/bin/node",
+          args: ["/tmp/mcp-stdio-main.js"],
+          env: {
+            COMITIA_BOARD_URL: "http://127.0.0.1:9",
+            COMITIA_AGENT_TOKEN: "t",
+          },
+          alwaysLoad: true,
+        },
+      },
+    });
+  });
+});
+
+
+describe("buildClaudeRunEnv", () => {
+  it("forces a blocking MCP connect before the first prompt", () => {
+    expect(buildClaudeRunEnv("/tmp/isolated-home")).toMatchObject({
+      HOME: "/tmp/isolated-home",
+      MCP_CONNECTION_NONBLOCKING: "0",
+    });
+  });
+});
+
+
+describe("resolveMcpStdioEntrypoint", () => {
+  it("points at the published comitia-mcp-proxy bin", () => {
+    expect(resolveMcpStdioEntrypoint()).toBe(
+      join(import.meta.dirname, "../../dist/mcp-stdio-main.js"),
+    );
+  });
+});
+
+
 describe("Claude Code live CLI", () => {
   it.skipIf(process.env.COMITIA_LIVE_CLAUDE !== "1")(
     "calls get_briefing through the real Claude CLI",
     async (context) => {
       if (!commandExists("claude")) context.skip();
+      if (!process.env.ANTHROPIC_API_KEY) context.skip();
 
       execFileSync("pnpm", ["--filter", "@comitia/agent", "build"], {
         cwd: join(import.meta.dirname, "../../../.."),
@@ -109,9 +161,6 @@ describe("Claude Code live CLI", () => {
       }
 
       const workDir = await mkdtemp(join(tmpdir(), "comitia-live-claude-"));
-      const { createClaudeCodePlugin } = await import(
-        `../../dist/plugins/claude-code.js?live=${Date.now()}`
-      );
       const plugin = createClaudeCodePlugin();
 
       try {
@@ -131,7 +180,10 @@ describe("Claude Code live CLI", () => {
           "Call the comitia-board get_briefing tool exactly once, then briefly summarize it.",
         );
 
-        expect(requests).toContain("/v1/tools/get_briefing");
+        expect(
+          requests,
+          `expected get_briefing HTTP call; transcript=${result.transcript} toolLog=${JSON.stringify(result.toolLog)}`,
+        ).toContain("/v1/tools/get_briefing");
         expect(result.toolLog).toEqual(
           expect.arrayContaining([
             expect.objectContaining({ tool: "get_briefing" }),
