@@ -120,7 +120,7 @@ describe("Claude Code live CLI", () => {
           workDir,
           mcp: {
             command: process.execPath,
-            args: [join(import.meta.dirname, "../../dist/mcp-stdio-main.js")],
+            args: [],
             env: {
               COMITIA_BOARD_URL: `http://127.0.0.1:${address.port}`,
               COMITIA_AGENT_TOKEN: "live-test-token",
