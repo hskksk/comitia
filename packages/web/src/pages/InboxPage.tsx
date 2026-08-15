@@ -10,6 +10,7 @@ const KIND_LABEL = {
 export function InboxPage() {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const reload = useCallback(() => {
     boardClient
@@ -24,11 +25,14 @@ export function InboxPage() {
 
   async function complete(threadId: string) {
     setError(null);
+    setIsCompleting(true);
     try {
       await boardClient.declare(threadId, { kind: "complete_thread" });
       reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "失敗しました");
+    } finally {
+      setIsCompleting(false);
     }
   }
 
@@ -56,7 +60,11 @@ export function InboxPage() {
           <p className="muted">{KIND_LABEL[item.kind]}</p>
           {item.latestReport ? <p>{item.latestReport.body}</p> : null}
           <div className="actions">
-            <button type="button" onClick={() => void complete(item.threadId)}>
+            <button
+              type="button"
+              disabled={isCompleting}
+              onClick={() => void complete(item.threadId)}
+            >
               完了にする
             </button>
           </div>

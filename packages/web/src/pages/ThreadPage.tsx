@@ -131,6 +131,7 @@ export function ThreadPage() {
         <div className="actions">
           <button
             type="button"
+            disabled={isDeclaring}
             onClick={() => void runDeclare({ kind: "complete_thread" })}
           >
             完了にする
