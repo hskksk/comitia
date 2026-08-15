@@ -56,6 +56,10 @@ pnpm run typecheck
 | `adapter.ts` トンネル中継部 | 80 行 |
 | **合計** | **314 行** |
 
+## 既知の限界（この PoC の範囲外）
+
+この PoC の配送保証は「**オフライン時に失われない**」まで。「**配送成功後・処理前にアダプタのプロセスが落ちた**」場合は tick が失われる（配送確認 ≠ 処理確認）。本設計では「消えない tick」ではなく「消えても害がない構造」で解く — 真実はサービス側の未消化セッションに置き、消化（`get_briefing` 呼び出し）が確認できなければ再送、tick は冪等。詳細は [docs/design/02-agent-connection.md](../../docs/design/02-agent-connection.md) §4「配送保証」。実装はゲートウェイ本実装（M3）の範囲。
+
 ## 技術メモ
 
 - A2A SDK: `@a2a-js/sdk` v1.0.0（REST / `ClientFactory` / `restHandler`）
