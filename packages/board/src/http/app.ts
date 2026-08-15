@@ -20,6 +20,7 @@ import {
   requireAuth,
   requireOwner,
 } from "./auth.js";
+import { registerHumanRoutes } from "./human-routes.js";
 
 export type BoardGateway = {
   sendTick: (input: {
@@ -48,6 +49,9 @@ export function createBoardApp(input: {
         { error: error.issues.map((issue) => issue.message).join("; ") },
         400,
       );
+    }
+    if (error instanceof PermissionDenied) {
+      return c.json({ error: error.message }, 403);
     }
     if (error instanceof DomainError) {
       return c.json({ error: error.message }, 400);
@@ -203,6 +207,8 @@ export function createBoardApp(input: {
     const remaining = await addTokenUsage(db, sessionId, body.tokens);
     return c.json({ remaining_budget: remaining });
   });
+
+  registerHumanRoutes(app, db);
 
   return app;
 }
