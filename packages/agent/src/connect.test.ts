@@ -179,12 +179,10 @@ describe("adapter connect", () => {
     const handle = await connectCommand({ name: "mika", configDir });
     cleanups.push(() => handle.close());
 
-    const sent = await server.sendTick({
-      participantId: registered.agent.id,
-      type: "session.start",
-    });
     await vi.waitFor(() =>
-      expect(handle.ticks.map((t) => t.id)).toContain(sent.tickId),
+      expect(handle.ticks.some((tick) => tick.type === "session.start")).toBe(
+        true,
+      ),
     );
   });
 
