@@ -33,3 +33,4 @@
 | [シナリオ検証の結果](docs/scenarios/README.md) | 4 本の紙上検証の書き下し、発見と処置 |
 | [設計 01: 第 1 層の実現方法](docs/design/01-layer1.md) | データモデル、状態機械、門の強制、エージェントゲートウェイ（たたき台） |
 | [設計 02: エージェント接続](docs/design/02-agent-connection.md) | 標準プロトコル、tick、ボード API、アダプタ CLI（たたき台） |
+| [設計 03: 技術選定](docs/design/03-tech-selection.md) | エンジン検証マトリクス、A2A/MCP 採用方針、スタック、PoC 計画（たたき台） |
