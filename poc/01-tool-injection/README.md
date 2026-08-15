@@ -38,8 +38,8 @@ MCP Client で `board-server.ts` を子プロセス起動し、ツール一覧�
 ### 実エンジン（要 CLI + 認証）
 
 ```bash
-pnpm run claude    # Claude Code
-pnpm run opencode  # OpenCode
+pnpm run claude    # Claude Code（devDependency + postinstall）
+pnpm run opencode  # OpenCode（Anthropic クレジット無し時は opencode/*-free モデル）
 ```
 
 CLI が PATH にない、または認証・プロバイダ未設定の場合は `SKIP（理由）` を表示して **exit 2**（FAIL とは区別）。
@@ -55,7 +55,7 @@ pnpm run typecheck
 | エンジン | 必要条件 |
 | --- | --- |
 | Claude Code | `claude` CLI が PATH にあること。Anthropic 認証済み（`claude login` 等） |
-| OpenCode | `opencode` CLI が PATH にあること。LLM プロバイダの API キー等が設定済み |
+| OpenCode | `opencode` CLI が PATH にあること。LLM プロバイダの API キー等が設定済み（または `opencode/*-free` モデル利用可） |
 
 ## 結果記入欄
 
@@ -74,23 +74,23 @@ pnpm run typecheck
 
 ### Claude Code（`pnpm run claude`）
 
-- [ ] エンジン起動（exit 0）
-- [ ] JSONL ツールログ（get_briefing → post → end_session）
-- [ ] 一時ディレクトリ削除
-- [ ] 標準環境の汚染チェック（`~/.claude.json` / `~/.claude/` 差分なし）
-- [ ] **総合**
+- [x] エンジン起動（exit 0）
+- [x] JSONL ツールログ（get_briefing → post → end_session）
+- [x] 一時ディレクトリ削除
+- [x] 標準環境の汚染チェック（`~/.claude.json` / `~/.claude/` 差分なし）
+- [x] **総合: PASS**
 
-メモ:
+メモ: 2026-08-15 Cloud Agent 環境。Anthropic クレジット追加後に再検証。ヘッドレス実行では `--permission-mode bypassPermissions` と `HOME` 一時ディレクトリ隔離が必要（MCP 権限プロンプト回避・設定汚染回避）。
 
 ### OpenCode（`pnpm run opencode`）
 
-- [ ] エンジン起動（exit 0）
-- [ ] JSONL ツールログ（get_briefing → post → end_session）
-- [ ] 一時ディレクトリ削除
-- [ ] 標準環境の汚染チェック（`~/.config/opencode/` 差分なし）
-- [ ] **総合**
+- [x] エンジン起動（exit 0）
+- [x] JSONL ツールログ（get_briefing → post → end_session）
+- [x] 一時ディレクトリ削除
+- [x] 標準環境の汚染チェック（`~/.config/opencode/` 差分なし）
+- [x] **総合: PASS**
 
-メモ:
+メモ: 2026-08-15 Cloud Agent 環境。Anthropic クレジット不足のためデフォルトを `opencode/deepseek-v4-flash-free` に変更（`OPENCODE_POC_MODEL` で上書き可）。`XDG_*` を一時ディレクトリに向けて標準設定の汚染を回避。CLI は devDependency（`opencode-ai`）を `postinstall` でセットアップ。
 
 ## 出力
 

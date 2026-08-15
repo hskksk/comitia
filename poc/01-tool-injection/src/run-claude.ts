@@ -74,6 +74,8 @@ async function main(): Promise<void> {
         "--mcp-config",
         mcpConfigPath,
         "--strict-mcp-config",
+        "--permission-mode",
+        "bypassPermissions",
         "--output-format",
         "stream-json",
         "--verbose",
@@ -82,8 +84,13 @@ async function main(): Promise<void> {
         args.push("--bare");
       }
 
+      const isolatedHome = mkdtempSync(
+        path.join(tmpdir(), "comitia-poc-claude-home-"),
+      );
+
       return runProcess("claude", args, {
         cwd: workDir,
+        env: { HOME: isolatedHome },
         timeoutMs: 300_000,
       });
     },
