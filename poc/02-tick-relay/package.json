@@ -1,0 +1,26 @@
+{
+  "name": "@comitia/poc-02-tick-relay",
+  "version": "0.0.1",
+  "private": true,
+  "description": "PoC-2: A2A tick 配送 + WebSocket リレースパイク",
+  "type": "module",
+  "scripts": {
+    "poc2": "tsx src/run-poc2.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "1.0.0",
+    "express": "^5.1.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^26.2.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}
