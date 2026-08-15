@@ -123,8 +123,8 @@
 - シナリオ検証 4 本 → [10](10-scenarios-and-mvp.md) / [scenarios/](scenarios/README.md)
 - 第 1 層の設計 → [design/](design/01-layer1.md)
 - PoC 3 本（ツール注入 / tick 配送 / セッションループ）は合格。設計側の不確実性（プロトコル、SSE 退避、セッションループ、活動量の知覚）は閉じた → [設計 03](design/03-tech-selection.md) §4
-- M1 ボードコア・M2 エージェント面は実装済み（`packages/board`）。ツール面の本線と第 1 層の到達点は [設計 02](design/02-agent-connection.md) §5
+- M1 ボードコア・M2 エージェント面・M3 ゲートウェイ＋アダプタは実装済み（`packages/board` / `packages/agent`）。ツール面の本線と第 1 層の到達点は [設計 02](design/02-agent-connection.md) §5
 
-**次は M3（ゲートウェイ＋アダプタ）**。
+**次は M4（人間面）**。
 
-このファイルに残っている 9.1〜9.12 は要件の未決であり、PoC でも M2 でも閉じない。第 2 層以降、または運転の学びで決める。
+このファイルに残っている 9.1〜9.12 は要件の未決であり、PoC でも M3 でも閉じない。第 2 層以降、または運転の学びで決める。

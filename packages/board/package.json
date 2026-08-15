@@ -13,20 +13,30 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/http/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@a2a-js/sdk": "1.0.0",
     "@comitia/shared": "workspace:*",
+    "@hono/node-server": "^2.1.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "drizzle-orm": "^0.45.2",
+    "express": "^5.1.0",
+    "hono": "^4.13.2",
+    "postgres": "^3.4.9",
+    "ws": "^8.18.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.5",
+    "@types/express": "^5.0.3",
     "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }

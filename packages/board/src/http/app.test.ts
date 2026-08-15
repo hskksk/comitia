@@ -1,0 +1,450 @@
+import "../test/helpers.js";
+import { describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { db } from "../test/helpers.js";
+import { agentConnections, sessions, ticks } from "../db/schema.js";
+import { prepareSessionStart } from "../domain/sessions.js";
+import type { TickType } from "@comitia/shared";
+import { createBoardApp, type BoardGateway } from "./app.js";
+import { startBoardServer } from "./server.js";
+
+async function bootstrapOwnerAndAgent(app: ReturnType<typeof createBoardApp>) {
+  const initRes = await app.request("/v1/init", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    }),
+  });
+  expect(initRes.status).toBe(201);
+  const initBody = (await initRes.json()) as {
+    ownerId: string;
+    projectId: string;
+    ownerToken: string;
+  };
+
+  const regRes = await app.request("/v1/agents", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${initBody.ownerToken}`,
+    },
+    body: JSON.stringify({
+      displayName: "ミカ",
+      engine: "claude-code",
+    }),
+  });
+  expect(regRes.status).toBe(201);
+  const agentBody = (await regRes.json()) as {
+    agentId: string;
+    projectId: string;
+    agentToken: string;
+  };
+
+  return { initBody, agentBody };
+}
+
+describe("board HTTP", () => {
+  it("init → register → get_briefing over REST", async () => {
+    const app = createBoardApp({ db });
+
+    const initRes = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerDisplayName: "ハル",
+        projectName: "comitia",
+      }),
+    });
+    expect(initRes.status).toBe(201);
+    const initBody = await initRes.json();
+    const ownerToken = initBody.ownerToken as string;
+
+    const regRes = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({
+        displayName: "ミカ",
+        engine: "claude-code",
+      }),
+    });
+    expect(regRes.status).toBe(201);
+    const agentToken = (await regRes.json()).agentToken as string;
+
+    const toolRes = await app.request("/v1/tools/get_briefing", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(toolRes.status).toBe(200);
+    const briefing = await toolRes.json();
+    expect(typeof briefing.remaining_budget).toBe("number");
+  });
+
+  it("rejects tool calls without a token", async () => {
+    const app = createBoardApp({ db });
+    const res = await app.request("/v1/tools/get_briefing", {
+      method: "POST",
+      body: "{}",
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("returns healthz without auth", async () => {
+    const app = createBoardApp({ db });
+    const res = await app.request("/healthz");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("sends a tick through the injected gateway", async () => {
+    const calls: Array<{ participantId: string; type: TickType }> = [];
+    const fake: BoardGateway = {
+      sendTick: async (input) => {
+        calls.push(input);
+        return {
+          tickId: "tick-from-fake",
+          sessionId: "sess-from-fake",
+          status: "queued",
+        };
+      },
+    };
+    const app = createBoardApp({
+      db,
+      getGateway: () => fake,
+    });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request("/v1/me/request-session", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      sessionId: "sess-from-fake",
+      tickId: "tick-from-fake",
+      status: "queued",
+    });
+    expect(calls).toEqual([
+      { participantId: agentBody.agentId, type: "session.start" },
+    ]);
+  });
+
+  it("returns 503 when gateway is missing", async () => {
+    const app = createBoardApp({ db });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request("/v1/me/request-session", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "tick gateway is unavailable" });
+  });
+
+  it("returns 503 when getGateway returns undefined", async () => {
+    const app = createBoardApp({ db, getGateway: () => undefined });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request("/v1/me/request-session", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "tick gateway is unavailable" });
+  });
+
+  it(
+    "POST /v1/me/request-session over HTTP calls sendTick",
+    async () => {
+      const server = await startBoardServer({ db, port: 0 });
+      try {
+        const initRes = await fetch(`${server.baseUrl}/v1/init`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ownerDisplayName: "ハル",
+            projectName: "comitia",
+          }),
+        });
+        expect(initRes.status).toBe(201);
+        const initBody = (await initRes.json()) as { ownerToken: string };
+
+        const regRes = await fetch(`${server.baseUrl}/v1/agents`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${initBody.ownerToken}`,
+          },
+          body: JSON.stringify({
+            displayName: "ミカ",
+            engine: "claude-code",
+          }),
+        });
+        expect(regRes.status).toBe(201);
+        const agentBody = (await regRes.json()) as {
+          agentId: string;
+          agentToken: string;
+        };
+
+        const res = await fetch(`${server.baseUrl}/v1/me/request-session`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${agentBody.agentToken}`,
+          },
+          body: "{}",
+        });
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          sessionId: string;
+          tickId: string;
+          status: "delivered" | "queued";
+        };
+        expect(body.tickId).toBeTruthy();
+        expect(body.sessionId).toBeTruthy();
+        expect(body.status).toBe("queued");
+
+        const [row] = await db
+          .select()
+          .from(ticks)
+          .where(eq(ticks.id, body.tickId));
+        expect(row?.type).toBe("session.start");
+        expect(row?.status).toBe("queued");
+        expect(row?.participantId).toBe(agentBody.agentId);
+      } finally {
+        await server.close();
+      }
+    },
+    30_000,
+  );
+
+  it("appends chat log and token usage on the agent's own session", async () => {
+    const app = createBoardApp({ db });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const session = await prepareSessionStart(db, {
+      participantId: agentBody.agentId,
+      projectId: agentBody.projectId,
+    });
+    const sessionId = session.id;
+
+    const chatRes = await app.request(`/v1/sessions/${sessionId}/chat-log`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({ chunk: "hello " }),
+    });
+    expect(chatRes.status).toBe(200);
+    expect(await chatRes.json()).toEqual({ ok: true });
+
+    const chatRes2 = await app.request(`/v1/sessions/${sessionId}/chat-log`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({ chunk: "world" }),
+    });
+    expect(chatRes2.status).toBe(200);
+
+    const [row] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId));
+    expect(row?.chatLog).toBe("hello world");
+
+    const usageRes = await app.request(`/v1/sessions/${sessionId}/token-usage`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({ tokens: 7 }),
+    });
+    expect(usageRes.status).toBe(200);
+    const usage = (await usageRes.json()) as { remaining_budget: number };
+    expect(typeof usage.remaining_budget).toBe("number");
+    expect(usage.remaining_budget).toBe((row?.budgetLimit ?? 0) - 7);
+  });
+
+  it("returns 404 for unknown tools", async () => {
+    const app = createBoardApp({ db });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request("/v1/tools/not_a_tool", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns connection status for the owner", async () => {
+    const app = createBoardApp({ db });
+    const { initBody, agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request(`/v1/agents/${agentBody.agentId}/connection`, {
+      headers: {
+        authorization: `Bearer ${initBody.ownerToken}`,
+      },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      status: string;
+      lastSeenAt: string | null;
+    };
+    expect(body.status).toBe("disconnected");
+    expect(body.lastSeenAt).toBeNull();
+  });
+
+  it("sends session.end_warning after a tool leaves remaining at the wind-down reserve", async () => {
+    const calls: Array<{ participantId: string; type: TickType }> = [];
+    const fake: BoardGateway = {
+      sendTick: async (input) => {
+        calls.push(input);
+        return {
+          tickId: `tick-${calls.length}`,
+          sessionId: "sess-end-warning",
+          status: "queued",
+        };
+      },
+    };
+    const app = createBoardApp({
+      db,
+      getGateway: () => fake,
+    });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    await db
+      .update(agentConnections)
+      .set({ status: "connected", lastSeenAt: new Date() })
+      .where(eq(agentConnections.participantId, agentBody.agentId));
+
+    const briefingRes = await app.request("/v1/tools/get_briefing", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(briefingRes.status).toBe(200);
+
+    const [session] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.participantId, agentBody.agentId));
+    expect(session).toBeTruthy();
+    await db
+      .update(sessions)
+      .set({
+        budgetUsed: session!.budgetLimit - session!.windDownReserved - 5,
+      })
+      .where(eq(sessions.id, session!.id));
+
+    const goalsRes = await app.request("/v1/tools/set_goals", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({ goals: ["wrap up"] }),
+    });
+    expect(goalsRes.status).toBe(200);
+    expect(calls).toEqual([
+      { participantId: agentBody.agentId, type: "session.end_warning" },
+    ]);
+  });
+
+  it("does not send session.end_warning when one is already queued for the session", async () => {
+    const calls: Array<{ participantId: string; type: TickType }> = [];
+    const fake: BoardGateway = {
+      sendTick: async (input) => {
+        calls.push(input);
+        return {
+          tickId: `tick-${calls.length}`,
+          sessionId: "sess-end-warning",
+          status: "queued",
+        };
+      },
+    };
+    const app = createBoardApp({
+      db,
+      getGateway: () => fake,
+    });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    await db
+      .update(agentConnections)
+      .set({ status: "connected", lastSeenAt: new Date() })
+      .where(eq(agentConnections.participantId, agentBody.agentId));
+
+    const briefingRes = await app.request("/v1/tools/get_briefing", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(briefingRes.status).toBe(200);
+
+    const [session] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.participantId, agentBody.agentId));
+    expect(session).toBeTruthy();
+
+    await db.insert(ticks).values({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      participantId: agentBody.agentId,
+      sessionId: session!.id,
+      type: "session.end_warning",
+      status: "queued",
+      sequence: 1,
+    });
+
+    await db
+      .update(sessions)
+      .set({
+        budgetUsed: session!.budgetLimit - session!.windDownReserved - 5,
+      })
+      .where(eq(sessions.id, session!.id));
+
+    const goalsRes = await app.request("/v1/tools/set_goals", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({ goals: ["wrap up"] }),
+    });
+    expect(goalsRes.status).toBe(200);
+    expect(calls).toEqual([]);
+  });
+});

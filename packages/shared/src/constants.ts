@@ -103,6 +103,17 @@ export const DEFAULT_SESSION_BUDGET = 100;
 /** Budget reserved for wind-down; only end_session is allowed once remaining <= this. */
 export const WIND_DOWN_RESERVE = 10;
 
+/** Gateway timing and capacity limits (M3). */
+export const GATEWAY = {
+  digestTimeoutMs: 60_000,
+  sessionTimeoutMs: 60 * 60_000,
+  healthPingMs: 30_000,
+  healthTtlMs: 90_000,
+  idleRunLimit: 2,
+  maxRuns: 8,
+  defaultListenPort: 8787,
+} as const;
+
 /** Explicit per-tool costs; mutating tools default to DEFAULT_MUTATING_TOOL_COST. */
 export const TOOL_COSTS = {
   get_briefing: 0,
@@ -137,6 +148,12 @@ export const EVENT_KINDS = [
   "thread_declaration",
   "session_started",
   "session_ended",
+  "session_digested",
+  "session_interrupted",
+  "tick_queued",
+  "tick_delivered",
+  "agent_connected",
+  "agent_disconnected",
   "goals_set",
   "budget_spent",
 ] as const;

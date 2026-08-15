@@ -1,0 +1,35 @@
+{
+  "name": "@comitia/agent",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "comitia": "./dist/cli.js",
+    "comitia-mcp-proxy": "./dist/mcp-stdio-main.js"
+  },
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "1.0.0",
+    "@comitia/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "express": "^5.1.0",
+    "ws": "^8.18.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@comitia/board": "workspace:*",
+    "@electric-sql/pglite": "^0.5.5",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "drizzle-orm": "^0.45.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

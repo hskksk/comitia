@@ -1,19 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
-import { drizzle, type PgliteDatabase } from "drizzle-orm/pglite";
+import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import * as schema from "./schema.js";
+import type { Db } from "./types.js";
 
-/** トップレベルの DB クライアント（トランザクションを開始できる） */
-export type DbClient = PgliteDatabase<typeof schema>;
-
-/** トランザクションハンドル型（DbClient["transaction"] のコールバック引数） */
-type DbTx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
-
-/**
- * ドメイン関数が受け取る DB 型。クライアントでもトランザクションでもよい。
- * 状態遷移を伴う操作（declare 等）は DbClient を要求し、内部でトランザクションを張る。
- */
-export type Db = DbClient | DbTx;
+export type { Db, DbClient } from "./types.js";
 
 export async function createTestDb(): Promise<{
   client: PGlite;

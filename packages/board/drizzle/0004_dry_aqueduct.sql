@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "sessions_one_open_per_participant_project" ON "sessions" USING btree ("participant_id","project_id") WHERE "sessions"."ended_at" is null;

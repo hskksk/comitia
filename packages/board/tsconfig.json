@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
+    "composite": true,
     "types": ["node"],
     "paths": {
       "@comitia/shared": ["../shared/src/index.ts"]

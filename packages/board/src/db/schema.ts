@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -8,6 +8,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -220,22 +221,33 @@ export const posts = pgTable("posts", {
     .defaultNow(),
 });
 
-export const sessions = pgTable("sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  participantId: uuid("participant_id")
-    .notNull()
-    .references(() => participants.id),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id),
-  startedAt: timestamp("started_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  endedAt: timestamp("ended_at", { withTimezone: true }),
-  budgetLimit: integer("budget_limit").notNull(),
-  budgetUsed: integer("budget_used").notNull().default(0),
-  windDownReserved: integer("wind_down_reserved").notNull(),
-});
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    briefingAt: timestamp("briefing_at", { withTimezone: true }),
+    endedReason: text("ended_reason", { enum: ["completed", "interrupted"] }),
+    chatLog: text("chat_log").notNull().default(""),
+    budgetLimit: integer("budget_limit").notNull(),
+    budgetUsed: integer("budget_used").notNull().default(0),
+    windDownReserved: integer("wind_down_reserved").notNull(),
+  },
+  (table) => [
+    uniqueIndex("sessions_one_open_per_participant_project")
+      .on(table.participantId, table.projectId)
+      .where(sql`${table.endedAt} is null`),
+  ],
+);
 
 export const sessionGoals = pgTable("session_goals", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -271,8 +283,59 @@ export const events = pgTable("events", {
     .defaultNow(),
 });
 
-export const participantsRelations = relations(participants, ({ many }) => ({
+export const agentCredentials = pgTable("agent_credentials", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  participantId: uuid("participant_id")
+    .notNull()
+    .references(() => participants.id)
+    .unique(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  tokenHash: text("token_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+export const agentConnections = pgTable("agent_connections", {
+  participantId: uuid("participant_id")
+    .primaryKey()
+    .references(() => participants.id),
+  status: text("status", { enum: ["connected", "disconnected"] })
+    .notNull()
+    .default("disconnected"),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  sessionStartMinute: integer("session_start_minute").notNull().default(0),
+});
+
+export const ticks = pgTable(
+  "ticks",
+  {
+    id: uuid("id").primaryKey(),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id),
+    sessionId: uuid("session_id").references(() => sessions.id),
+    type: text("type").notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    status: text("status", { enum: ["queued", "delivered"] })
+      .notNull()
+      .default("queued"),
+    sequence: integer("sequence").notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  },
+  (table) => [unique().on(table.participantId, table.sequence)],
+);
+
+export const participantsRelations = relations(participants, ({ one, many }) => ({
   projects: many(projects),
+  agentCredential: one(agentCredentials),
+  agentConnection: one(agentConnections),
+  ticks: many(ticks),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -282,6 +345,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   }),
   threads: many(threads),
   agreements: many(agreements),
+  agentCredentials: many(agentCredentials),
 }));
 
 export const threadsRelations = relations(threads, ({ one, many }) => ({
@@ -326,6 +390,7 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   }),
   goals: many(sessionGoals),
   handovers: many(handovers),
+  ticks: many(ticks),
 }));
 
 export const sessionGoalsRelations = relations(sessionGoals, ({ one }) => ({
@@ -338,6 +403,41 @@ export const sessionGoalsRelations = relations(sessionGoals, ({ one }) => ({
 export const handoversRelations = relations(handovers, ({ one }) => ({
   session: one(sessions, {
     fields: [handovers.sessionId],
+    references: [sessions.id],
+  }),
+}));
+
+export const agentCredentialsRelations = relations(
+  agentCredentials,
+  ({ one }) => ({
+    participant: one(participants, {
+      fields: [agentCredentials.participantId],
+      references: [participants.id],
+    }),
+    project: one(projects, {
+      fields: [agentCredentials.projectId],
+      references: [projects.id],
+    }),
+  }),
+);
+
+export const agentConnectionsRelations = relations(
+  agentConnections,
+  ({ one }) => ({
+    participant: one(participants, {
+      fields: [agentConnections.participantId],
+      references: [participants.id],
+    }),
+  }),
+);
+
+export const ticksRelations = relations(ticks, ({ one }) => ({
+  participant: one(participants, {
+    fields: [ticks.participantId],
+    references: [participants.id],
+  }),
+  session: one(sessions, {
+    fields: [ticks.sessionId],
     references: [sessions.id],
   }),
 }));
@@ -356,6 +456,9 @@ export const schema = {
   sessionGoals,
   handovers,
   events,
+  agentCredentials,
+  agentConnections,
+  ticks,
 };
 
 export type BoardSchema = typeof schema;

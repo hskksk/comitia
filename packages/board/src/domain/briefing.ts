@@ -5,7 +5,9 @@ import { computeRemaining } from "./activity.js";
 import {
   getLatestPreviousHandover,
   listSessionGoals,
+  markSessionDigested,
   openOrGetSession,
+  wasLatestPreviousSessionInterrupted,
 } from "./sessions.js";
 
 export async function getBriefing(
@@ -13,12 +15,20 @@ export async function getBriefing(
   input: { participantId: string; projectId: string },
 ) {
   const session = await openOrGetSession(db, input);
+  const digestedSession = await markSessionDigested(db, session.id);
 
-  const handover = await getLatestPreviousHandover(db, {
+  const previousInterrupted = await wasLatestPreviousSessionInterrupted(db, {
     participantId: input.participantId,
     projectId: input.projectId,
-    beforeSessionId: session.id,
+    beforeSessionId: digestedSession.id,
   });
+  const handover = previousInterrupted
+    ? ""
+    : await getLatestPreviousHandover(db, {
+        participantId: input.participantId,
+        projectId: input.projectId,
+        beforeSessionId: digestedSession.id,
+      });
 
   const ownedThreads = await db
     .select({
@@ -39,7 +49,7 @@ export async function getBriefing(
     (thread) => thread.state === "awaiting_decision",
   );
 
-  const goals = await listSessionGoals(db, session.id);
+  const goals = await listSessionGoals(db, digestedSession.id);
   const incompleteGoals = goals
     .filter((goal) => goal.status === "pending")
     .map((goal) => ({
@@ -49,7 +59,7 @@ export async function getBriefing(
     }));
 
   return {
-    sessionId: session.id,
+    sessionId: digestedSession.id,
     handover,
     rules: "",
     situation: {
@@ -58,7 +68,8 @@ export async function getBriefing(
         ? { awaiting_decision: awaitingDecision }
         : {}),
       incomplete_goals: incompleteGoals,
+      ...(previousInterrupted ? { previous_interrupted: true } : {}),
     },
-    remaining_budget: computeRemaining(session),
+    remaining_budget: computeRemaining(digestedSession),
   };
 }

@@ -1,6 +1,9 @@
 export * from "./domain/consensus.js";
 export * from "./domain/errors.js";
 export * from "./domain/participants.js";
+export * from "./domain/credentials.js";
+export * from "./domain/connections.js";
+export * from "./domain/bootstrap.js";
 export * from "./domain/projects.js";
 export * from "./domain/roles.js";
 export * from "./domain/threads.js";
@@ -14,5 +17,30 @@ export * from "./domain/read-thread.js";
 export * from "./domain/sessions.js";
 export { schema } from "./db/schema.js";
 export type { Db } from "./db/test-setup.js";
-export { createBoardMcpServer } from "./mcp/create-server.js";
-export type { BoardMcpServer, ToolCallResult } from "./mcp/create-server.js";
+export { createPostgresDb } from "./db/postgres.js";
+export { createBoardApp } from "./http/app.js";
+export type { BoardGateway } from "./http/app.js";
+export { startBoardServer, startLoops } from "./http/server.js";
+export { createRelay } from "./gateway/relay.js";
+export type { Relay, RelayOptions } from "./gateway/relay.js";
+export { sendTick, flushMailbox } from "./gateway/send-tick.js";
+export type {
+  SendTickInput,
+  SendTickResult,
+} from "./gateway/send-tick.js";
+export { resendUndigested } from "./gateway/resend.js";
+export { runScheduler, utcMinutes, utcMidnight } from "./gateway/scheduler.js";
+export {
+  touchConnection,
+  expireStaleConnections,
+  maybeSendEndWarning,
+} from "./gateway/health.js";
+export {
+  createBoardMcpServer,
+  createBoardToolRuntime,
+} from "./mcp/create-server.js";
+export type {
+  BoardMcpServer,
+  BoardToolRuntime,
+  ToolCallResult,
+} from "./mcp/create-server.js";
