@@ -1,0 +1,35 @@
+:root {
+  font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  color: #111;
+  background: #f6f5f2;
+  line-height: 1.5;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; }
+button, input, textarea {
+  font: inherit;
+}
+.layout {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+.nav {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #ddd;
+}
+.nav a[aria-current="page"] { font-weight: 700; }
+.card {
+  background: #fff;
+  border: 1px solid #e2e0db;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 0 0 0.75rem;
+}
+.muted { color: #666; font-size: 0.9rem; }
+.actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+.error { color: #9b1c1c; }
