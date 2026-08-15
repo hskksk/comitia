@@ -4,7 +4,7 @@
  *
  * OPENCODE_CONFIG_CONTENT で MCP 定義を注入してヘッドレス起動する。
  */
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { BOARD_SERVER_PATH, TSX_CLI_PATH } from "./paths.js";
@@ -34,7 +34,12 @@ async function main(): Promise<void> {
   const logDir = mkdtempSync(path.join(tmpdir(), "comitia-poc-opencode-log-"));
   const logPath = path.join(logDir, "tool-log.jsonl");
 
+  /** Anthropic クレジットが無い環境向け。上書き: OPENCODE_POC_MODEL */
+  const model =
+    process.env.OPENCODE_POC_MODEL ?? "opencode/deepseek-v4-flash-free";
+
   const mcpConfig = {
+    model,
     mcp: {
       "comitia-board": {
         type: "local",
@@ -52,13 +57,29 @@ async function main(): Promise<void> {
     logPath,
     timeoutMs: 300_000,
     run: async ({ workDir }) => {
-      return runProcess("opencode", ["run", ENGINE_PROMPT], {
-        cwd: workDir,
-        env: {
-          OPENCODE_CONFIG_CONTENT: JSON.stringify(mcpConfig),
+      const xdgBase = mkdtempSync(path.join(tmpdir(), "comitia-poc-opencode-xdg-"));
+      const xdgData = path.join(xdgBase, "data");
+      const xdgState = path.join(xdgBase, "state");
+      const xdgCache = path.join(xdgBase, "cache");
+      mkdirSync(xdgData, { recursive: true });
+      mkdirSync(xdgState, { recursive: true });
+      mkdirSync(xdgCache, { recursive: true });
+
+      return runProcess(
+        "opencode",
+        ["run", "-m", model, "--auto", ENGINE_PROMPT],
+        {
+          cwd: workDir,
+          env: {
+            OPENCODE_CONFIG_CONTENT: JSON.stringify(mcpConfig),
+            XDG_CONFIG_HOME: xdgBase,
+            XDG_DATA_HOME: xdgData,
+            XDG_STATE_HOME: xdgState,
+            XDG_CACHE_HOME: xdgCache,
+          },
+          timeoutMs: 300_000,
         },
-        timeoutMs: 300_000,
-      });
+      );
     },
   });
 

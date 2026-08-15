@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "fake": "tsx src/run-fake-engine.ts",
-    "claude": "tsx src/run-claude.ts",
-    "opencode": "tsx src/run-opencode.ts",
-    "typecheck": "tsc --noEmit"
+    "claude": "PATH=\"$PWD/node_modules/.bin:$PATH\" tsx src/run-claude.ts",
+    "opencode": "PATH=\"$PWD/node_modules/.bin:$PATH\" tsx src/run-opencode.ts",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs && node node_modules/opencode-ai/postinstall.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -18,7 +19,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.233",
     "@types/node": "^26.2.0",
+    "opencode-ai": "1.18.18",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }

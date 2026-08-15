@@ -38,8 +38,8 @@ MCP Client で `board-server.ts` を子プロセス起動し、ツール一覧�
 ### 実エンジン（要 CLI + 認証）
 
 ```bash
-pnpm run claude    # Claude Code
-pnpm run opencode  # OpenCode
+pnpm run claude    # Claude Code（devDependency + postinstall）
+pnpm run opencode  # OpenCode（Anthropic クレジット無し時は opencode/*-free モデル）
 ```
 
 CLI が PATH にない、または認証・プロバイダ未設定の場合は `SKIP（理由）` を表示して **exit 2**（FAIL とは区別）。
@@ -78,19 +78,19 @@ pnpm run typecheck
 - [ ] JSONL ツールログ（get_briefing → post → end_session）
 - [ ] 一時ディレクトリ削除
 - [ ] 標準環境の汚染チェック（`~/.claude.json` / `~/.claude/` 差分なし）
-- [ ] **総合**
+- [ ] **総合: FAIL**
 
-メモ:
+メモ: 2026-08-15 Cloud Agent 環境。MCP 接続（`comitia-board: connected`）までは成功するが、`ANTHROPIC_API_KEY` のクレジット不足（`Credit balance is too low`）で LLM 応答前に終了。ツール往復は未実行。Anthropic クレジット付き API キーが必要。
 
 ### OpenCode（`pnpm run opencode`）
 
-- [ ] エンジン起動（exit 0）
-- [ ] JSONL ツールログ（get_briefing → post → end_session）
-- [ ] 一時ディレクトリ削除
-- [ ] 標準環境の汚染チェック（`~/.config/opencode/` 差分なし）
-- [ ] **総合**
+- [x] エンジン起動（exit 0）
+- [x] JSONL ツールログ（get_briefing → post → end_session）
+- [x] 一時ディレクトリ削除
+- [x] 標準環境の汚染チェック（`~/.config/opencode/` 差分なし）
+- [x] **総合: PASS**
 
-メモ:
+メモ: 2026-08-15 Cloud Agent 環境。Anthropic クレジット不足のためデフォルトを `opencode/deepseek-v4-flash-free` に変更（`OPENCODE_POC_MODEL` で上書き可）。`XDG_*` を一時ディレクトリに向けて標準設定の汚染を回避。CLI は devDependency（`opencode-ai`）を `postinstall` でセットアップ。
 
 ## 出力
 
