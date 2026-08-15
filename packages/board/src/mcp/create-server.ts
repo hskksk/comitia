@@ -1,0 +1,468 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  CONSENSUS_TYPES,
+  POST_TYPES,
+  PROPOSAL_TARGETS,
+  SHARED_ARTIFACT_KINDS,
+  THREAD_STATES,
+  THREAD_TYPES,
+  declarationKindSchema,
+} from "@comitia/shared";
+import { z, ZodError } from "zod";
+import type { Db, DbClient } from "../db/test-setup.js";
+import { spend } from "../domain/activity.js";
+import { searchAgreements } from "../domain/agreements.js";
+import { getBriefing } from "../domain/briefing.js";
+import { declare } from "../domain/declare.js";
+import {
+  DomainError,
+  GateViolation,
+  NotFoundError,
+  PermissionDenied,
+} from "../domain/errors.js";
+import { addPost } from "../domain/posts.js";
+import { addProposal } from "../domain/proposals.js";
+import { readThread } from "../domain/read-thread.js";
+import {
+  completeGoal,
+  endSession,
+  openOrGetSession,
+  setGoals,
+} from "../domain/sessions.js";
+import { createThread, searchThreads } from "../domain/threads.js";
+
+export type ToolCallResult = {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+};
+
+type ToolHandler = (args: Record<string, unknown>) => Promise<ToolCallResult>;
+
+function toolError(message: string): ToolCallResult {
+  return {
+    content: [{ type: "text", text: message }],
+    isError: true,
+  };
+}
+
+function jsonResult(data: Record<string, unknown>): ToolCallResult {
+  return {
+    content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+  };
+}
+
+function mapDomainError(error: unknown): ToolCallResult | null {
+  if (error instanceof ZodError) {
+    return toolError(error.issues.map((issue) => issue.message).join("; "));
+  }
+  if (
+    error instanceof GateViolation ||
+    error instanceof NotFoundError ||
+    error instanceof PermissionDenied ||
+    error instanceof DomainError
+  ) {
+    return toolError(error.message);
+  }
+  return null;
+}
+
+export function createBoardMcpServer(input: {
+  db: Db;
+  participantId: string;
+  projectId: string;
+}) {
+  const { db, participantId, projectId } = input;
+  let sessionId: string | null = null;
+
+  async function ensureSessionId(): Promise<string> {
+    if (sessionId) {
+      return sessionId;
+    }
+    const session = await openOrGetSession(db, { participantId, projectId });
+    sessionId = session.id;
+    return session.id;
+  }
+
+  async function runTool(
+    toolName: string,
+    handler: () => Promise<Record<string, unknown>>,
+  ): Promise<ToolCallResult> {
+    try {
+      const sid = await ensureSessionId();
+      const remaining = await spend(db, sid, toolName);
+      const data = await handler();
+      return jsonResult({ ...data, remaining_budget: remaining });
+    } catch (error) {
+      const mapped = mapDomainError(error);
+      if (mapped) {
+        return mapped;
+      }
+      throw error;
+    }
+  }
+
+  const handlers: Record<string, ToolHandler> = {
+    get_briefing: async () => {
+      try {
+        const briefing = await getBriefing(db, { participantId, projectId });
+        sessionId = briefing.sessionId;
+        const remaining = await spend(db, briefing.sessionId, "get_briefing");
+        const { sessionId: _sid, remaining_budget: _rb, ...pack } = briefing;
+        return jsonResult({ ...pack, remaining_budget: remaining });
+      } catch (error) {
+        const mapped = mapDomainError(error);
+        if (mapped) {
+          return mapped;
+        }
+        throw error;
+      }
+    },
+
+    set_goals: async (args) =>
+      runTool("set_goals", async () => {
+        const sid = await ensureSessionId();
+        const parsed = z.object({ goals: z.array(z.string()).min(1) }).parse(args);
+        const goals = await setGoals(db, { sessionId: sid, texts: parsed.goals });
+        return {
+          ok: true,
+          goals: goals.map((g) => ({ id: g.id, text: g.text, status: g.status })),
+        };
+      }),
+
+    complete_goal: async (args) =>
+      runTool("complete_goal", async () => {
+        const sid = await ensureSessionId();
+        const parsed = z.object({ goal_id: z.string().uuid() }).parse(args);
+        const goal = await completeGoal(db, {
+          sessionId: sid,
+          goalId: parsed.goal_id,
+        });
+        return { ok: true, goal_id: goal.id, status: goal.status };
+      }),
+
+    search_threads: async (args) =>
+      runTool("search_threads", async () => {
+        const parsed = z
+          .object({
+            textQuery: z.string().optional(),
+            state: z.enum(THREAD_STATES).optional(),
+          })
+          .parse(args);
+        const rows = await searchThreads(db, {
+          projectId,
+          textQuery: parsed.textQuery,
+          state: parsed.state,
+        });
+        return {
+          threads: rows.map((t) => ({
+            id: t.id,
+            title: t.title,
+            type: t.type,
+            state: t.state,
+          })),
+        };
+      }),
+
+    search_decisions: async (args) =>
+      runTool("search_decisions", async () => {
+        const parsed = z
+          .object({ onlyActiveBinding: z.boolean().optional() })
+          .parse(args);
+        const rows = await searchAgreements(db, {
+          projectId,
+          onlyActiveBinding: parsed.onlyActiveBinding,
+        });
+        return { agreements: rows };
+      }),
+
+    read_thread: async (args) =>
+      runTool("read_thread", async () => {
+        const parsed = z.object({ thread_id: z.string().uuid() }).parse(args);
+        return (await readThread(db, parsed.thread_id)) as unknown as Record<
+          string,
+          unknown
+        >;
+      }),
+
+    create_thread: async (args) =>
+      runTool("create_thread", async () => {
+        const parsed = z
+          .object({
+            type: z.enum(THREAD_TYPES),
+            title: z.string().min(1),
+            trigger: z.string().min(1),
+            duplicateSearchQuery: z.string().min(1),
+            consensusType: z.enum(CONSENSUS_TYPES).optional(),
+            humanRequired: z.boolean().optional(),
+            target: z.enum(PROPOSAL_TARGETS).optional(),
+            sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
+            conflictCitationsChecked: z.boolean().optional(),
+            parentThreadId: z.string().uuid().optional(),
+          })
+          .parse(args);
+        const thread = await createThread(db, {
+          projectId,
+          ownerId: participantId,
+          type: parsed.type,
+          title: parsed.title,
+          trigger: parsed.trigger,
+          duplicateSearchQuery: parsed.duplicateSearchQuery,
+          consensusType: parsed.consensusType,
+          humanRequired: parsed.humanRequired,
+          target: parsed.target,
+          sharedArtifactKind: parsed.sharedArtifactKind,
+          conflictCitationsChecked: parsed.conflictCitationsChecked,
+          parentThreadId: parsed.parentThreadId,
+        });
+        return { thread_id: thread.id, state: thread.state };
+      }),
+
+    add_proposal: async (args) =>
+      runTool("add_proposal", async () => {
+        const parsed = z
+          .object({
+            thread_id: z.string().uuid(),
+            content: z.string().min(1),
+          })
+          .parse(args);
+        const { proposal, version } = await addProposal(db, {
+          threadId: parsed.thread_id,
+          authorId: participantId,
+          content: parsed.content,
+        });
+        return {
+          proposal_id: proposal.id,
+          proposal_version_id: version.id,
+          number: proposal.number,
+        };
+      }),
+
+    post: async (args) =>
+      runTool("post", async () => {
+        const parsed = z
+          .object({
+            thread_id: z.string().uuid(),
+            type: z.enum(POST_TYPES),
+            body: z.string().min(1),
+            rationale: z.string().optional(),
+            blocking: z.boolean().optional(),
+            proposal_version_id: z.string().uuid().optional(),
+          })
+          .parse(args);
+        const post = await addPost(db, {
+          threadId: parsed.thread_id,
+          authorId: participantId,
+          type: parsed.type,
+          body: parsed.body,
+          rationale: parsed.rationale,
+          blocking: parsed.blocking,
+          proposalVersionId: parsed.proposal_version_id,
+        });
+        return { post_id: post.id, type: post.type };
+      }),
+
+    declare: async (args) =>
+      runTool("declare", async () => {
+        const parsed = z
+          .object({
+            thread_id: z.string().uuid(),
+            kind: declarationKindSchema,
+            payload: z.record(z.string(), z.unknown()).default({}),
+          })
+          .parse(args);
+        const result = await declare(db as DbClient, {
+          threadId: parsed.thread_id,
+          actorId: participantId,
+          kind: parsed.kind,
+          payload: parsed.payload,
+        });
+        return {
+          thread_id: parsed.thread_id,
+          state: result.thread.state,
+          kind: parsed.kind,
+        };
+      }),
+
+    end_session: async (args) => {
+      try {
+        const sid = await ensureSessionId();
+        const parsed = z.object({ handover: z.string() }).parse(args);
+        if (!parsed.handover.trim()) {
+          return toolError("申し送り（handover）は必須です");
+        }
+        const remaining = await spend(db, sid, "end_session");
+        await endSession(db, { sessionId: sid, handover: parsed.handover });
+        sessionId = null;
+        return jsonResult({ ok: true, remaining_budget: remaining });
+      } catch (error) {
+        const mapped = mapDomainError(error);
+        if (mapped) {
+          return mapped;
+        }
+        throw error;
+      }
+    },
+  };
+
+  const server = new McpServer({
+    name: "comitia-board",
+    version: "0.0.1",
+  });
+
+  server.registerTool(
+    "get_briefing",
+    {
+      description: "コンテキストパック（申し送り・ルール・状況）を取得する",
+      inputSchema: {},
+    },
+    async () => handlers.get_briefing!({}),
+  );
+
+  server.registerTool(
+    "set_goals",
+    {
+      description: "その日の目標を宣言する",
+      inputSchema: {
+        goals: z.array(z.string()).min(1),
+      },
+    },
+    async (args) => handlers.set_goals!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "complete_goal",
+    {
+      description: "宣言済み目標を完了にする",
+      inputSchema: {
+        goal_id: z.string().uuid(),
+      },
+    },
+    async (args) => handlers.complete_goal!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "search_threads",
+    {
+      description: "プロジェクト内のスレッドを検索する",
+      inputSchema: {
+        textQuery: z.string().optional(),
+        state: z.enum(THREAD_STATES).optional(),
+      },
+    },
+    async (args) => handlers.search_threads!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "search_decisions",
+    {
+      description: "合意物（決定）を検索する",
+      inputSchema: {
+        onlyActiveBinding: z.boolean().optional(),
+      },
+    },
+    async (args) => handlers.search_decisions!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "read_thread",
+    {
+      description: "スレッド内容を読む",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+      },
+    },
+    async (args) => handlers.read_thread!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "create_thread",
+    {
+      description: "新しいスレッドを作成する",
+      inputSchema: {
+        type: z.enum(THREAD_TYPES),
+        title: z.string().min(1),
+        trigger: z.string().min(1),
+        duplicateSearchQuery: z.string().min(1),
+        consensusType: z.enum(CONSENSUS_TYPES).optional(),
+        humanRequired: z.boolean().optional(),
+        target: z.enum(PROPOSAL_TARGETS).optional(),
+        sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
+        conflictCitationsChecked: z.boolean().optional(),
+        parentThreadId: z.string().uuid().optional(),
+      },
+    },
+    async (args) => handlers.create_thread!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "add_proposal",
+    {
+      description: "スレッドに提案を追加する",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+        content: z.string().min(1),
+      },
+    },
+    async (args) => handlers.add_proposal!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "post",
+    {
+      description: "スレッドに投稿する",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+        type: z.enum(POST_TYPES),
+        body: z.string().min(1),
+        rationale: z.string().optional(),
+        blocking: z.boolean().optional(),
+        proposal_version_id: z.string().uuid().optional(),
+      },
+    },
+    async (args) => handlers.post!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "declare",
+    {
+      description: "宣言による状態遷移を行う",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+        kind: declarationKindSchema,
+        payload: z.record(z.string(), z.unknown()).optional(),
+      },
+    },
+    async (args) => handlers.declare!(args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "end_session",
+    {
+      description: "セッションを終了する（申し送り必須）",
+      inputSchema: {
+        handover: z.string(),
+      },
+    },
+    async (args) => handlers.end_session!(args as Record<string, unknown>),
+  );
+
+  async function callTool(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<ToolCallResult> {
+    const handler = handlers[name];
+    if (!handler) {
+      return toolError(`未知のツール: ${name}`);
+    }
+    return handler(args);
+  }
+
+  function parseJsonContent(result: ToolCallResult): Record<string, unknown> {
+    const text = result.content[0]?.text ?? "{}";
+    return JSON.parse(text) as Record<string, unknown>;
+  }
+
+  return { server, callTool, parseJsonContent };
+}
+
+export type BoardMcpServer = ReturnType<typeof createBoardMcpServer>;

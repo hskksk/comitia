@@ -97,6 +97,29 @@ export type Role = (typeof ROLES)[number];
 export const PARTICIPANT_KINDS = ["human", "agent"] as const;
 export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
 
+/** Default session activity budget (M2). */
+export const DEFAULT_SESSION_BUDGET = 100;
+
+/** Budget reserved for wind-down; only end_session is allowed once remaining <= this. */
+export const WIND_DOWN_RESERVE = 10;
+
+/** Explicit per-tool costs; mutating tools default to DEFAULT_MUTATING_TOOL_COST. */
+export const TOOL_COSTS = {
+  get_briefing: 0,
+  read_thread: 3,
+  search_threads: 0,
+  search_decisions: 0,
+} as const;
+
+export const DEFAULT_MUTATING_TOOL_COST = 5;
+
+export function getToolCost(toolName: string): number {
+  if (toolName in TOOL_COSTS) {
+    return TOOL_COSTS[toolName as keyof typeof TOOL_COSTS];
+  }
+  return DEFAULT_MUTATING_TOOL_COST;
+}
+
 /** イベント種別 */
 export const EVENT_KINDS = [
   "participant_registered",
@@ -112,5 +135,9 @@ export const EVENT_KINDS = [
   "agreement_recorded",
   "agreement_superseded",
   "thread_declaration",
+  "session_started",
+  "session_ended",
+  "goals_set",
+  "budget_spent",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
