@@ -9,7 +9,6 @@ import { bootstrapBoard, registerAgent } from "../domain/bootstrap.js";
 import {
   DomainError,
   NotFoundError,
-  PermissionDenied,
 } from "../domain/errors.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
 import { maybeSendEndWarning } from "../gateway/health.js";
@@ -49,9 +48,6 @@ export function createBoardApp(input: {
         { error: error.issues.map((issue) => issue.message).join("; ") },
         400,
       );
-    }
-    if (error instanceof PermissionDenied) {
-      return c.json({ error: error.message }, 403);
     }
     if (error instanceof DomainError) {
       return c.json({ error: error.message }, 400);

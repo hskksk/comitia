@@ -2,7 +2,7 @@ import { HUMAN_DECLARATION_KINDS, declarationPayloadSchema } from "@comitia/shar
 import type { Hono } from "hono";
 import type { Db } from "../db/types.js";
 import { declare } from "../domain/declare.js";
-import { NotFoundError, PermissionDenied } from "../domain/errors.js";
+import { NotFoundError } from "../domain/errors.js";
 import {
   getHumanThreadView,
   listJudgmentQueue,
@@ -66,10 +66,18 @@ export function registerHumanRoutes(app: Hono<BoardEnv>, db: Db) {
   });
 
   app.post("/v1/threads/:id/declare", auth, owner, async (c) => {
-    const payload = declarationPayloadSchema.parse(await c.req.json());
-    if (!(HUMAN_DECLARATION_KINDS as readonly string[]).includes(payload.kind)) {
-      throw new PermissionDenied("この宣言は人間 UI からは行えません");
+    const rawPayload = await c.req.json();
+    const rawKind =
+      typeof rawPayload === "object" && rawPayload !== null
+        ? (rawPayload as { kind?: unknown }).kind
+        : undefined;
+    if (
+      typeof rawKind !== "string" ||
+      !(HUMAN_DECLARATION_KINDS as readonly string[]).includes(rawKind)
+    ) {
+      return c.json({ error: "この宣言は人間 UI からは行えません" }, 403);
     }
+    const payload = declarationPayloadSchema.parse(rawPayload);
     const threadId = c.req.param("id");
     const view = await getHumanThreadView(db, threadId);
     assertProject(view.thread.projectId, c.get("projectId"));

@@ -100,6 +100,22 @@ describe("human REST", () => {
     expect(res.status).toBe(403);
   });
 
+  it("rejects unknown declaration kinds from the human route", async () => {
+    const app = createBoardApp({ db });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const res = await app.request("/v1/threads/unknown-thread/declare", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ kind: "unknown_kind" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
   it("forbids the agent token on human routes", async () => {
     const app = createBoardApp({ db });
     const init = await app.request("/v1/init", {
