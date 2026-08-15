@@ -15,6 +15,13 @@
       "when": 1786776674310,
       "tag": "0001_modern_guardsmen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786791801195,
+      "tag": "0002_lame_captain_marvel",
+      "breakpoints": true
     }
   ]
 }
