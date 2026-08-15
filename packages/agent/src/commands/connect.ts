@@ -31,10 +31,16 @@ export async function connectCommand(
       ticks.push(tick);
     },
   });
-  const tunnel = await connectTunnel({
-    relayWsUrl: buildRelayWsUrl(config.boardUrl, agent.agentId, agent.token),
-    localBaseUrl: adapter.localBaseUrl,
-  });
+  let tunnel;
+  try {
+    tunnel = await connectTunnel({
+      relayWsUrl: buildRelayWsUrl(config.boardUrl, agent.agentId, agent.token),
+      localBaseUrl: adapter.localBaseUrl,
+    });
+  } catch (error) {
+    await adapter.close();
+    throw error;
+  }
 
   return {
     ticks,

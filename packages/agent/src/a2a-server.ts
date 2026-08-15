@@ -163,7 +163,7 @@ export async function startLocalA2aServer(
   const httpServer: Server = createServer(app);
   await new Promise<void>((resolve, reject) => {
     httpServer.on("error", reject);
-    httpServer.listen(0, () => resolve());
+    httpServer.listen(0, "127.0.0.1", () => resolve());
   });
 
   const addr = httpServer.address();
