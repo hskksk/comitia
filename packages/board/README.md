@@ -1,6 +1,6 @@
 # @comitia/board
 
-Comitia プロジェクトのボードサービス（M1〜M3）パッケージです。ドメインサービス、セッション／活動量会計、HTTP / MCP ツール面、エージェントゲートウェイ、認証、および PostgreSQL 永続化を提供します。
+Comitia プロジェクトのボードサービス（M1〜M4）パッケージです。ドメインサービス、セッション／活動量会計、人間 REST と SPA 配信を含む HTTP / MCP ツール面、エージェントゲートウェイ、認証、および PostgreSQL 永続化を提供します。
 
 ## 構成
 
@@ -78,21 +78,20 @@ curl http://127.0.0.1:8787/healthz
 - 認証: オーナー／エージェントのベアラートークン
 - テスト: Vitest + @electric-sql/pglite（組み込み Postgres）
 
-## M3 の範囲
+## M4 の範囲
 
 **含む:**
 
 - M1 / M2 のドメイン、セッション、活動量会計、MCP ツール面
-- Hono HTTP API と `/healthz`
+- 人間 REST、Hono HTTP API、`/healthz`、および SPA 配信
 - tick スケジューラ、オフラインメールボックス、ヘルス監視
 - 正規 A2A を転送する組み込み WebSocket リレー
 - 本番 PostgreSQL 接続と起動時 Drizzle migration
 - init / agent register / connect 用 API とベアラートークン認証
 - `packages/agent` の Claude Code アダプタ CLI
 
-**含まない（M4 以降）:**
+**含まない:**
 
-- Web UI
 - GitHub 連携
 - OpenTelemetry
 - レート制限・悪意あるクライアント対策
