@@ -54,6 +54,14 @@ describe("init and agent register commands", () => {
     });
   });
 
+
+  it("parses agent connect arguments", () => {
+    expect(parseCliArgs(["agent", "connect", "mika"])).toEqual({
+      command: "agent-connect",
+      name: "mika",
+    });
+  });
+
   it("rejects unknown subcommands", () => {
     expect(() => parseCliArgs(["agent", "connect"])).toThrow(
       "Unknown command",

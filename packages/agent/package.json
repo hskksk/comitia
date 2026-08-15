@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "comitia": "./dist/cli.js"
+    "comitia": "./dist/cli.js",
+    "comitia-mcp-proxy": "./dist/mcp-stdio-main.js"
   },
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
