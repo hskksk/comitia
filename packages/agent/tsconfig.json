@@ -3,12 +3,12 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "composite": true,
     "types": ["node"],
     "paths": {
+      "@comitia/board": ["../board/src/index.ts"],
       "@comitia/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../shared" }]
+  "references": [{ "path": "../shared" }, { "path": "../board" }]
 }

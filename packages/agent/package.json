@@ -1,0 +1,27 @@
+{
+  "name": "@comitia/agent",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "comitia": "./dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@comitia/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@comitia/board": "workspace:*",
+    "@electric-sql/pglite": "^0.5.5",
+    "@types/node": "^22.0.0",
+    "drizzle-orm": "^0.45.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
