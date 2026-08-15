@@ -13,7 +13,7 @@ export function InboxPage() {
   const [isCompleting, setIsCompleting] = useState(false);
 
   const reload = useCallback(() => {
-    boardClient
+    return boardClient
       .inbox()
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
@@ -28,7 +28,7 @@ export function InboxPage() {
     setIsCompleting(true);
     try {
       await boardClient.declare(threadId, { kind: "complete_thread" });
-      reload();
+      await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "失敗しました");
     } finally {
