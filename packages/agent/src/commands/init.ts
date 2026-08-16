@@ -4,6 +4,7 @@ export interface InitCommandOptions {
   boardUrl: string;
   name: string;
   project: string;
+  repoUrl?: string;
   configDir?: string;
 }
 
@@ -14,6 +15,7 @@ export async function initCommand(options: InitCommandOptions): Promise<void> {
     body: JSON.stringify({
       ownerDisplayName: options.name,
       projectName: options.project,
+      ...(options.repoUrl ? { repoUrl: options.repoUrl } : {}),
     }),
   });
   if (!response.ok) {

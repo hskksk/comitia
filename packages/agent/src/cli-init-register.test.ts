@@ -31,12 +31,15 @@ describe("init and agent register commands", () => {
         "ハル",
         "--project",
         "comitia",
+        "--repo-url",
+        "https://github.com/hskksk/comitia",
       ]),
     ).toEqual({
       command: "init",
       boardUrl: "http://localhost:3000",
       name: "ハル",
       project: "comitia",
+      repoUrl: "https://github.com/hskksk/comitia",
     });
     expect(
       parseCliArgs([
