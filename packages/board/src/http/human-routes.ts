@@ -9,6 +9,9 @@ import {
   listNonblockingInbox,
   listProjectThreads,
 } from "../domain/human-views.js";
+import { linkPullRequest, refreshStalePullRequests } from "../domain/pull-requests.js";
+import type { GitHubClient } from "../github/types.js";
+import { z } from "zod";
 import { type BoardEnv, requireAuth, requireOwner } from "./auth.js";
 
 function assertProject(viewProjectId: string, requestProjectId: string) {
@@ -17,7 +20,11 @@ function assertProject(viewProjectId: string, requestProjectId: string) {
   }
 }
 
-export function registerHumanRoutes(app: Hono<BoardEnv>, db: Db) {
+export function registerHumanRoutes(
+  app: Hono<BoardEnv>,
+  db: Db,
+  options?: { github?: GitHubClient },
+) {
   const auth = requireAuth(db);
   const owner = requireOwner();
 
@@ -41,9 +48,14 @@ export function registerHumanRoutes(app: Hono<BoardEnv>, db: Db) {
   });
 
   app.get("/v1/inbox", auth, owner, async (c) => {
-    const items = await listNonblockingInbox(db, {
-      projectId: c.get("projectId"),
-    });
+    const projectId = c.get("projectId");
+    if (options?.github) {
+      await refreshStalePullRequests(db, options.github, {
+        projectId,
+        maxAgeMs: 5 * 60 * 1000,
+      });
+    }
+    const items = await listNonblockingInbox(db, { projectId });
     return c.json({ items });
   });
 
@@ -89,5 +101,26 @@ export function registerHumanRoutes(app: Hono<BoardEnv>, db: Db) {
       payload: rest,
     });
     return c.json(result);
+  });
+
+  app.post("/v1/threads/:id/pull-requests", auth, owner, async (c) => {
+    if (!options?.github) {
+      return c.json({ error: "GitHub is not configured" }, 503);
+    }
+    const body = z.object({ url: z.string().url() }).parse(await c.req.json());
+    const threadId = c.req.param("id");
+    const view = await getHumanThreadView(db, threadId);
+    assertProject(view.thread.projectId, c.get("projectId"));
+    const row = await linkPullRequest(db, options.github, {
+      threadId,
+      actorId: c.get("participant").id,
+      url: body.url,
+    });
+    return c.json({
+      number: row.number,
+      url: row.url,
+      title: row.title,
+      state: row.state,
+    });
   });
 }
