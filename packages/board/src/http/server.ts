@@ -21,6 +21,8 @@ import {
   type SendTickResult,
 } from "../gateway/send-tick.js";
 import { createBoardApp, type BoardGateway } from "./app.js";
+import { readGitHubConfig } from "../github/config.js";
+import { createOctokitGitHubClient } from "../github/octokit-client.js";
 import { attachSpaFallback, resolveWebDist } from "./static-web.js";
 
 export function startLoops(input: {
@@ -99,9 +101,23 @@ export async function startBoardServer(input: {
     throw new Error("gateway is not ready");
   };
 
+  const githubConfig = readGitHubConfig();
+  const github =
+    githubConfig.installationReady && githubConfig.oauthEnabled
+      ? createOctokitGitHubClient(githubConfig)
+      : undefined;
+
   const app = createBoardApp({
     db,
     getGateway: () => ({ sendTick: (payload) => send(payload) }),
+    github,
+    githubPublicBaseUrl: githubConfig.publicUrl,
+    webhookSecret: githubConfig.webhookSecret,
+    githubOAuth: {
+      enabled: githubConfig.oauthEnabled,
+      appSlug: githubConfig.appSlug,
+      clientId: githubConfig.clientId,
+    },
   });
 
   relay = createRelay({

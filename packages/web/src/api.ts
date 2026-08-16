@@ -30,6 +30,12 @@ export type InboxItem = {
   kind: "merge_wait" | "post_review";
   decidedAt: string;
   latestReport: { id: string; body: string; createdAt: string } | null;
+  pullRequests: Array<{
+    number: number;
+    url: string;
+    title: string;
+    state: "open" | "merged" | "closed";
+  }>;
 };
 
 export type ThreadListItem = {
@@ -67,6 +73,12 @@ export type HumanThreadView = {
     authorDisplayName: string;
     createdAt: string;
   }>;
+  pullRequests: Array<{
+    number: number;
+    url: string;
+    title: string;
+    state: "open" | "merged" | "closed";
+  }>;
 };
 
 export class ApiError extends Error {
@@ -79,6 +91,10 @@ export class ApiError extends Error {
 }
 
 export class BoardClient {
+  async authConfig(): Promise<{ githubOAuth: boolean }> {
+    return this.request("/v1/auth/config");
+  }
+
   async me(): Promise<MeResponse> {
     return this.request("/v1/me");
   }

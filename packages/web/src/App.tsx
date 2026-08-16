@@ -4,6 +4,7 @@ import { UNAUTHORIZED_EVENT } from "./api.js";
 import { getToken } from "./auth.js";
 import { Layout } from "./components/Layout.js";
 import { LoginPage } from "./pages/LoginPage.js";
+import { LoginCallbackPage } from "./pages/LoginCallbackPage.js";
 import { InboxPage } from "./pages/InboxPage.js";
 import { QueuePage } from "./pages/QueuePage.js";
 import { ThreadPage } from "./pages/ThreadPage.js";
@@ -34,6 +35,7 @@ export function App() {
       <UnauthorizedRedirect />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/login/callback" element={<LoginCallbackPage />} />
         <Route
           element={
             <RequireAuth>

@@ -14,7 +14,7 @@ import { createProject } from "./projects.js";
 
 export async function bootstrapBoard(
   db: DbClient,
-  input: { ownerDisplayName: string; projectName: string },
+  input: { ownerDisplayName: string; projectName: string; repoUrl?: string },
 ) {
   return db.transaction(async (tx) => {
     const [existingHuman] = await tx
@@ -33,6 +33,7 @@ export async function bootstrapBoard(
     const project = await createProject(tx, {
       name: input.projectName,
       ownerParticipantId: owner.id,
+      repoUrl: input.repoUrl,
     });
     const ownerToken = issueToken();
     await tx.insert(agentCredentials).values({

@@ -30,6 +30,8 @@ import {
   setGoals,
 } from "../domain/sessions.js";
 import { createThread, searchThreads } from "../domain/threads.js";
+import { linkPullRequest } from "../domain/pull-requests.js";
+import type { GitHubClient } from "../github/types.js";
 
 export type ToolCallResult = {
   content: Array<{ type: "text"; text: string }>;
@@ -70,8 +72,9 @@ export function createBoardToolRuntime(input: {
   db: Db;
   participantId: string;
   projectId: string;
+  github?: GitHubClient;
 }) {
-  const { db, participantId, projectId } = input;
+  const { db, participantId, projectId, github } = input;
   let sessionId: string | null = null;
 
   async function ensureSessionId(): Promise<string> {
@@ -283,6 +286,31 @@ export function createBoardToolRuntime(input: {
         };
       }),
 
+    link_pull_request: async (args) =>
+      runTool("link_pull_request", async () => {
+        if (!github) {
+          throw new GateViolation("GitHub App が接続されていません");
+        }
+        const parsed = z
+          .object({
+            thread_id: z.string().uuid(),
+            url: z.string().url(),
+          })
+          .parse(args);
+        const row = await linkPullRequest(db, github, {
+          threadId: parsed.thread_id,
+          actorId: participantId,
+          url: parsed.url,
+        });
+        return {
+          thread_id: parsed.thread_id,
+          number: row.number,
+          url: row.url,
+          title: row.title,
+          state: row.state,
+        };
+      }),
+
     end_session: async (args) => {
       try {
         const sid = await ensureSessionId();
@@ -329,6 +357,7 @@ export function createBoardMcpServer(input: {
   db: Db;
   participantId: string;
   projectId: string;
+  github?: GitHubClient;
 }) {
   const runtime = createBoardToolRuntime(input);
 
@@ -467,6 +496,19 @@ export function createBoardMcpServer(input: {
       },
     },
     async (args) => runtime.callTool("declare", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "link_pull_request",
+    {
+      description: "スレッドに GitHub PR をリンクする",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+        url: z.string().url(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("link_pull_request", args as Record<string, unknown>),
   );
 
   server.registerTool(

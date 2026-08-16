@@ -1,6 +1,6 @@
 # @comitia/web
 
-M4 人間面。判断キューがホーム。
+M4 人間面＋M5 GitHub ログイン。判断キューがホーム。
 
 ## 開発
 
@@ -10,7 +10,10 @@ M4 人間面。判断キューがホーム。
 pnpm --filter @comitia/web dev
 ```
 
-Vite が `/v1` と `/healthz` をボードへプロキシする。ログインには `comitia init` の `ownerToken` を貼る。
+Vite が `/v1` と `/healthz` をボードへプロキシする。
+
+- GitHub App が設定されていれば「GitHub で入る」
+- 未設定時・テスト用は `<details>` 内のオーナートークン入力（`comitia init` の `ownerToken`）
 
 ## 本番
 

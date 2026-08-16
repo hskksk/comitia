@@ -75,6 +75,9 @@ export const HUMAN_DECLARATION_KINDS = [
 ] as const;
 export type HumanDeclarationKind = (typeof HUMAN_DECLARATION_KINDS)[number];
 
+export const PULL_REQUEST_STATES = ["open", "merged", "closed"] as const;
+export type PullRequestState = (typeof PULL_REQUEST_STATES)[number];
+
 /** 合意物の帰結 */
 export const AGREEMENT_OUTCOMES = ["adopted", "rejected"] as const;
 export type AgreementOutcome = (typeof AGREEMENT_OUTCOMES)[number];
@@ -165,5 +168,10 @@ export const EVENT_KINDS = [
   "agent_disconnected",
   "goals_set",
   "budget_spent",
+  "pull_request_linked",
+  "pull_request_synced",
+  "github_issue_redirected",
+  "github_installation_connected",
+  "github_owner_bound",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];

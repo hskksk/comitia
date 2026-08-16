@@ -5,6 +5,7 @@ import { SynthesisCard } from "../components/SynthesisCard.js";
 import {
   consensusTypeLabel,
   postTypeLabel,
+  pullRequestStateLabel,
   threadStateLabel,
   threadTypeLabel,
 } from "../labels.js";
@@ -70,6 +71,19 @@ export function ThreadPage() {
         synthesis={view.synthesis}
         candidate={view.candidateProposal}
       />
+      {view.pullRequests.length > 0 ? (
+        <>
+          <h2>リンク済み PR</h2>
+          <ul>
+            {view.pullRequests.map((pr) => (
+              <li key={pr.number}>
+                #{pr.number} {pullRequestStateLabel(pr.state)}{" "}
+                <a href={pr.url}>GitHub</a>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
       <h2>投稿</h2>
       <ol>
         {view.posts.map((post) => (

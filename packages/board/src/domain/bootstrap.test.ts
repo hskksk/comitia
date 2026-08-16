@@ -37,6 +37,15 @@ describe("bootstrap", () => {
     expect(agentAuth?.projectId).toBe(first.project.id);
   });
 
+  it("stores optional repoUrl on the project", async () => {
+    const result = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+      repoUrl: "https://github.com/hskksk/comitia",
+    });
+    expect(result.project.repoUrl).toBe("https://github.com/hskksk/comitia");
+  });
+
   it("rolls back bootstrap when project creation fails", async () => {
     await db.execute(sql`
       ALTER TABLE projects

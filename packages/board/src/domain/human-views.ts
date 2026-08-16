@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import type { ConsensusType, ThreadType } from "@comitia/shared";
+import type { ConsensusType, PullRequestState, ThreadType } from "@comitia/shared";
 import {
   events,
   participants,
@@ -9,6 +9,7 @@ import {
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { getThreadRow } from "./helpers.js";
+import { listProjectPullRequestsForThreads, listThreadPullRequests } from "./pull-requests.js";
 
 export type JudgmentQueueItem = {
   threadId: string;
@@ -26,6 +27,13 @@ export type JudgmentQueueItem = {
   } | null;
 };
 
+export type PullRequestRow = {
+  number: number;
+  url: string;
+  title: string;
+  state: PullRequestState;
+};
+
 export type NonblockingInboxItem = {
   threadId: string;
   title: string;
@@ -33,6 +41,7 @@ export type NonblockingInboxItem = {
   kind: "merge_wait" | "post_review";
   decidedAt: string;
   latestReport: { id: string; body: string; createdAt: string } | null;
+  pullRequests: PullRequestRow[];
 };
 
 export type HumanThreadPost = {
@@ -63,6 +72,7 @@ export type HumanThreadView = {
     content: string;
   } | null;
   posts: HumanThreadPost[];
+  pullRequests: PullRequestRow[];
 };
 
 async function latestSynthesis(db: Db, threadId: string) {
@@ -165,6 +175,11 @@ export async function listNonblockingInbox(
     )
     .orderBy(asc(threads.decidedAt));
 
+  const prByThread = await listProjectPullRequestsForThreads(
+    db,
+    rows.map((thread) => thread.id),
+  );
+
   return Promise.all(
     rows.map(async (thread) => {
       const [report] = await db
@@ -190,6 +205,7 @@ export async function listNonblockingInbox(
               createdAt: report.createdAt.toISOString(),
             }
           : null,
+        pullRequests: prByThread.get(thread.id) ?? [],
       };
     }),
   );
@@ -237,6 +253,7 @@ export async function getHumanThreadView(
       authorDisplayName: post.authorDisplayName,
       createdAt: post.createdAt.toISOString(),
     })),
+    pullRequests: await listThreadPullRequests(db, threadId),
   };
 }
 

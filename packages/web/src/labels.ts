@@ -51,3 +51,13 @@ export function consensusTypeLabel(value: string | null): string {
 export function postTypeLabel(value: string): string {
   return labelOf(postTypeLabels, value);
 }
+
+const pullRequestStateLabels: Record<string, string> = {
+  open: "オープン",
+  merged: "マージ済み",
+  closed: "クローズ",
+};
+
+export function pullRequestStateLabel(value: string): string {
+  return labelOf(pullRequestStateLabels, value);
+}

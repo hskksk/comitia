@@ -12,6 +12,7 @@ import {
   PermissionDenied,
 } from "../domain/errors.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
+import type { GitHubClient } from "../github/types.js";
 import { maybeSendEndWarning } from "../gateway/health.js";
 import { createBoardToolRuntime } from "../mcp/create-server.js";
 import {
@@ -20,6 +21,8 @@ import {
   requireAuth,
   requireOwner,
 } from "./auth.js";
+import { registerGithubAuthRoutes } from "./github-auth-routes.js";
+import { registerGithubRoutes } from "./github-routes.js";
 import { registerHumanRoutes } from "./human-routes.js";
 
 export type BoardGateway = {
@@ -36,12 +39,34 @@ export type BoardGateway = {
 export function createBoardApp(input: {
   db: Db;
   getGateway?: () => BoardGateway | undefined;
+  github?: GitHubClient;
+  githubPublicBaseUrl?: string;
+  webhookSecret?: string;
+  githubOAuth?: {
+    enabled: boolean;
+    appSlug?: string;
+    clientId?: string;
+  };
 }) {
   const { db } = input;
   const app = new Hono<BoardEnv>();
   const auth = requireAuth(db);
   const owner = requireOwner();
   const agent = requireAgent();
+
+  registerGithubRoutes(app, {
+    db,
+    github: input.github,
+    webhookSecret: input.webhookSecret,
+    publicBaseUrl: input.githubPublicBaseUrl,
+  });
+  registerGithubAuthRoutes(app, {
+    db,
+    github: input.github,
+    oauthEnabled: input.githubOAuth?.enabled ?? false,
+    appSlug: input.githubOAuth?.appSlug,
+    clientId: input.githubOAuth?.clientId,
+  });
 
   app.onError((error, c) => {
     if (error instanceof ZodError) {
@@ -63,6 +88,7 @@ export function createBoardApp(input: {
       .object({
         ownerDisplayName: z.string().min(1),
         projectName: z.string().min(1),
+        repoUrl: z.string().url().optional(),
       })
       .parse(await c.req.json());
     const result = await bootstrapBoard(db, body);
@@ -108,6 +134,7 @@ export function createBoardApp(input: {
       db,
       participantId: participant.id,
       projectId,
+      github: input.github,
     });
     const result = await runtime.callTool(name, args);
     if (result.isError) {
@@ -205,7 +232,9 @@ export function createBoardApp(input: {
     return c.json({ remaining_budget: remaining });
   });
 
-  registerHumanRoutes(app, db);
+  registerHumanRoutes(app, db, {
+    github: input.github,
+  });
 
   return app;
 }
