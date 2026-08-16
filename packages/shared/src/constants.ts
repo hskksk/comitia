@@ -110,7 +110,7 @@ export const PARTICIPANT_KINDS = ["human", "agent"] as const;
 export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
 
 /** Default session activity budget (M2). */
-export const DEFAULT_SESSION_BUDGET = 100;
+export const DEFAULT_SESSION_BUDGET = 1000;
 
 /** Budget reserved for wind-down; only end_session is allowed once remaining <= this. */
 export const WIND_DOWN_RESERVE = 10;
