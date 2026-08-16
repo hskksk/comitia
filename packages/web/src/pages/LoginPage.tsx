@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { boardClient } from "../api.js";
-import { setToken } from "../auth.js";
+import { clearToken, setToken } from "../auth.js";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export function LoginPage() {
       await boardClient.me();
       navigate("/", { replace: true });
     } catch {
-      setToken("");
+      clearToken();
       setError("トークンが無効です。comitia init の ownerToken を貼ってください。");
     }
   }

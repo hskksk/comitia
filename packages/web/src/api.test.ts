@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BoardClient } from "./api.js";
-import { setToken } from "./auth.js";
+import { getToken, setToken } from "./auth.js";
 
 afterEach(() => {
   sessionStorage.clear();
@@ -33,12 +33,13 @@ describe("BoardClient", () => {
     );
   });
 
-  it("throws on 401", async () => {
+  it("clears the stored token and throws on 401", async () => {
     setToken("bad");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("{}", { status: 401 })),
     );
     await expect(new BoardClient().me()).rejects.toThrow(/unauthorized/i);
+    expect(getToken()).toBeNull();
   });
 });

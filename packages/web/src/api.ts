@@ -1,4 +1,6 @@
-import { getToken } from "./auth.js";
+import { clearToken, getToken } from "./auth.js";
+
+export const UNAUTHORIZED_EVENT = "comitia:unauthorized";
 
 export type MeResponse = {
   participant: { id: string; kind: "human" | "agent"; displayName: string };
@@ -121,6 +123,8 @@ export class BoardClient {
       headers: Object.fromEntries(headers),
     });
     if (res.status === 401) {
+      clearToken();
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
       throw new ApiError(401, "unauthorized");
     }
     if (!res.ok) {
