@@ -14,6 +14,7 @@ const inboxItems = {
       kind: "merge_wait",
       decidedAt: "2026-08-16T00:00:00.000Z",
       latestReport: null,
+      pullRequests: [],
     },
   ],
 };
