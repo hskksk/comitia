@@ -20,6 +20,7 @@ import {
   requireAuth,
   requireOwner,
 } from "./auth.js";
+import { registerHumanRoutes } from "./human-routes.js";
 
 export type BoardGateway = {
   sendTick: (input: {
@@ -203,6 +204,8 @@ export function createBoardApp(input: {
     const remaining = await addTokenUsage(db, sessionId, body.tokens);
     return c.json({ remaining_budget: remaining });
   });
+
+  registerHumanRoutes(app, db);
 
   return app;
 }

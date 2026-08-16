@@ -1,0 +1,52 @@
+import { useEffect } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { UNAUTHORIZED_EVENT } from "./api.js";
+import { getToken } from "./auth.js";
+import { Layout } from "./components/Layout.js";
+import { LoginPage } from "./pages/LoginPage.js";
+import { InboxPage } from "./pages/InboxPage.js";
+import { QueuePage } from "./pages/QueuePage.js";
+import { ThreadPage } from "./pages/ThreadPage.js";
+import { ThreadsPage } from "./pages/ThreadsPage.js";
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  if (!getToken()) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+function UnauthorizedRedirect() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const redirectToLogin = () => navigate("/login", { replace: true });
+    window.addEventListener(UNAUTHORIZED_EVENT, redirectToLogin);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, redirectToLogin);
+  }, [navigate]);
+
+  return null;
+}
+
+export function App() {
+  return (
+    <>
+      <UnauthorizedRedirect />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          element={
+            <RequireAuth>
+              <Layout />
+            </RequireAuth>
+          }
+        >
+          <Route path="/" element={<QueuePage />} />
+          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/threads" element={<ThreadsPage />} />
+          <Route path="/threads/:id" element={<ThreadPage />} />
+        </Route>
+      </Routes>
+    </>
+  );
+}

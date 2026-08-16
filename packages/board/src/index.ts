@@ -14,6 +14,7 @@ export * from "./domain/agreements.js";
 export * from "./domain/activity.js";
 export * from "./domain/briefing.js";
 export * from "./domain/read-thread.js";
+export * from "./domain/human-views.js";
 export * from "./domain/sessions.js";
 export { schema } from "./db/schema.js";
 export type { Db } from "./db/test-setup.js";

@@ -66,6 +66,15 @@ export const DECLARATION_KINDS = [
 ] as const;
 export type DeclarationKind = (typeof DECLARATION_KINDS)[number];
 
+/** Declarations the human UI may issue. */
+export const HUMAN_DECLARATION_KINDS = [
+  "ratify",
+  "send_back",
+  "reject_thread",
+  "complete_thread",
+] as const;
+export type HumanDeclarationKind = (typeof HUMAN_DECLARATION_KINDS)[number];
+
 /** 合意物の帰結 */
 export const AGREEMENT_OUTCOMES = ["adopted", "rejected"] as const;
 export type AgreementOutcome = (typeof AGREEMENT_OUTCOMES)[number];

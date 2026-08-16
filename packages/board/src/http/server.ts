@@ -21,6 +21,7 @@ import {
   type SendTickResult,
 } from "../gateway/send-tick.js";
 import { createBoardApp, type BoardGateway } from "./app.js";
+import { attachSpaFallback, resolveWebDist } from "./static-web.js";
 
 export function startLoops(input: {
   db: DbClient;
@@ -179,6 +180,10 @@ export async function startBoardServer(input: {
   server.on("upgrade", (req, socket, head) => {
     relay.handleUpgrade(req, socket, head);
   });
+  const webDist = resolveWebDist();
+  if (webDist) {
+    attachSpaFallback(server, webDist);
+  }
 
   const host = process.env.HOST ?? "127.0.0.1";
   await new Promise<void>((resolve, reject) => {
