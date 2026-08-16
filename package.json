@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "test": "pnpm --filter @comitia/shared build && pnpm -r --filter './packages/*' test",
-    "typecheck": "pnpm --filter @comitia/shared build && pnpm --filter @comitia/board build && pnpm -r --filter './packages/*' typecheck"
+    "typecheck": "pnpm --filter @comitia/shared build && pnpm --filter @comitia/board build && pnpm -r --filter './packages/*' typecheck",
+    "dogfood": "bash scripts/dogfood/start.sh",
+    "dogfood:stop": "bash scripts/dogfood/stop.sh"
   },
   "devDependencies": {
     "typescript": "^7.0.2"
