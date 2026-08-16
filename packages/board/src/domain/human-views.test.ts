@@ -13,6 +13,66 @@ import {
   listNonblockingInbox,
 } from "./human-views.js";
 
+import { createFakeGitHubClient } from "../github/fake-client.js";
+import { eq } from "drizzle-orm";
+import { projects } from "../db/schema.js";
+import { linkPullRequest } from "./pull-requests.js";
+
+const PR_URL = "https://github.com/hskksk/comitia/pull/101";
+
+async function connectProject(projectId: string) {
+  await db
+    .update(projects)
+    .set({
+      githubInstallationId: "inst-1",
+      githubOwner: "hskksk",
+      githubRepo: "comitia",
+    })
+    .where(eq(projects.id, projectId));
+}
+
+describe("listNonblockingInbox pull requests", () => {
+  it("includes linked PR rows on decided implementation threads", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    await connectProject(project.id);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const github = createFakeGitHubClient({
+      pullRequests: [
+        {
+          owner: "hskksk",
+          repo: "comitia",
+          number: 101,
+          url: PR_URL,
+          title: "Fix typo",
+          state: "open",
+        },
+      ],
+    });
+    await linkPullRequest(db, github, {
+      threadId: thread.id,
+      actorId: agent.id,
+      url: PR_URL,
+    });
+
+    const inbox = await listNonblockingInbox(db, { projectId: project.id });
+    expect(inbox[0]?.pullRequests[0]?.number).toBe(101);
+    expect(inbox[0]?.pullRequests[0]?.state).toBe("open");
+  });
+
+  it("returns empty pullRequests when none are linked", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const inbox = await listNonblockingInbox(db, { projectId: project.id });
+    expect(inbox[0]?.pullRequests).toEqual([]);
+  });
+});
+
 describe("listJudgmentQueue", () => {
   it("lists awaiting_decision threads with latest synthesis, oldest first", async () => {
     const { owner, agent, project } = await seedOwnerAgentProject(db);

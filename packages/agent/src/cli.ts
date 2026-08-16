@@ -15,6 +15,7 @@ type ParsedCommand =
       boardUrl: string;
       name: string;
       project: string;
+      repoUrl?: string;
     }
   | {
       command: "agent-register";
@@ -55,6 +56,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       boardUrl: requireOption(options, "board-url"),
       name: requireOption(options, "name"),
       project: requireOption(options, "project"),
+      repoUrl: options.get("repo-url"),
     };
   }
   if (args[0] === "agent" && args[1] === "register") {

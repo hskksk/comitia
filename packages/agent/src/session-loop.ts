@@ -51,6 +51,15 @@ async function postSessionJson(
   }
 }
 
+async function resolveWorkDir(): Promise<{ path: string; persistent: boolean }> {
+  const configured = process.env.COMITIA_WORK_DIR;
+  if (configured) {
+    return { path: configured, persistent: true };
+  }
+  const path = await mkdtemp(join(tmpdir(), "comitia-work-"));
+  return { path, persistent: false };
+}
+
 /** Drive an engine plugin until wind-down and end_session. */
 export async function runSessionLoop(
   options: SessionLoopOptions,
@@ -66,7 +75,7 @@ export async function runSessionLoop(
     onChatLog,
   } = options;
 
-  const workDir = await mkdtemp(join(tmpdir(), "comitia-work-"));
+  const { path: workDir, persistent: keepWorkDir } = await resolveWorkDir();
   const entries: ToolLogEntry[] = [];
   let phase: LoopPhase = "work";
   let stopReason = "最大 run 数に到達";
@@ -171,6 +180,8 @@ export async function runSessionLoop(
     }
   } finally {
     await plugin.stop();
-    await rm(workDir, { recursive: true, force: true });
+    if (!keepWorkDir) {
+      await rm(workDir, { recursive: true, force: true });
+    }
   }
 }

@@ -36,6 +36,7 @@ const threadView = {
       createdAt: "2026-08-16T00:00:00.000Z",
     },
   ],
+  pullRequests: [],
 };
 
 const declareMock = vi.fn().mockResolvedValue({ thread: { state: "decided" } });

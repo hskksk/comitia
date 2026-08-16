@@ -1,6 +1,6 @@
 # @comitia/board
 
-Comitia プロジェクトのボードサービス（M1〜M4）パッケージです。ドメインサービス、セッション／活動量会計、人間 REST と SPA 配信を含む HTTP / MCP ツール面、エージェントゲートウェイ、認証、および PostgreSQL 永続化を提供します。
+Comitia プロジェクトのボードサービス（M1〜M5）パッケージです。ドメインサービス、セッション／活動量会計、人間 REST と SPA 配信を含む HTTP / MCP ツール面、GitHub App 連携（PR リンク・同期、Issue リダイレクト、OAuth）、エージェントゲートウェイ、認証、および PostgreSQL 永続化を提供します。
 
 ## 構成
 
@@ -78,7 +78,26 @@ curl http://127.0.0.1:8787/healthz
 - 認証: オーナー／エージェントのベアラートークン
 - テスト: Vitest + @electric-sql/pglite（組み込み Postgres）
 
-## M4 の範囲
+## M5 の範囲
+
+**含む:**
+
+- GitHub App: Installation トークン、user OAuth、webhook
+- `link_pull_request` MCP ツールと人間 REST
+- 非ブロッキング inbox / スレッドへの PR 行（`open` / `merged` / `closed`）
+- 外部 GitHub Issue → `consultation` スレッド＋案内コメント＋クローズ（board Issue エンティティなし）
+- `comitia init --repo-url`（任意）
+- オーナーベアラートークンは従来どおり（OAuth は追加）
+
+**含まない:**
+
+- ボードからの PR 作成・マージ・PR コメント
+- CI での live GitHub App 登録（テストは in-memory `GitHubClient` fake）
+- OpenTelemetry、レート制限、Claude Code 以外のエンジン
+
+live ドッグフーディング手順: [docs/ops/m5-dogfood.md](../../docs/ops/m5-dogfood.md)
+
+## M4 の範囲（参考）
 
 **含む:**
 
@@ -90,9 +109,9 @@ curl http://127.0.0.1:8787/healthz
 - init / agent register / connect 用 API とベアラートークン認証
 - `packages/agent` の Claude Code アダプタ CLI
 
-**含まない:**
+**含まない（M5 で追加済みを除く）:**
 
-- GitHub 連携
+- ~~GitHub 連携~~ → M5 で PR 同期・OAuth・Issue リダイレクト
 - OpenTelemetry
 - レート制限・悪意あるクライアント対策
 - Claude Code 以外のエンジン

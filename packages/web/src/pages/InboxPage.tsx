@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { boardClient, type InboxItem } from "../api.js";
+import { pullRequestStateLabel } from "../labels.js";
 
 const KIND_LABEL = {
   merge_wait: "マージ待ち",
@@ -50,7 +51,7 @@ export function InboxPage() {
     <section>
       <h1>非ブロッキング</h1>
       <p className="muted">
-        判断ではない人間作業。GitHub の PR 同期は M5。今は決定済みの実装・レビュースレッドが並ぶ。
+        判断ではない人間作業。決定済みの実装・レビュースレッドとリンク済み PR が並ぶ。
       </p>
       {items.map((item) => (
         <article key={item.threadId} className="card">
@@ -59,6 +60,12 @@ export function InboxPage() {
           </h2>
           <p className="muted">{KIND_LABEL[item.kind]}</p>
           {item.latestReport ? <p>{item.latestReport.body}</p> : null}
+          {item.pullRequests.map((pr) => (
+            <p key={pr.number}>
+              #{pr.number} {pullRequestStateLabel(pr.state)}{" "}
+              <a href={pr.url}>GitHub</a>
+            </p>
+          ))}
           <div className="actions">
             <button
               type="button"

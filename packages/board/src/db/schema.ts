@@ -12,28 +12,47 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const participants = pgTable("participants", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  kind: text("kind", { enum: ["human", "agent"] }).notNull(),
-  displayName: text("display_name").notNull(),
-  ownerParticipantId: uuid("owner_participant_id"),
-  engine: text("engine"),
-  archivedAt: timestamp("archived_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const participants = pgTable(
+  "participants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind", { enum: ["human", "agent"] }).notNull(),
+    displayName: text("display_name").notNull(),
+    ownerParticipantId: uuid("owner_participant_id"),
+    engine: text("engine"),
+    githubUserId: text("github_user_id"),
+    githubLogin: text("github_login"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("participants_github_user_id_uidx").on(table.githubUserId),
+  ],
+);
 
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   repoUrl: text("repo_url"),
+  githubInstallationId: text("github_installation_id"),
+  githubOwner: text("github_owner"),
+  githubRepo: text("github_repo"),
   ownerParticipantId: uuid("owner_participant_id")
     .notNull()
     .references(() => participants.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+export const githubOauthStates = pgTable("github_oauth_states", {
+  state: text("state").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
 export const roleAssignments = pgTable(
@@ -106,6 +125,44 @@ export const threads = pgTable("threads", {
   decidedAt: timestamp("decided_at", { withTimezone: true }),
   closedAt: timestamp("closed_at", { withTimezone: true }),
 });
+
+export const threadPullRequests = pgTable(
+  "thread_pull_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    number: integer("number").notNull(),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    state: text("state", { enum: ["open", "merged", "closed"] }).notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [unique().on(table.projectId, table.number)],
+);
+
+export const githubIssueIntakes = pgTable(
+  "github_issue_intakes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    issueNumber: integer("issue_number").notNull(),
+    boardThreadId: uuid("board_thread_id")
+      .notNull()
+      .references(() => threads.id),
+    status: text("status", { enum: ["redirected"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [unique().on(table.projectId, table.issueNumber)],
+);
 
 export const proposals = pgTable("proposals", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -346,6 +403,8 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   threads: many(threads),
   agreements: many(agreements),
   agentCredentials: many(agentCredentials),
+  pullRequests: many(threadPullRequests),
+  issueIntakes: many(githubIssueIntakes),
 }));
 
 export const threadsRelations = relations(threads, ({ one, many }) => ({
@@ -359,6 +418,7 @@ export const threadsRelations = relations(threads, ({ one, many }) => ({
   }),
   proposals: many(proposals),
   posts: many(posts),
+  pullRequests: many(threadPullRequests),
 }));
 
 export const proposalsRelations = relations(proposals, ({ one, many }) => ({
@@ -447,6 +507,9 @@ export const schema = {
   projects,
   roleAssignments,
   threads,
+  threadPullRequests,
+  githubIssueIntakes,
+  githubOauthStates,
   proposals,
   proposalVersions,
   agreements,

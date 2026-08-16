@@ -22,6 +22,7 @@ export const MCP_PROXY_TOOLS = [
   "add_proposal",
   "post",
   "declare",
+  "link_pull_request",
   "end_session",
 ] as const;
 
@@ -209,6 +210,19 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
       },
     },
     async (args) => runtime.callTool("declare", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "link_pull_request",
+    {
+      description: "スレッドに GitHub PR をリンクする",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+        url: z.string().url(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("link_pull_request", args as Record<string, unknown>),
   );
 
   server.registerTool(

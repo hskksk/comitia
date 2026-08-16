@@ -46,6 +46,20 @@ async function bootstrapOwnerAndAgent(app: ReturnType<typeof createBoardApp>) {
 }
 
 describe("board HTTP", () => {
+  it("accepts optional repoUrl on init", async () => {
+    const app = createBoardApp({ db });
+    const initRes = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerDisplayName: "ハル",
+        projectName: "comitia",
+        repoUrl: "https://github.com/hskksk/comitia",
+      }),
+    });
+    expect(initRes.status).toBe(201);
+  });
+
   it("init → register → get_briefing over REST", async () => {
     const app = createBoardApp({ db });
 
