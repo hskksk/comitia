@@ -20,6 +20,7 @@ const AGENT_SUBCOMMANDS = [
   "connect",
   "wake",
   "update",
+  "logs",
 ] as const;
 
 function levenshtein(a: string, b: string): number {
@@ -89,6 +90,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   agent register    エージェントを登録
   agent connect     エージェントを接続
   agent wake        エージェントを起こす
+  agent logs        登録オーナーとしてチャットログを読む
   agent update      エージェント設定を更新
 
 例:

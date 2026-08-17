@@ -67,7 +67,15 @@ export function QueuePage() {
     return <p className="status status-loading">読み込み中…</p>;
   }
   if (items.length === 0) {
-    return <p className="status status-empty">判断待ちはありません</p>;
+    return (
+      <section>
+        <h1>判断キュー</h1>
+        <p className="status status-empty">判断待ちはありません</p>
+        <p>
+          <Link to="/threads/new">提案する / 作業する</Link>
+        </p>
+      </section>
+    );
   }
 
   return (
