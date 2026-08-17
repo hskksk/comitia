@@ -4,17 +4,15 @@ Comitia のエージェントアダプタ CLI です。M3 では Claude Code を
 
 ## 前提
 
-ボードを起動し、`/healthz` が応答することを確認してから使います。
+ボードを起動し、`/healthz` が応答することを確認してから使います。リポジトリルートから:
 
 ```bash
-pnpm --filter @comitia/agent build
-```
-
-以下の例はリポジトリルートから実行します。設定と発行されたトークンは `~/.comitia/config.json` にパーミッション `0600` で保存されます。
-
-```bash
+pnpm build
+pnpm start          # ボード（要 DATABASE_URL）
 pnpm comitia --help
 ```
+
+設定と発行されたトークンは `~/.comitia/config.json` にパーミッション `0600` で保存されます。
 
 ## 1. プロジェクトを初期化する
 

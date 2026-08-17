@@ -4,10 +4,10 @@ M4 人間面＋M5 GitHub ログイン。判断キューがホーム。
 
 ## 開発
 
-別ターミナルでボード（既定 `8787`）を起動してから:
+別ターミナルでボード（既定 `8787`）を起動してから、リポジトリルートで:
 
 ```bash
-pnpm --filter @comitia/web dev
+pnpm dev
 ```
 
 Vite が `/v1` と `/healthz` をボードへプロキシする。
@@ -17,9 +17,11 @@ Vite が `/v1` と `/healthz` をボードへプロキシする。
 
 ## 本番
 
+リポジトリルートから:
+
 ```bash
-pnpm --filter @comitia/web build
-WEB_DIST=../web/dist DATABASE_URL=postgres://... pnpm --filter @comitia/board start
+pnpm build
+WEB_DIST=packages/web/dist DATABASE_URL=postgres://... pnpm start
 ```
 
 `packages/web/dist` がボードから見て存在するときは `WEB_DIST` なしでも配信する。

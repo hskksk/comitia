@@ -118,7 +118,7 @@ export async function doctorCommand(
   );
   if (boardDown) {
     stdout.write(
-      "\nボードを起動するには:\n  pnpm --filter @comitia/board start\n  または: pnpm dogfood\n",
+      "\nボードを起動するには（リポジトリルート）:\n  pnpm build && pnpm start\n  または: pnpm dogfood\n",
     );
   }
 }

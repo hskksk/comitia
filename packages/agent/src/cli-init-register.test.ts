@@ -294,6 +294,26 @@ describe("operator commands", () => {
     expect(output).toContain("ボード: 稼働中");
   });
 
+  it("tells how to start the board from the repo root when it is down", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeConfig(configDir);
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error("ECONNREFUSED");
+    });
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({ configDir, fetch: fetchMock as typeof fetch, stdout });
+    const output = chunks.join("");
+    expect(output).toContain("ボード: 到達できません");
+    expect(output).toContain("pnpm build && pnpm start");
+    expect(output).toContain("pnpm dogfood");
+  });
+
   it("wakes an agent via owner request-session", async () => {
     const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
     cleanups.push(() => rm(configDir, { recursive: true }));

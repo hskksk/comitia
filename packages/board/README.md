@@ -47,6 +47,8 @@ packages/board/
 
 ```bash
 pnpm install
+pnpm build       # 全パッケージをビルド
+pnpm start       # ボード起動（要 DATABASE_URL、既定 8787）
 pnpm typecheck   # 型チェック
 pnpm test        # 全パッケージのテスト（board は PGlite で外部 DB 不要）
 ```
