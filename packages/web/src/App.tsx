@@ -9,6 +9,11 @@ import { InboxPage } from "./pages/InboxPage.js";
 import { QueuePage } from "./pages/QueuePage.js";
 import { ThreadPage } from "./pages/ThreadPage.js";
 import { ThreadsPage } from "./pages/ThreadsPage.js";
+import { NewThreadPage } from "./pages/NewThreadPage.js";
+import { AgreementsPage } from "./pages/AgreementsPage.js";
+import { ParticipantsPage } from "./pages/ParticipantsPage.js";
+import { AgentSessionsPage } from "./pages/AgentSessionsPage.js";
+import { SessionLogPage } from "./pages/SessionLogPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!getToken()) {
@@ -46,7 +51,12 @@ export function App() {
           <Route path="/" element={<QueuePage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/threads" element={<ThreadsPage />} />
+          <Route path="/threads/new" element={<NewThreadPage />} />
           <Route path="/threads/:id" element={<ThreadPage />} />
+          <Route path="/agreements" element={<AgreementsPage />} />
+          <Route path="/participants" element={<ParticipantsPage />} />
+          <Route path="/participants/:id" element={<AgentSessionsPage />} />
+          <Route path="/sessions/:id" element={<SessionLogPage />} />
         </Route>
       </Routes>
     </>

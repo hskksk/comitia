@@ -4,6 +4,7 @@ import {
   events,
   participants,
   posts,
+  proposals,
   proposalVersions,
   threads,
 } from "../db/schema.js";
@@ -54,6 +55,14 @@ export type HumanThreadPost = {
   createdAt: string;
 };
 
+export type HumanProposal = {
+  id: string;
+  number: number;
+  latestVersionId: string;
+  versionNumber: number;
+  content: string;
+};
+
 export type HumanThreadView = {
   thread: {
     id: string;
@@ -71,6 +80,7 @@ export type HumanThreadView = {
     versionNumber: number;
     content: string;
   } | null;
+  proposals: HumanProposal[];
   posts: HumanThreadPost[];
   pullRequests: PullRequestRow[];
 };
@@ -244,6 +254,7 @@ export async function getHumanThreadView(
     },
     synthesis: await latestSynthesis(db, threadId),
     candidateProposal: await candidateOf(db, thread.candidateProposalVersionId),
+    proposals: await listThreadProposals(db, threadId),
     posts: threadPosts.map((post) => ({
       id: post.id,
       type: post.type,
@@ -257,6 +268,34 @@ export async function getHumanThreadView(
   };
 }
 
+async function listThreadProposals(
+  db: Db,
+  threadId: string,
+): Promise<HumanProposal[]> {
+  const rows = await db
+    .select()
+    .from(proposals)
+    .where(eq(proposals.threadId, threadId))
+    .orderBy(asc(proposals.number));
+  return Promise.all(
+    rows.map(async (proposal) => {
+      const [version] = await db
+        .select()
+        .from(proposalVersions)
+        .where(eq(proposalVersions.proposalId, proposal.id))
+        .orderBy(desc(proposalVersions.versionNumber))
+        .limit(1);
+      return {
+        id: proposal.id,
+        number: proposal.number,
+        latestVersionId: version!.id,
+        versionNumber: version!.versionNumber,
+        content: version!.content,
+      };
+    }),
+  );
+}
+
 export async function listProjectThreads(
   db: Db,
   input: { projectId: string },
@@ -268,6 +307,7 @@ export async function listProjectThreads(
       type: threads.type,
       state: threads.state,
       consensusType: threads.consensusType,
+      ownerParticipantId: threads.ownerParticipantId,
       createdAt: threads.createdAt,
     })
     .from(threads)

@@ -36,16 +36,32 @@ const threadView = {
       createdAt: "2026-08-16T00:00:00.000Z",
     },
   ],
+  proposals: [],
   pullRequests: [],
 };
 
 const declareMock = vi.fn().mockResolvedValue({ thread: { state: "decided" } });
 const threadMock = vi.fn().mockResolvedValue(threadView);
+const meMock = vi.fn().mockResolvedValue({
+  participant: { id: "p1", kind: "human", displayName: "ハル" },
+  projectId: "proj",
+});
+const addPostMock = vi.fn().mockResolvedValue({ id: "post-2" });
+const addProposalMock = vi.fn().mockResolvedValue({
+  id: "prop-1",
+  number: 1,
+  latestVersionId: "v2",
+  versionNumber: 1,
+  content: "案",
+});
 
 vi.mock("../api.js", () => ({
   boardClient: {
     thread: (...args: unknown[]) => threadMock(...args),
     declare: (...args: unknown[]) => declareMock(...args),
+    me: (...args: unknown[]) => meMock(...args),
+    addPost: (...args: unknown[]) => addPostMock(...args),
+    addProposal: (...args: unknown[]) => addProposalMock(...args),
   },
 }));
 
@@ -68,6 +84,13 @@ describe("ThreadPage", () => {
     declareMock.mockResolvedValue({ thread: { state: "decided" } });
     threadMock.mockClear();
     threadMock.mockResolvedValue(threadView);
+    meMock.mockClear();
+    meMock.mockResolvedValue({
+      participant: { id: "p1", kind: "human", displayName: "ハル" },
+      projectId: "proj",
+    });
+    addPostMock.mockClear();
+    addProposalMock.mockClear();
   });
 
   it("ratifies with summary", async () => {
@@ -77,7 +100,7 @@ describe("ThreadPage", () => {
     expect(screen.getByText("提案")).toBeInTheDocument();
     expect(screen.getByText("判断待ち")).toBeInTheDocument();
     expect(screen.getByText("人間による批准")).toBeInTheDocument();
-    expect(screen.getByText("統合")).toBeInTheDocument();
+    expect(screen.getAllByText("統合").length).toBeGreaterThan(0);
     await user.type(screen.getByLabelText("要約"), "批准する");
     await user.click(screen.getByRole("button", { name: "批准する" }));
     expect(declareMock).toHaveBeenCalledWith("t1", {
@@ -234,5 +257,62 @@ describe("ThreadPage", () => {
     await user.click(screen.getByRole("button", { name: "完了にする" }));
 
     expect(screen.getByRole("button", { name: "完了にする" })).toBeDisabled();
+  });
+
+  it("posts a comment from the composer", async () => {
+    const user = userEvent.setup();
+    addPostMock.mockResolvedValue({ id: "post-2" });
+    threadMock
+      .mockResolvedValueOnce(threadView)
+      .mockResolvedValueOnce({
+        ...threadView,
+        posts: [
+          ...threadView.posts,
+          {
+            id: "post-2",
+            type: "comment",
+            body: "人間からのコメント",
+            rationale: null,
+            authorParticipantId: "p1",
+            authorDisplayName: "ハル",
+            createdAt: "2026-08-16T01:00:00.000Z",
+          },
+        ],
+      });
+    renderThread();
+    await screen.findByText("ルール改正");
+    await user.type(screen.getByLabelText("本文"), "人間からのコメント");
+    await user.click(screen.getByRole("button", { name: "投稿する" }));
+    expect(addPostMock).toHaveBeenCalledWith("t1", {
+      type: "comment",
+      body: "人間からのコメント",
+      rationale: undefined,
+      blocking: undefined,
+      proposalVersionId: undefined,
+    });
+  });
+
+  it("lets the thread owner select a candidate while discussing", async () => {
+    const user = userEvent.setup();
+    threadMock.mockResolvedValue({
+      ...threadView,
+      thread: { ...threadView.thread, state: "discussing" },
+      proposals: [
+        {
+          id: "prop-1",
+          number: 1,
+          latestVersionId: "v1",
+          versionNumber: 1,
+          content: "区分を導入する",
+        },
+      ],
+    });
+    renderThread();
+    await screen.findByText("ルール改正");
+    await user.click(screen.getByRole("button", { name: "これを候補にする" }));
+    expect(declareMock).toHaveBeenCalledWith("t1", {
+      kind: "select_candidate",
+      proposalVersionId: "v1",
+    });
   });
 });

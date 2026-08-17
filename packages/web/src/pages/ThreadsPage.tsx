@@ -3,14 +3,20 @@ import { Link } from "react-router-dom";
 import { boardClient, type ThreadListItem } from "../api.js";
 import { ThreadBadges } from "../components/Badges.js";
 
+type Filter = "all" | "mine" | "proposal" | "implementation";
+
 export function ThreadsPage() {
   const [items, setItems] = useState<ThreadListItem[] | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    boardClient
-      .threads()
-      .then((res) => setItems(res.items))
+    Promise.all([boardClient.threads(), boardClient.me()])
+      .then(([res, me]) => {
+        setItems(res.items);
+        setMeId(me.participant.id);
+      })
       .catch((err: Error) => setError(err.message));
   }, []);
 
@@ -20,25 +26,65 @@ export function ThreadsPage() {
   if (!items) {
     return <p className="status status-loading">読み込み中…</p>;
   }
-  if (items.length === 0) {
-    return <p className="status status-empty">スレッドはまだありません</p>;
-  }
+
+  const visible = items.filter((item) => {
+    if (filter === "mine") {
+      return meId !== null && item.ownerParticipantId === meId;
+    }
+    if (filter === "proposal" || filter === "implementation") {
+      return item.type === filter;
+    }
+    return true;
+  });
 
   return (
     <section>
-      <h1>スレッド</h1>
-      {items.map((item) => (
-        <article key={item.id} className="card">
-          <h2>
-            <Link to={`/threads/${item.id}`}>{item.title}</Link>
-          </h2>
-          <ThreadBadges
-            type={item.type}
-            state={item.state}
-            consensusType={item.consensusType}
-          />
-        </article>
-      ))}
+      <div className="page-toolbar">
+        <h1>スレッド</h1>
+        <div className="actions">
+          <Link to="/threads/new" className="btn-primary">
+            提案する / 作業する
+          </Link>
+        </div>
+      </div>
+      <div className="filter-row">
+        {(
+          [
+            ["all", "すべて"],
+            ["mine", "自分がオーナー"],
+            ["proposal", "提案"],
+            ["implementation", "実装"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={filter === value ? "btn-primary" : "btn-secondary"}
+            onClick={() => setFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {visible.length === 0 ? (
+        <p className="status status-empty">
+          スレッドはまだありません。
+          <Link to="/threads/new">提案する / 作業する</Link>
+        </p>
+      ) : (
+        visible.map((item) => (
+          <article key={item.id} className="card">
+            <h2>
+              <Link to={`/threads/${item.id}`}>{item.title}</Link>
+            </h2>
+            <ThreadBadges
+              type={item.type}
+              state={item.state}
+              consensusType={item.consensusType}
+            />
+          </article>
+        ))
+      )}
     </section>
   );
 }

@@ -83,7 +83,16 @@ pnpm comitia agent wake facilitator
 
 オーナー認証で `POST /v1/agents/:id/request-session` を呼び、セッション開始 tick を送ります。エージェントが接続中なら即配信、未接続ならメールボックス待ちであることを表示します。
 
-## 9. エージェント設定を更新する
+## 9. チャットログを読む
+
+```bash
+pnpm comitia agent logs facilitator
+pnpm comitia agent logs facilitator --session <session-id> --follow
+```
+
+登録オーナーとして `GET /v1/sessions/:id/chat-log` を呼びます。`--follow` はポーリングで末尾を追います。
+
+## 10. エージェント設定を更新する
 
 ```bash
 pnpm comitia agent update facilitator --engine claude-code
@@ -104,6 +113,5 @@ pnpm comitia agent update facilitator --engine claude-code
 | `comitia agent register` | エージェント登録 |
 | `comitia agent connect` | エージェント接続 |
 | `comitia agent wake` | エージェント起床 |
+| `comitia agent logs` | チャットログ（登録オーナー） |
 | `comitia agent update` | エージェント設定更新 |
-
-`comitia agent logs` は M6-5 で追加予定です。

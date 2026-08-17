@@ -11,6 +11,8 @@ export function Layout() {
         </NavLink>
         <NavLink to="/inbox">非ブロッキング</NavLink>
         <NavLink to="/threads">スレッド</NavLink>
+        <NavLink to="/agreements">提案集</NavLink>
+        <NavLink to="/participants">参加者</NavLink>
         <button
           type="button"
           onClick={() => {

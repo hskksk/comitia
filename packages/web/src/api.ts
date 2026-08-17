@@ -44,7 +44,16 @@ export type ThreadListItem = {
   type: string;
   state: string;
   consensusType: string | null;
+  ownerParticipantId: string;
   createdAt: string;
+};
+
+export type HumanProposal = {
+  id: string;
+  number: number;
+  latestVersionId: string;
+  versionNumber: number;
+  content: string;
 };
 
 export type HumanThreadView = {
@@ -64,6 +73,7 @@ export type HumanThreadView = {
     versionNumber: number;
     content: string;
   } | null;
+  proposals: HumanProposal[];
   posts: Array<{
     id: string;
     type: string;
@@ -79,6 +89,76 @@ export type HumanThreadView = {
     title: string;
     state: "open" | "merged" | "closed";
   }>;
+};
+
+export type SearchThreadItem = {
+  id: string;
+  title: string;
+  type: string;
+  state: string;
+};
+
+export type AgreementItem = {
+  id: string;
+  threadId: string;
+  threadTitle: string | null;
+  summary: string;
+  outcome: string;
+  binding: boolean;
+  state: string;
+  createdAt: string;
+};
+
+export type ParticipantItem = {
+  id: string;
+  kind: "human" | "agent";
+  displayName: string;
+  engine: string | null;
+  ownerParticipantId: string | null;
+  roles: string[];
+  connection: {
+    status: "connected" | "disconnected" | "never";
+    lastSeenAt: string | null;
+  } | null;
+  openSession: {
+    id: string;
+    remainingBudget: number;
+    firstGoal: string | null;
+    startedAt: string;
+  } | null;
+};
+
+export type SessionItem = {
+  id: string;
+  participantId: string;
+  displayName: string;
+  startedAt: string;
+  endedAt: string | null;
+  endedReason: string | null;
+  remainingBudget: number;
+  budgetLimit: number;
+  budgetUsed: number;
+  goals: Array<{ id: string; text: string; status: string }>;
+};
+
+export type ChatLogResponse = {
+  sessionId: string;
+  participantId: string;
+  startedAt: string;
+  endedAt: string | null;
+  chatLog: string;
+  truncated: boolean;
+};
+
+export type CreateThreadInput = {
+  title: string;
+  type: string;
+  trigger: string;
+  duplicateSearchQuery: string;
+  consensusType?: string;
+  target?: string;
+  sharedArtifactKind?: string;
+  conflictCitationsChecked?: boolean;
 };
 
 export class ApiError extends Error {
@@ -115,6 +195,51 @@ export class BoardClient {
     return this.request(`/v1/threads/${id}`);
   }
 
+  async createThread(
+    input: CreateThreadInput,
+  ): Promise<{ id: string; state: string }> {
+    return this.request("/v1/threads", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async searchThreads(q: string): Promise<{ items: SearchThreadItem[] }> {
+    const params = new URLSearchParams({ q });
+    return this.request(`/v1/search/threads?${params.toString()}`);
+  }
+
+  async searchDecisions(q: string): Promise<{ items: AgreementItem[] }> {
+    const params = new URLSearchParams({ q });
+    return this.request(`/v1/search/decisions?${params.toString()}`);
+  }
+
+  async addPost(
+    threadId: string,
+    input: {
+      type: string;
+      body: string;
+      rationale?: string;
+      blocking?: boolean;
+      proposalVersionId?: string;
+    },
+  ): Promise<{ id: string }> {
+    return this.request(`/v1/threads/${threadId}/posts`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async addProposal(
+    threadId: string,
+    content: string,
+  ): Promise<HumanProposal> {
+    return this.request(`/v1/threads/${threadId}/proposals`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+  }
+
   async declare(
     threadId: string,
     payload: Record<string, unknown>,
@@ -122,6 +247,44 @@ export class BoardClient {
     return this.request(`/v1/threads/${threadId}/declare`, {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  }
+
+  async participants(): Promise<{ items: ParticipantItem[] }> {
+    return this.request("/v1/participants");
+  }
+
+  async agreements(state?: string): Promise<{ items: AgreementItem[] }> {
+    const params = state ? `?state=${encodeURIComponent(state)}` : "";
+    return this.request(`/v1/agreements${params}`);
+  }
+
+  async agentSessions(agentId: string): Promise<{ items: SessionItem[] }> {
+    return this.request(`/v1/agents/${agentId}/sessions`);
+  }
+
+  async chatLog(
+    sessionId: string,
+    options: { tailChars?: number; fromStart?: boolean } = {},
+  ): Promise<ChatLogResponse> {
+    const params = new URLSearchParams();
+    if (options.fromStart) {
+      params.set("fromStart", "1");
+    } else if (options.tailChars) {
+      params.set("tailChars", String(options.tailChars));
+    }
+    const query = params.toString();
+    return this.request(
+      `/v1/sessions/${sessionId}/chat-log${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async wakeAgent(
+    agentId: string,
+  ): Promise<{ sessionId?: string; tickId: string; status: string }> {
+    return this.request(`/v1/agents/${agentId}/request-session`, {
+      method: "POST",
+      body: "{}",
     });
   }
 

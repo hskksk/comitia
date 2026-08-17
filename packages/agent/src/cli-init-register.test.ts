@@ -15,6 +15,7 @@ import { doctorCommand } from "./commands/doctor.js";
 import { statusCommand } from "./commands/status.js";
 import { tokenCommand } from "./commands/token.js";
 import { wakeCommand } from "./commands/wake.js";
+import { agentLogsCommand } from "./commands/agent-logs.js";
 import { initCommand } from "./commands/init.js";
 import { registerCommand } from "./commands/register.js";
 
@@ -85,6 +86,20 @@ describe("init and agent register commands", () => {
     expect(parseCliArgs(["agent", "wake", "mika"])).toEqual({
       command: "agent-wake",
       name: "mika",
+    });
+    expect(parseCliArgs(["agent", "logs", "mika"])).toEqual({
+      command: "agent-logs",
+      name: "mika",
+      sessionId: undefined,
+      follow: false,
+    });
+    expect(
+      parseCliArgs(["agent", "logs", "mika", "--session", "sess-1", "--follow"]),
+    ).toEqual({
+      command: "agent-logs",
+      name: "mika",
+      sessionId: "sess-1",
+      follow: true,
     });
     expect(parseCliArgs(["agent", "update", "mika", "--engine", "claude-code"])).toEqual({
       command: "agent-update",
@@ -356,5 +371,44 @@ describe("operator commands", () => {
       },
     });
     expect(chunks.join("")).toContain("キューに積みました");
+  });
+
+  it("prints the latest session chat log", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeConfig(configDir);
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.endsWith("/v1/agents/agent-1/sessions")) {
+        return new Response(
+          JSON.stringify({
+            items: [{ id: "sess-1", startedAt: "2026-08-17T00:00:00.000Z", endedAt: null }],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/v1/sessions/sess-1/chat-log")) {
+        return new Response(
+          JSON.stringify({ chatLog: "hello from mika\n", truncated: false }),
+          { status: 200 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await agentLogsCommand({
+      name: "mika",
+      follow: false,
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+    });
+
+    expect(chunks.join("")).toContain("hello from mika");
   });
 });

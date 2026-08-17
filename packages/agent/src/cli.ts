@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { pathToFileURL } from "node:url";
+import { agentLogsCommand } from "./commands/agent-logs.js";
 import { agentListCommand } from "./commands/agent-list.js";
 import { connectCommand } from "./commands/connect.js";
 import { doctorCommand } from "./commands/doctor.js";
@@ -53,6 +54,12 @@ type ParsedCommand =
   | {
       command: "agent-wake";
       name: string;
+    }
+  | {
+      command: "agent-logs";
+      name: string;
+      sessionId?: string;
+      follow: boolean;
     }
   | {
       command: "agent-update";
@@ -157,6 +164,39 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
     return { command: "agent-wake", name: args[2] };
   }
+  if (args[0] === "agent" && args[1] === "logs") {
+    if (!args[2]) {
+      throw new UsageError(
+        "Usage: comitia agent logs <name> [--session <id>] [--follow]",
+      );
+    }
+    const name = args[2];
+    let sessionId: string | undefined;
+    let follow = false;
+    const rest = args.slice(3);
+    for (let index = 0; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--follow") {
+        follow = true;
+        continue;
+      }
+      if (token === "--session") {
+        const value = rest[index + 1];
+        if (!value) {
+          throw new UsageError(
+            "Usage: comitia agent logs <name> [--session <id>] [--follow]",
+          );
+        }
+        sessionId = value;
+        index += 1;
+        continue;
+      }
+      throw new UsageError(
+        "Usage: comitia agent logs <name> [--session <id>] [--follow]",
+      );
+    }
+    return { command: "agent-logs", name, sessionId, follow };
+  }
   if (args[0] === "agent" && args[1] === "update") {
     if (!args[2]) {
       throw new UsageError("Usage: comitia agent update <name> --engine <engine>");
@@ -222,6 +262,10 @@ export async function runCli(
   }
   if (command.command === "agent-wake") {
     await wakeCommand({ ...command, ...io });
+    return;
+  }
+  if (command.command === "agent-logs") {
+    await agentLogsCommand({ ...command, ...io });
     return;
   }
   if (command.command === "agent-update") {
