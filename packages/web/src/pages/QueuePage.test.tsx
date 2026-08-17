@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { QueuePage } from "./QueuePage.js";
 
 vi.mock("../api.js", () => ({
@@ -26,12 +27,25 @@ vi.mock("../api.js", () => ({
             content: "区分を導入する",
           },
         },
+        {
+          threadId: "t2",
+          title: "実装方針",
+          type: "implementation",
+          state: "awaiting_decision",
+          consensusType: "owner_decision",
+          humanRequired: false,
+          enteredAt: "2026-08-16T01:00:00.000Z",
+          synthesis: null,
+          candidateProposal: null,
+        },
       ],
     }),
   },
 }));
 
 describe("QueuePage", () => {
+  afterEach(cleanup);
+
   it("renders queue items with Japanese labels, synthesis, and candidate proposal", async () => {
     render(
       <MemoryRouter>
@@ -39,11 +53,35 @@ describe("QueuePage", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText("ルール改正")).toBeInTheDocument();
-    expect(
-      screen.getByText("提案 · 判断待ち · 人間による批准"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("人間批准が必要です")).toBeInTheDocument();
+    expect(screen.getByText("提案")).toBeInTheDocument();
+    expect(screen.getAllByText("判断待ち").length).toBeGreaterThan(0);
+    expect(screen.getByText("人間による批准")).toBeInTheDocument();
     expect(screen.getByText("決めるのは区分の是非")).toBeInTheDocument();
     expect(screen.getByText("候補提案 v1")).toBeInTheDocument();
     expect(screen.getByText("区分を導入する")).toBeInTheDocument();
+  });
+
+  it("moves selection with j/k and opens with Enter", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<QueuePage />} />
+          <Route path="/threads/:id" element={<p>opened-thread</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("ルール改正")).toBeInTheDocument();
+    const first = screen.getByRole("link", { name: /ルール改正/ });
+    expect(first).toHaveClass("is-selected");
+
+    await user.keyboard("j");
+    const second = screen.getByRole("link", { name: /実装方針/ });
+    expect(second).toHaveClass("is-selected");
+
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("opened-thread")).toBeInTheDocument();
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { boardClient, type ThreadListItem } from "../api.js";
-import { threadStateLabel, threadTypeLabel } from "../labels.js";
+import { ThreadBadges } from "../components/Badges.js";
 
 export function ThreadsPage() {
   const [items, setItems] = useState<ThreadListItem[] | null>(null);
@@ -15,10 +15,13 @@ export function ThreadsPage() {
   }, []);
 
   if (error) {
-    return <p className="error">{error}</p>;
+    return <p className="status status-error">{error}</p>;
   }
   if (!items) {
-    return <p className="muted">読み込み中…</p>;
+    return <p className="status status-loading">読み込み中…</p>;
+  }
+  if (items.length === 0) {
+    return <p className="status status-empty">スレッドはまだありません</p>;
   }
 
   return (
@@ -29,9 +32,11 @@ export function ThreadsPage() {
           <h2>
             <Link to={`/threads/${item.id}`}>{item.title}</Link>
           </h2>
-          <p className="muted">
-            {threadTypeLabel(item.type)} · {threadStateLabel(item.state)}
-          </p>
+          <ThreadBadges
+            type={item.type}
+            state={item.state}
+            consensusType={item.consensusType}
+          />
         </article>
       ))}
     </section>

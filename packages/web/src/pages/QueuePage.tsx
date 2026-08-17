@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { boardClient, type QueueItem } from "../api.js";
-import {
-  consensusTypeLabel,
-  threadStateLabel,
-  threadTypeLabel,
-} from "../labels.js";
+import { ThreadBadges } from "../components/Badges.js";
+import { SynthesisCard } from "../components/SynthesisCard.js";
+import { judgmentNeedLabel } from "../labels.js";
 
 export function QueuePage() {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const cardRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     boardClient
@@ -18,38 +19,83 @@ export function QueuePage() {
       .catch((err: Error) => setError(err.message));
   }, []);
 
+  useEffect(() => {
+    if (!items || items.length === 0) {
+      return;
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key === "j") {
+        event.preventDefault();
+        setSelectedIndex((i) => Math.min(i + 1, items!.length - 1));
+      } else if (event.key === "k") {
+        event.preventDefault();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const item = items![selectedIndex];
+        if (item) {
+          navigate(`/threads/${item.threadId}`);
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [items, selectedIndex, navigate]);
+
+  useEffect(() => {
+    const el = cardRefs.current[selectedIndex];
+    el?.focus({ preventScroll: false });
+  }, [selectedIndex, items]);
+
   if (error) {
-    return <p className="error">{error}</p>;
+    return <p className="status status-error">{error}</p>;
   }
   if (!items) {
-    return <p className="muted">読み込み中…</p>;
+    return <p className="status status-loading">読み込み中…</p>;
   }
   if (items.length === 0) {
-    return <p>判断待ちはありません</p>;
+    return <p className="status status-empty">判断待ちはありません</p>;
   }
 
   return (
     <section>
       <h1>判断キュー</h1>
-      {items.map((item) => (
+      {items.map((item, index) => (
         <Link
           key={item.threadId}
           to={`/threads/${item.threadId}`}
-          className="card"
+          className={`card${index === selectedIndex ? " is-selected" : ""}`}
+          ref={(el) => {
+            cardRefs.current[index] = el;
+          }}
+          tabIndex={index === selectedIndex ? 0 : -1}
+          onFocus={() => setSelectedIndex(index)}
         >
           <h2>{item.title}</h2>
-          <p className="muted">
-            {threadTypeLabel(item.type)} · {threadStateLabel(item.state)} ·{" "}
-            {consensusTypeLabel(item.consensusType)}
-          </p>
-          <h3>争点要約</h3>
-          <p>{item.synthesis?.body ?? "争点要約はまだありません"}</p>
-          <h3>
-            {item.candidateProposal
-              ? `候補提案 v${item.candidateProposal.versionNumber}`
-              : "候補提案"}
-          </h3>
-          <p>{item.candidateProposal?.content ?? "候補は未選定です"}</p>
+          <p className="card-need">{judgmentNeedLabel(item.consensusType)}</p>
+          <ThreadBadges
+            type={item.type}
+            state={item.state}
+            consensusType={item.consensusType}
+          />
+          <SynthesisCard
+            synthesis={item.synthesis}
+            candidate={item.candidateProposal}
+            collapseCandidate
+          />
         </Link>
       ))}
     </section>

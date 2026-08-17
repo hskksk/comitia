@@ -30,11 +30,13 @@ export function LoginPage() {
   }
 
   return (
-    <main className="layout">
+    <main className="layout login-panel">
       <h1>Comitia</h1>
       {githubOAuth ? (
         <p>
-          <a href="/v1/auth/github">GitHub で入る</a>
+          <a className="back-link" href="/v1/auth/github">
+            GitHub で入る
+          </a>
         </p>
       ) : null}
       <details>
@@ -44,6 +46,7 @@ export function LoginPage() {
           <label>
             オーナートークン
             <input
+              type="text"
               value={token}
               onChange={(e) => setTokenField(e.target.value)}
               autoComplete="off"
@@ -51,9 +54,11 @@ export function LoginPage() {
             />
           </label>
           <div className="actions">
-            <button type="submit">入る</button>
+            <button type="submit" className="btn-primary">
+              入る
+            </button>
           </div>
-          {error ? <p className="error">{error}</p> : null}
+          {error ? <p className="status status-error">{error}</p> : null}
         </form>
       </details>
     </main>

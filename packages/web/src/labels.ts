@@ -61,3 +61,17 @@ const pullRequestStateLabels: Record<string, string> = {
 export function pullRequestStateLabel(value: string): string {
   return labelOf(pullRequestStateLabels, value);
 }
+
+/** One-line "what we need" for queue cards (M6-1 / M6-2). */
+export function judgmentNeedLabel(consensusType: string | null): string {
+  switch (consensusType) {
+    case "human_ratification":
+      return "人間批准が必要です";
+    case "owner_decision":
+      return "オーナー決定が必要です";
+    case "rough":
+      return "概略合意の判断が必要です";
+    default:
+      return "判断が必要です";
+  }
+}
