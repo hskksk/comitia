@@ -95,7 +95,7 @@ describe("bootstrap", () => {
     expect(credentials).toHaveLength(1);
   });
 
-  it("rejects engine other than claude-code", async () => {
+  it("rejects unsupported engines", async () => {
     const boot = await bootstrapBoard(db, {
       ownerDisplayName: "ハル",
       projectName: "comitia",
@@ -106,7 +106,20 @@ describe("bootstrap", () => {
         displayName: "ソウ",
         engine: "opencode",
       }),
-    ).rejects.toThrow(/claude-code/);
+    ).rejects.toThrow(/claude-code, fake/);
+  });
+
+  it("accepts the fake walkthrough engine", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const registered = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "ウォーカー",
+      engine: "fake",
+    });
+    expect(registered.agent.engine).toBe("fake");
   });
 
   it("assigns staggered connection start minutes", async () => {

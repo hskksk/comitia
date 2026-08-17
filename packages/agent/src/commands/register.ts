@@ -1,4 +1,5 @@
 import { loadConfig, saveConfig } from "../config.js";
+import { assertSupportedEngine } from "../engines.js";
 
 export interface RegisterCommandOptions {
   name: string;
@@ -9,9 +10,7 @@ export interface RegisterCommandOptions {
 export async function registerCommand(
   options: RegisterCommandOptions,
 ): Promise<void> {
-  if (options.engine !== "claude-code") {
-    throw new Error(`Unsupported engine: ${options.engine}`);
-  }
+  assertSupportedEngine(options.engine);
 
   const config = await loadConfig(options.configDir);
   if (!config.boardUrl || !config.ownerToken) {

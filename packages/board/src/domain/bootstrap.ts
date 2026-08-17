@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { ENGINES, isSupportedEngine } from "@comitia/shared";
 import {
   agentConnections,
   agentCredentials,
@@ -54,8 +55,8 @@ export async function registerAgent(
     engine: string;
   },
 ) {
-  if (input.engine !== "claude-code") {
-    throw new GateViolation("engine must be claude-code");
+  if (!isSupportedEngine(input.engine)) {
+    throw new GateViolation(`engine must be one of: ${ENGINES.join(", ")}`);
   }
 
   return db.transaction(async (tx) => {

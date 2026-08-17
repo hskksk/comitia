@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { boardClient, type ParticipantItem } from "../api.js";
+import { engineLabel } from "../labels.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 
 function connectionLabel(status: "connected" | "disconnected" | "never"): string {
@@ -59,7 +60,7 @@ export function ParticipantsPage() {
           <h2>{item.displayName}</h2>
           <p className="muted">
             {item.kind === "agent" ? "エージェント" : "人間"}
-            {item.engine ? ` · ${item.engine}` : ""}
+            {item.engine ? ` · ${engineLabel(item.engine)}` : ""}
             {item.roles.length > 0 ? ` · ${item.roles.join("、")}` : ""}
           </p>
           {item.connection ? (

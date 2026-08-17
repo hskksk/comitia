@@ -109,6 +109,14 @@ export type Role = (typeof ROLES)[number];
 export const PARTICIPANT_KINDS = ["human", "agent"] as const;
 export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
 
+/** Engines the board will register. `fake` is a human-driven walkthrough, not a coding CLI. */
+export const ENGINES = ["claude-code", "fake"] as const;
+export type Engine = (typeof ENGINES)[number];
+
+export function isSupportedEngine(value: string): value is Engine {
+  return (ENGINES as readonly string[]).includes(value);
+}
+
 /** Default session activity budget (M2). */
 export const DEFAULT_SESSION_BUDGET = 1000;
 

@@ -48,6 +48,7 @@ describe("ParticipantsPage", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText("ミカ")).toBeInTheDocument();
+    expect(screen.getByText(/claude-code/)).toBeInTheDocument();
     expect(screen.getByText("切断")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "ログ" })).toHaveAttribute(
       "href",
