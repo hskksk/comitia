@@ -1,3 +1,4 @@
+import { DEFAULT_SESSION_BUDGET, WIND_DOWN_RESERVE } from "@comitia/shared";
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
@@ -54,7 +55,7 @@ describe("activity budget", () => {
 
     await db
       .update(sessions)
-      .set({ budgetUsed: 90 })
+      .set({ budgetUsed: DEFAULT_SESSION_BUDGET - WIND_DOWN_RESERVE })
       .where(eq(sessions.id, session.id));
 
     expect(await getRemainingBudget(db, session.id)).toBe(10);
