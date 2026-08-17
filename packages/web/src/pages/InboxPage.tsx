@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { boardClient, type InboxItem } from "../api.js";
+import { MarkdownBody } from "../components/MarkdownBody.js";
 import { pullRequestStateLabel } from "../labels.js";
 
 const KIND_LABEL = {
@@ -38,13 +39,13 @@ export function InboxPage() {
   }
 
   if (error && !items) {
-    return <p className="error">{error}</p>;
+    return <p className="status status-error">{error}</p>;
   }
   if (!items) {
-    return <p className="muted">読み込み中…</p>;
+    return <p className="status status-loading">読み込み中…</p>;
   }
   if (items.length === 0) {
-    return <p>非ブロッキングな作業はありません</p>;
+    return <p className="status status-empty">非ブロッキングな作業はありません</p>;
   }
 
   return (
@@ -59,7 +60,9 @@ export function InboxPage() {
             <Link to={`/threads/${item.threadId}`}>{item.title}</Link>
           </h2>
           <p className="muted">{KIND_LABEL[item.kind]}</p>
-          {item.latestReport ? <p>{item.latestReport.body}</p> : null}
+          {item.latestReport ? (
+            <MarkdownBody source={item.latestReport.body} />
+          ) : null}
           {item.pullRequests.map((pr) => (
             <p key={pr.number}>
               #{pr.number} {pullRequestStateLabel(pr.state)}{" "}
@@ -69,6 +72,7 @@ export function InboxPage() {
           <div className="actions">
             <button
               type="button"
+              className="btn-primary"
               disabled={isCompleting}
               onClick={() => void complete(item.threadId)}
             >
@@ -77,7 +81,7 @@ export function InboxPage() {
           </div>
         </article>
       ))}
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="status status-error">{error}</p> : null}
     </section>
   );
 }

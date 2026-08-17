@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,6 +49,17 @@ vi.mock("../api.js", () => ({
   },
 }));
 
+function renderThread() {
+  return render(
+    <MemoryRouter initialEntries={["/threads/t1"]}>
+      <Routes>
+        <Route path="/threads/:id" element={<ThreadPage />} />
+        <Route path="/" element={<p>queue-home</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("ThreadPage", () => {
   afterEach(cleanup);
 
@@ -61,17 +72,11 @@ describe("ThreadPage", () => {
 
   it("ratifies with summary", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={["/threads/t1"]}>
-        <Routes>
-          <Route path="/threads/:id" element={<ThreadPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderThread();
     expect((await screen.findAllByText("争点は遡及")).length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("提案 · 判断待ち · 人間による批准"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("提案")).toBeInTheDocument();
+    expect(screen.getByText("判断待ち")).toBeInTheDocument();
+    expect(screen.getByText("人間による批准")).toBeInTheDocument();
     expect(screen.getByText("統合")).toBeInTheDocument();
     await user.type(screen.getByLabelText("要約"), "批准する");
     await user.click(screen.getByRole("button", { name: "批准する" }));
@@ -82,15 +87,36 @@ describe("ThreadPage", () => {
     });
   });
 
+  it("stays on the thread after ratify and shows a queue link", async () => {
+    const user = userEvent.setup();
+    const decidedView = {
+      ...threadView,
+      thread: { ...threadView.thread, state: "decided" },
+    };
+    threadMock
+      .mockResolvedValueOnce(threadView)
+      .mockResolvedValueOnce(decidedView);
+
+    renderThread();
+    await screen.findByText("ルール改正");
+    await user.type(screen.getByLabelText("要約"), "批准する");
+    await user.click(screen.getByRole("button", { name: "批准する" }));
+
+    await waitFor(() => expect(threadMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("queue-home")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "判断キューへ" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(
+      screen.queryByRole("button", { name: "批准する" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("決定済み")).toBeInTheDocument();
+  });
+
   it("sends back with the entered reason", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={["/threads/t1"]}>
-        <Routes>
-          <Route path="/threads/:id" element={<ThreadPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderThread();
 
     await screen.findByText("ルール改正");
     await user.type(screen.getByLabelText("差し戻し理由"), "影響範囲を明確にしてください");
@@ -102,19 +128,30 @@ describe("ThreadPage", () => {
     });
   });
 
-  it("rejects with the entered summary", async () => {
+  it("does not send back when reason is empty", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={["/threads/t1"]}>
-        <Routes>
-          <Route path="/threads/:id" element={<ThreadPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderThread();
+
+    await screen.findByText("ルール改正");
+    expect(screen.getByRole("button", { name: "差し戻す" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "差し戻す" }));
+    expect(declareMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects only after in-page confirmation", async () => {
+    const user = userEvent.setup();
+    renderThread();
 
     await screen.findByText("ルール改正");
     await user.type(screen.getByLabelText("要約"), "現時点では不採用");
     await user.click(screen.getByRole("button", { name: "不採用" }));
+
+    expect(declareMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("不採用にする。このスレッドは閉じる"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "不採用を確定" }));
 
     expect(declareMock).toHaveBeenCalledWith("t1", {
       kind: "reject_thread",
@@ -122,16 +159,25 @@ describe("ThreadPage", () => {
     });
   });
 
+  it("cancels reject confirmation without declaring", async () => {
+    const user = userEvent.setup();
+    renderThread();
+
+    await screen.findByText("ルール改正");
+    await user.type(screen.getByLabelText("要約"), "現時点では不採用");
+    await user.click(screen.getByRole("button", { name: "不採用" }));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(declareMock).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("不採用にする。このスレッドは閉じる"),
+    ).not.toBeInTheDocument();
+  });
+
   it("disables every declaration action while a declaration is in flight", async () => {
     const user = userEvent.setup();
     declareMock.mockImplementationOnce(() => new Promise(() => undefined));
-    render(
-      <MemoryRouter initialEntries={["/threads/t1"]}>
-        <Routes>
-          <Route path="/threads/:id" element={<ThreadPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderThread();
 
     await screen.findByText("ルール改正");
     await user.type(screen.getByLabelText("要約"), "批准する");
@@ -150,13 +196,7 @@ describe("ThreadPage", () => {
         ...threadView,
         thread: { ...threadView.thread, type, state: "decided" },
       });
-      render(
-        <MemoryRouter initialEntries={["/threads/t1"]}>
-          <Routes>
-            <Route path="/threads/:id" element={<ThreadPage />} />
-          </Routes>
-        </MemoryRouter>,
-      );
+      renderThread();
 
       await screen.findByText("ルール改正");
       await user.click(screen.getByRole("button", { name: "完了にする" }));
@@ -168,13 +208,7 @@ describe("ThreadPage", () => {
   );
 
   it("does not show completion for the awaiting-decision fixture", async () => {
-    render(
-      <MemoryRouter initialEntries={["/threads/t1"]}>
-        <Routes>
-          <Route path="/threads/:id" element={<ThreadPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderThread();
 
     await screen.findByText("ルール改正");
 
@@ -194,13 +228,7 @@ describe("ThreadPage", () => {
       },
     });
     declareMock.mockImplementationOnce(() => new Promise(() => undefined));
-    render(
-      <MemoryRouter initialEntries={["/threads/t1"]}>
-        <Routes>
-          <Route path="/threads/:id" element={<ThreadPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderThread();
 
     await screen.findByText("ルール改正");
     await user.click(screen.getByRole("button", { name: "完了にする" }));
