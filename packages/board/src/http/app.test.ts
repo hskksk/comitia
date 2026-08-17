@@ -187,6 +187,102 @@ describe("board HTTP", () => {
     expect(await res.json()).toEqual({ error: "tick gateway is unavailable" });
   });
 
+  it("owner can wake an agent via POST /v1/agents/:id/request-session", async () => {
+    const calls: Array<{ participantId: string; type: TickType }> = [];
+    const fake: BoardGateway = {
+      sendTick: async (input) => {
+        calls.push(input);
+        return {
+          tickId: "tick-owner-wake",
+          sessionId: "sess-owner-wake",
+          status: "delivered",
+        };
+      },
+    };
+    const app = createBoardApp({
+      db,
+      getGateway: () => fake,
+    });
+    const { initBody, agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request(
+      `/v1/agents/${agentBody.agentId}/request-session`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${initBody.ownerToken}`,
+        },
+        body: "{}",
+      },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      sessionId: "sess-owner-wake",
+      tickId: "tick-owner-wake",
+      status: "delivered",
+    });
+    expect(calls).toEqual([
+      { participantId: agentBody.agentId, type: "session.start" },
+    ]);
+  });
+
+  it("rejects agent token on POST /v1/agents/:id/request-session", async () => {
+    const app = createBoardApp({
+      db,
+      getGateway: () => ({
+        sendTick: async () => ({
+          tickId: "tick",
+          sessionId: "sess",
+          status: "queued",
+        }),
+      }),
+    });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request(
+      `/v1/agents/${agentBody.agentId}/request-session`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${agentBody.agentToken}`,
+        },
+        body: "{}",
+      },
+    );
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "owner required" });
+  });
+
+  it("returns 404 for unknown agent on POST /v1/agents/:id/request-session", async () => {
+    const app = createBoardApp({
+      db,
+      getGateway: () => ({
+        sendTick: async () => ({
+          tickId: "tick",
+          sessionId: "sess",
+          status: "queued",
+        }),
+      }),
+    });
+    const { initBody } = await bootstrapOwnerAndAgent(app);
+
+    const res = await app.request(
+      "/v1/agents/00000000-0000-0000-0000-000000000000/request-session",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${initBody.ownerToken}`,
+        },
+        body: "{}",
+      },
+    );
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "エージェントが見つかりません" });
+  });
+
   it(
     "POST /v1/me/request-session over HTTP calls sendTick",
     async () => {

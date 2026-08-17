@@ -205,6 +205,37 @@ export function createBoardApp(input: {
     });
   });
 
+  app.post("/v1/agents/:id/request-session", auth, owner, async (c) => {
+    const agentId = c.req.param("id");
+    const projectId = c.get("projectId");
+    const [cred] = await db
+      .select()
+      .from(agentCredentials)
+      .where(
+        and(
+          eq(agentCredentials.participantId, agentId),
+          eq(agentCredentials.projectId, projectId),
+        ),
+      )
+      .limit(1);
+    if (!cred) {
+      return c.json({ error: "エージェントが見つかりません" }, 404);
+    }
+    const gateway = input.getGateway?.();
+    if (!gateway) {
+      return c.json({ error: "tick gateway is unavailable" }, 503);
+    }
+    const result = await gateway.sendTick({
+      participantId: agentId,
+      type: "session.start",
+    });
+    return c.json({
+      sessionId: result.sessionId,
+      tickId: result.tickId,
+      status: result.status,
+    });
+  });
+
   app.post("/v1/sessions/:id/chat-log", auth, agent, async (c) => {
     const participant = c.get("participant");
     const sessionId = c.req.param("id");
