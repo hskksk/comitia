@@ -69,7 +69,8 @@ describe("promptToolArgs", () => {
       { goals: [] },
     );
     expect(args).toEqual({ goals: ["typo を直す", "report を書く"] });
-    expect(written.join("")).toContain("set_goals");
+    expect(written.join("")).toContain("set_goals: その日の目標を宣言する");
+    expect(written.join("")).toContain("今日の目標（1 件以上）");
   });
 
   it("accepts bulk JSON instead of field prompts", async () => {
@@ -124,6 +125,10 @@ describe("promptToolArgs", () => {
       body: "hello",
     });
     expect(written.join("")).toContain("ひとつ戻ります");
+    expect(written.join("")).toContain("post: スレッドに投稿する");
+    expect(written.join("")).toContain("スレッド id");
+    expect(written.join("")).toContain("投稿型");
+    expect(written.join("")).toContain("本文");
   });
 
   it("returns from the first field to bulk JSON, then can fill the form", async () => {

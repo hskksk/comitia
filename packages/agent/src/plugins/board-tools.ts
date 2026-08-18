@@ -451,9 +451,8 @@ export async function promptToolArgs(
   if (tool.fields.length === 0) {
     return args;
   }
-  write(
-    `${tool.name} の引数。任意項目は空 Enter で省略。Esc でひとつ戻る。\n`,
-  );
+  write(`${tool.name}: ${tool.description}\n`);
+  write("任意項目は空 Enter で省略。Esc でひとつ戻る。\n");
 
   let phase: "bulk" | number = "bulk";
   for (;;) {
@@ -518,6 +517,7 @@ async function promptField(
   write: (text: string) => void,
   hints: ToolPromptHints,
 ): Promise<unknown> {
+  writeFieldIntro(field, write);
   if (field.kind === "string[]") {
     return promptStringArray(field, ask, write);
   }
@@ -540,13 +540,20 @@ async function promptField(
   return interpretFieldInput(field, line, ask, write, hints);
 }
 
+function writeFieldIntro(
+  field: ToolFieldSpec,
+  write: (text: string) => void,
+): void {
+  write(`${field.description}\n`);
+}
+
 async function promptStringArray(
   field: ToolFieldSpec,
   ask: (question: string) => Promise<string>,
   write: (text: string) => void,
 ): Promise<string[]> {
   const items: string[] = [];
-  write(`${field.description}。空 Enter で確定。Esc でひとつ戻る。\n`);
+  write("空 Enter で確定。Esc でひとつ戻る。\n");
   for (;;) {
     let line: string;
     try {
