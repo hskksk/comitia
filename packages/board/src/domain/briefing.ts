@@ -2,6 +2,9 @@ import { and, eq } from "drizzle-orm";
 import { threads } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
+import { searchAgreements } from "./agreements.js";
+import { getParticipant, getProject } from "./helpers.js";
+import { listProjectParticipants } from "./human-ops.js";
 import {
   getLatestPreviousHandover,
   listSessionGoals,
@@ -9,6 +12,9 @@ import {
   openOrGetSession,
   wasLatestPreviousSessionInterrupted,
 } from "./sessions.js";
+import { searchThreads } from "./threads.js";
+
+const OPEN_THREAD_STATES = new Set(["discussing", "awaiting_decision"]);
 
 export async function getBriefing(
   db: Db,
@@ -58,12 +64,54 @@ export async function getBriefing(
       status: goal.status,
     }));
 
+  const [project, participant, bindingAgreements, allThreads, participants] =
+    await Promise.all([
+      getProject(db, input.projectId),
+      getParticipant(db, input.participantId),
+      searchAgreements(db, {
+        projectId: input.projectId,
+        onlyActiveBinding: true,
+      }),
+      searchThreads(db, { projectId: input.projectId }),
+      listProjectParticipants(db, input.projectId),
+    ]);
+
+  const you = participants.find((row) => row.id === input.participantId);
+  const openThreads = allThreads
+    .filter((thread) => OPEN_THREAD_STATES.has(thread.state))
+    .map((thread) => ({
+      id: thread.id,
+      title: thread.title,
+      type: thread.type,
+      state: thread.state,
+    }));
+
   return {
     sessionId: digestedSession.id,
     handover,
-    rules: "",
+    you: {
+      displayName: participant.displayName,
+      roles: you?.roles ?? [],
+      engine: participant.engine,
+    },
+    project: {
+      name: project.name,
+      repoUrl: project.repoUrl,
+      githubOwner: project.githubOwner,
+      githubRepo: project.githubRepo,
+    },
+    rules: bindingAgreements.map((agreement) => agreement.summary).join("\n"),
     situation: {
       threads: ownedThreads,
+      open_threads: openThreads,
+      participants: participants.map((row) => ({
+        displayName: row.displayName,
+        roles: row.roles,
+        kind: row.kind,
+      })),
+      gates: {
+        conflict_citations_required: bindingAgreements.length > 0,
+      },
       ...(awaitingDecision.length > 0
         ? { awaiting_decision: awaitingDecision }
         : {}),
