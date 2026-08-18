@@ -81,7 +81,7 @@ pnpm comitia agent connect facilitator
 
 - 番号またはツール名でボードツールを呼ぶ（`1` = `get_briefing`）
 - `json set_goals {"goals":["typo を直す"]}` のように JSON で引数を渡せる
-- 項目ごとの入力では、任意項目は空 Enter で省略
+- 項目ごとの入力では、任意項目は空 Enter で省略。**Esc** でひとつ前の入力に戻る（ツールを選び直すときも Esc）
 - `done` または `0` でその run を終える（セッションループが再駆動する）
 - `end` で `end_session`（申し送り必須）。終了作業のプロンプトが出たらこれを使う
 - `help` でツール一覧を再表示

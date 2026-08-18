@@ -1,9 +1,12 @@
+import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import type { McpProxyToolResult } from "../mcp-proxy.js";
 import { createClaudeCodePlugin } from "./claude-code.js";
 import { createEnginePlugin } from "./create-engine.js";
 import { createFakeEnginePlugin } from "./fake.js";
+import { ESCAPE_LINE } from "./board-tools.js";
 import {
+  askOnTty,
   createInteractiveFakeEnginePlugin,
   createScriptedIo,
 } from "./interactive-fake.js";
@@ -196,5 +199,81 @@ describe("interactive fake engine", () => {
       args: { goal_id: GOAL_ID },
     });
     await plugin.stop();
+  });
+
+  it("cancels a selected tool with Escape and returns to the menu", async () => {
+    const calls: string[] = [];
+    const scripted = createScriptedIo([
+      "2",
+      ESCAPE_LINE,
+      "1",
+      "done",
+    ]);
+    const plugin = createInteractiveFakeEnginePlugin({
+      io: scripted.io,
+      callTool: async (name) => {
+        calls.push(name);
+        return jsonResult({ remaining_budget: 9 });
+      },
+    });
+    await plugin.start({
+      sessionId: "sess-esc",
+      workDir: "/tmp/esc",
+      mcp: { command: "node", args: [], env: {} },
+    });
+    const result = await plugin.run("1. get_briefing を呼ぶ");
+    expect(calls).toEqual(["get_briefing"]);
+    expect(result.toolLog.map((entry) => entry.tool)).toEqual(["get_briefing"]);
+    expect(scripted.output()).toContain("キャンセルしました");
+    await plugin.stop();
+  });
+
+  it("ignores Escape on the tool menu", async () => {
+    const scripted = createScriptedIo([ESCAPE_LINE, "done"]);
+    const plugin = createInteractiveFakeEnginePlugin({
+      io: scripted.io,
+      callTool: async () => jsonResult({}),
+    });
+    await plugin.start({
+      sessionId: "sess-esc-menu",
+      workDir: "/tmp/esc-menu",
+      mcp: { command: "node", args: [], env: {} },
+    });
+    const result = await plugin.run("続きに取り組め");
+    expect(result.toolLog).toEqual([]);
+    expect(scripted.output()).toContain("戻る先はありません");
+    await plugin.stop();
+  });
+});
+
+describe("askOnTty", () => {
+  function fakeStdin(): NodeJS.ReadStream {
+    const stdin = new PassThrough() as PassThrough & {
+      isRaw: boolean;
+      setRawMode: (mode: boolean) => NodeJS.ReadStream;
+    };
+    stdin.isRaw = false;
+    stdin.setRawMode = function setRawMode(mode: boolean) {
+      this.isRaw = mode;
+      return this as unknown as NodeJS.ReadStream;
+    };
+    return stdin as unknown as NodeJS.ReadStream;
+  }
+
+  it("resolves Escape immediately as cancel", async () => {
+    const stdin = fakeStdin();
+    const stdout = new PassThrough();
+    const pending = askOnTty(stdin, stdout, "q: ");
+    stdin.emit("keypress", "\x1b", { name: "escape" });
+    await expect(pending).resolves.toBe(ESCAPE_LINE);
+  });
+
+  it("submits the buffer on Enter", async () => {
+    const stdin = fakeStdin();
+    const stdout = new PassThrough();
+    const pending = askOnTty(stdin, stdout, "q: ");
+    stdin.emit("keypress", "hi", { name: "h" });
+    stdin.emit("keypress", undefined, { name: "return" });
+    await expect(pending).resolves.toBe("hi");
   });
 });

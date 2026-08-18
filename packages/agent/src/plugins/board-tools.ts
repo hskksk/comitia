@@ -43,6 +43,35 @@ export type RunCommand =
   | { kind: "tool"; name: string; args?: Record<string, unknown> }
   | { kind: "error"; message: string };
 
+/** Line returned by TTY / scripted I/O when Escape is pressed. */
+export const ESCAPE_LINE = "\x1b";
+
+export class PromptCancelled extends Error {
+  constructor() {
+    super("prompt cancelled");
+    this.name = "PromptCancelled";
+  }
+}
+
+export function isEscapeLine(line: string): boolean {
+  return line === ESCAPE_LINE;
+}
+
+export function isPromptCancelled(error: unknown): boolean {
+  return error instanceof PromptCancelled;
+}
+
+export async function askOrCancel(
+  ask: (question: string) => Promise<string>,
+  question: string,
+): Promise<string> {
+  const line = await ask(question);
+  if (isEscapeLine(line)) {
+    throw new PromptCancelled();
+  }
+  return line;
+}
+
 export const BOARD_TOOLS: BoardToolSpec[] = [
   {
     name: "get_briefing",
@@ -319,6 +348,7 @@ export function formatToolMenu(tools: readonly BoardToolSpec[] = BOARD_TOOLS): s
   lines.push("   0. done                 この run を終える");
   lines.push("  end. end_session         申し送りを書いて一日を閉じる");
   lines.push(" help. この一覧を再表示");
+  lines.push("  Esc  ひとつ戻る（引数入力中）");
   return lines.join("\n");
 }
 
@@ -422,36 +452,64 @@ export async function promptToolArgs(
     return args;
   }
   write(
-    `${tool.name} の引数。任意項目は空 Enter で省略。\n`,
+    `${tool.name} の引数。任意項目は空 Enter で省略。Esc でひとつ戻る。\n`,
   );
-  const bulk = await ask("一括 JSON（空 Enter で項目ごと）: ");
-  const bulkTrimmed = bulk.trim();
-  if (bulkTrimmed.length > 0) {
-    try {
-      const parsed = JSON.parse(bulkTrimmed) as unknown;
-      if (
-        parsed === null ||
-        typeof parsed !== "object" ||
-        Array.isArray(parsed)
-      ) {
-        throw new Error("引数 JSON はオブジェクトにしてください");
+
+  let phase: "bulk" | number = "bulk";
+  for (;;) {
+    if (phase === "bulk") {
+      const bulk = await askOrCancel(ask, "一括 JSON（空 Enter で項目ごと）: ");
+      const bulkTrimmed = bulk.trim();
+      if (bulkTrimmed.length > 0) {
+        try {
+          const parsed = JSON.parse(bulkTrimmed) as unknown;
+          if (
+            parsed === null ||
+            typeof parsed !== "object" ||
+            Array.isArray(parsed)
+          ) {
+            throw new Error("引数 JSON はオブジェクトにしてください");
+          }
+          return parsed as Record<string, unknown>;
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message === "引数 JSON はオブジェクトにしてください"
+          ) {
+            throw error;
+          }
+          throw new Error("JSON が不正です");
+        }
       }
-      return parsed as Record<string, unknown>;
+      phase = 0;
+      continue;
+    }
+
+    const field = tool.fields[phase];
+    if (!field) {
+      return args;
+    }
+    try {
+      const value = await promptField(field, ask, write, hints);
+      assignArg(args, field, value);
+      phase += 1;
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "引数 JSON はオブジェクトにしてください"
-      ) {
+      if (!isPromptCancelled(error)) {
         throw error;
       }
-      throw new Error("JSON が不正です");
+      write("ひとつ戻ります。\n");
+      if (phase === 0) {
+        for (const key of Object.keys(args)) {
+          delete args[key];
+        }
+        phase = "bulk";
+        continue;
+      }
+      const previous = tool.fields[phase - 1]!;
+      delete args[previous.name];
+      phase -= 1;
     }
   }
-  for (const field of tool.fields) {
-    const value = await promptField(field, ask, write, hints);
-    assignArg(args, field, value);
-  }
-  return args;
 }
 
 async function promptField(
@@ -475,7 +533,10 @@ async function promptField(
     }
   }
   const suffix = defaultHint(field, hints);
-  const line = await ask(`${field.name}${field.required ? "" : " (任意)"}${suffix}: `);
+  const line = await askOrCancel(
+    ask,
+    `${field.name}${field.required ? "" : " (任意)"}${suffix}: `,
+  );
   return interpretFieldInput(field, line, ask, write, hints);
 }
 
@@ -485,9 +546,22 @@ async function promptStringArray(
   write: (text: string) => void,
 ): Promise<string[]> {
   const items: string[] = [];
-  write(`${field.description}。空 Enter で確定。\n`);
+  write(`${field.description}。空 Enter で確定。Esc でひとつ戻る。\n`);
   for (;;) {
-    const line = await ask(`  ${field.name} ${items.length + 1}: `);
+    let line: string;
+    try {
+      line = await askOrCancel(ask, `  ${field.name} ${items.length + 1}: `);
+    } catch (error) {
+      if (!isPromptCancelled(error)) {
+        throw error;
+      }
+      if (items.length === 0) {
+        throw error;
+      }
+      items.pop();
+      write("ひとつ戻ります。\n");
+      continue;
+    }
     const trimmed = line.trim();
     if (trimmed.length === 0) {
       if (field.required && items.length === 0) {
@@ -518,14 +592,14 @@ async function interpretFieldInput(
       if (!field.required) {
         return undefined;
       }
-      line = await ask(`${field.name} は必須です: `);
+      line = await askOrCancel(ask, `${field.name} は必須です: `);
       continue;
     }
     try {
       return parseFieldValue(field, trimmed, hints);
     } catch (error) {
       write(`  ${error instanceof Error ? error.message : String(error)}\n`);
-      line = await ask(`${field.name}: `);
+      line = await askOrCancel(ask, `${field.name}: `);
     }
   }
 }

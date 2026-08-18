@@ -1,14 +1,18 @@
-import * as readline from "node:readline/promises";
+import * as readline from "node:readline";
+import * as readlinePromises from "node:readline/promises";
 import type { McpProxyToolResult } from "../mcp-proxy.js";
 import {
   applyToolSideEffects,
   findTool,
   formatToolMenu,
   formatToolResult,
+  isEscapeLine,
+  isPromptCancelled,
   parseRunCommand,
   parseToolJson,
   promptToolArgs,
   remainingBudgetFrom,
+  ESCAPE_LINE,
   type ToolPromptHints,
 } from "./board-tools.js";
 import type { EnginePlugin } from "./types.js";
@@ -30,6 +34,81 @@ export interface InteractiveFakeEngineOptions {
   onInterrupt?: () => void;
 }
 
+function isTtyInput(
+  stream: NodeJS.ReadableStream,
+): stream is NodeJS.ReadStream {
+  return "isTTY" in stream && "setRawMode" in stream && stream.isTTY === true;
+}
+
+function eraseLastChar(stdout: NodeJS.WritableStream): void {
+  stdout.write("\b \b");
+}
+
+/** Read a line; Escape resolves as ESCAPE_LINE without waiting for Enter. */
+export function askOnTty(
+  stdin: NodeJS.ReadStream,
+  stdout: NodeJS.WritableStream,
+  question: string,
+  onInterrupt?: () => void,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    stdout.write(question);
+    let buf = "";
+    const wasRaw = stdin.isRaw === true;
+    if (!wasRaw) {
+      stdin.setRawMode(true);
+    }
+    if (stdin.isPaused()) {
+      stdin.resume();
+    }
+
+    const onKeypress = (str: string | undefined, key: readline.Key) => {
+      if (key.ctrl && key.name === "c") {
+        cleanup();
+        stdout.write("\n");
+        onInterrupt?.();
+        reject(new Error("interrupted"));
+        return;
+      }
+      if (key.name === "escape") {
+        cleanup();
+        stdout.write("\n");
+        resolve(ESCAPE_LINE);
+        return;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        cleanup();
+        stdout.write("\n");
+        resolve(buf);
+        return;
+      }
+      if (key.name === "backspace" || key.name === "delete") {
+        const chars = [...buf];
+        if (chars.length > 0) {
+          chars.pop();
+          buf = chars.join("");
+          eraseLastChar(stdout);
+        }
+        return;
+      }
+      if (!str || key.ctrl || key.meta || str === ESCAPE_LINE) {
+        return;
+      }
+      buf += str;
+      stdout.write(str);
+    };
+
+    function cleanup() {
+      stdin.off("keypress", onKeypress);
+      if (!wasRaw && stdin.isRaw) {
+        stdin.setRawMode(false);
+      }
+    }
+
+    stdin.on("keypress", onKeypress);
+  });
+}
+
 export function createReadlineIo(options: {
   stdin?: NodeJS.ReadableStream;
   stdout?: NodeJS.WritableStream;
@@ -37,7 +116,26 @@ export function createReadlineIo(options: {
 }): InteractiveIo {
   const stdin = options.stdin ?? process.stdin;
   const stdout = options.stdout ?? process.stdout;
-  const rl = readline.createInterface({ input: stdin, output: stdout });
+  const tty = isTtyInput(stdin);
+
+  if (tty) {
+    readline.emitKeypressEvents(stdin);
+    return {
+      write(text) {
+        stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+      },
+      ask(question) {
+        return askOnTty(stdin, stdout, question, options.onInterrupt);
+      },
+      close() {
+        if (stdin.isRaw) {
+          stdin.setRawMode(false);
+        }
+      },
+    };
+  }
+
+  const rl = readlinePromises.createInterface({ input: stdin, output: stdout });
   rl.on("SIGINT", () => {
     stdout.write("\n切断します。\n");
     rl.close();
@@ -101,7 +199,7 @@ export function createInteractiveFakeEnginePlugin(
       write("fake エンジン — 人間がエージェントの一日を操作します。");
       write(`セッション: ${session.sessionId}`);
       write("エージェントと同じプロンプトとボードツールが出ます。");
-      write("番号かツール名で呼び出し、done でこの run を終えます。Ctrl-C で切断。");
+      write("番号かツール名で呼び出し、done でこの run を終えます。Esc でひとつ戻る。Ctrl-C で切断。");
       write("");
     },
 
@@ -141,6 +239,12 @@ export function createInteractiveFakeEnginePlugin(
 
       for (;;) {
         const line = await ask("ツール > ");
+        if (isEscapeLine(line)) {
+          write(
+            "ツール選択です。Esc で戻る先はありません。done でこの run を終えます。",
+          );
+          continue;
+        }
         const command = parseRunCommand(line);
         if (command.kind === "done") {
           transcript.push("(done)");
@@ -166,6 +270,10 @@ export function createInteractiveFakeEnginePlugin(
           try {
             args = await promptToolArgs(spec, ask, write, hints);
           } catch (error) {
+            if (isPromptCancelled(error)) {
+              write("キャンセルしました。ツール選択に戻ります。");
+              continue;
+            }
             write(error instanceof Error ? error.message : String(error));
             continue;
           }
