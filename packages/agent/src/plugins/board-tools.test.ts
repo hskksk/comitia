@@ -5,9 +5,12 @@ import {
   ESCAPE_LINE,
   PromptCancelled,
   applyToolSideEffects,
+  formatToolHelp,
   formatToolMenu,
+  formatToolsetHelp,
   parseRunCommand,
   promptToolArgs,
+  resolveToolChoice,
 } from "./board-tools.js";
 
 describe("board tool catalog", () => {
@@ -21,6 +24,34 @@ describe("board tool catalog", () => {
     expect(menu).toContain("end_session");
     expect(menu).toContain("done");
     expect(menu).toContain("Esc");
+    expect(menu).toContain("スレッドに発言する（状態は変わらない）");
+    expect(menu).not.toContain("提案エンティティも状態遷移も作れない");
+  });
+
+  it("explains the day and each tool without restating the name", () => {
+    const overview = formatToolsetHelp();
+    expect(overview).toContain("朝 → 作業 → 申し送り");
+    expect(overview).toContain("三つを混ぜない");
+    expect(overview).toContain("type=proposal でも案は増えない");
+
+    const create = formatToolHelp(
+      BOARD_TOOLS.find((tool) => tool.name === "create_thread")!,
+    );
+    expect(create).toContain("門の「きっかけ」");
+    expect(create).toContain("duplicateSearchQuery");
+    expect(create).toContain("search_decisions");
+    expect(create).toContain("consultation（相談");
+
+    const declare = formatToolHelp(
+      BOARD_TOOLS.find((tool) => tool.name === "declare")!,
+    );
+    expect(declare).toContain("proposalVersionId");
+    expect(declare).toContain("select_candidate");
+    expect(declare).toContain("状態遷移の唯一の口");
+
+    const post = formatToolHelp(BOARD_TOOLS.find((tool) => tool.name === "post")!);
+    expect(post).toContain("add_proposal");
+    expect(post).toContain("type=declaration は門違反");
   });
 });
 
@@ -34,6 +65,16 @@ describe("parseRunCommand", () => {
     expect(parseRunCommand("done")).toEqual({ kind: "done" });
     expect(parseRunCommand("0")).toEqual({ kind: "done" });
     expect(parseRunCommand("help")).toEqual({ kind: "help" });
+    expect(parseRunCommand("help post")).toEqual({
+      kind: "help-tool",
+      query: "post",
+    });
+    expect(parseRunCommand("help 7")).toEqual({
+      kind: "help-tool",
+      query: "7",
+    });
+    expect(resolveToolChoice("7")?.name).toBe("create_thread");
+    expect(resolveToolChoice("post")?.name).toBe("post");
     expect(parseRunCommand("end")).toEqual({
       kind: "tool",
       name: "end_session",
@@ -69,8 +110,9 @@ describe("promptToolArgs", () => {
       { goals: [] },
     );
     expect(args).toEqual({ goals: ["typo を直す", "report を書く"] });
-    expect(written.join("")).toContain("set_goals: その日の目標を宣言する");
-    expect(written.join("")).toContain("今日の目標（1 件以上）");
+    expect(written.join("")).toContain("set_goals");
+    expect(written.join("")).toContain("セッションループは未完了目標を見て再駆動する");
+    expect(written.join("")).toContain("今日やる具体的なこと");
   });
 
   it("accepts bulk JSON instead of field prompts", async () => {
@@ -125,10 +167,11 @@ describe("promptToolArgs", () => {
       body: "hello",
     });
     expect(written.join("")).toContain("ひとつ戻ります");
-    expect(written.join("")).toContain("post: スレッドに投稿する");
-    expect(written.join("")).toContain("スレッド id");
-    expect(written.join("")).toContain("投稿型");
-    expect(written.join("")).toContain("本文");
+    expect(written.join("")).toContain("提案エンティティも状態遷移も作れない");
+    expect(written.join("")).toContain("書き込むスレッドの UUID");
+    expect(written.join("")).toContain("1. proposal（提案の発言。案エンティティは増えない）");
+    expect(written.join("")).toContain("comment（コメント）");
+    expect(written.join("")).toContain("本文。議論に残る文章");
   });
 
   it("returns from the first field to bulk JSON, then can fill the form", async () => {

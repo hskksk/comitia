@@ -8,6 +8,19 @@ import {
   THREAD_TYPES,
 } from "@comitia/shared";
 import { MCP_PROXY_TOOLS, type McpProxyToolResult } from "../mcp-proxy.js";
+import {
+  CONSENSUS_TYPE_LABELS,
+  DECLARE_PAYLOAD_HELP,
+  DECLARATION_KIND_LABELS,
+  POST_TYPE_LABELS,
+  PROPOSAL_TARGET_LABELS,
+  SHARED_ARTIFACT_KIND_LABELS,
+  THREAD_STATE_LABELS,
+  THREAD_TYPE_LABELS,
+  TOOLSET_OVERVIEW,
+} from "./tool-catalog.js";
+
+export { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 
 export type ToolFieldKind =
   | "string"
@@ -24,10 +37,14 @@ export interface ToolFieldSpec {
   required: boolean;
   kind: ToolFieldKind;
   enumValues?: readonly string[];
+  enumLabels?: Record<string, string>;
 }
 
 export interface BoardToolSpec {
   name: (typeof MCP_PROXY_TOOLS)[number];
+  /** One line in the tool menu. */
+  summary: string;
+  /** Shown when the tool is selected, and by `help <name>`. */
   description: string;
   fields: ToolFieldSpec[];
 }
@@ -40,6 +57,7 @@ export interface ToolPromptHints {
 export type RunCommand =
   | { kind: "done" }
   | { kind: "help" }
+  | { kind: "help-tool"; query: string }
   | { kind: "tool"; name: string; args?: Record<string, unknown> }
   | { kind: "error"; message: string };
 
@@ -75,16 +93,21 @@ export async function askOrCancel(
 export const BOARD_TOOLS: BoardToolSpec[] = [
   {
     name: "get_briefing",
-    description: "コンテキストパック（申し送り・ルール・状況）を取得する",
+    summary: "朝の状況パックを取る（セッション消化）",
+    description:
+      "申し送り、規範・ルール、オーナーのスレッド、判断待ちなどをまとめて返す。セッションがまだなら開き、既に開いていればそれを返す。一日の最初に呼ぶ。引数なし。",
     fields: [],
   },
   {
     name: "set_goals",
-    description: "その日の目標を宣言する",
+    summary: "今日の目標を宣言する（継続判定に使う）",
+    description:
+      "このセッションでやることを 1 件以上宣言する。セッションループは未完了目標を見て再駆動する。宣言しないと「何をやったか」がボードに残らない。後から complete_goal で 1 件ずつ完了にする。",
     fields: [
       {
         name: "goals",
-        description: "今日の目標（1 件以上）",
+        description:
+          "今日やる具体的なこと。1 行 1 件、1 件以上。空 Enter で確定。例: docs/sample.md の typo 修正",
         required: true,
         kind: "string[]",
       },
@@ -92,11 +115,14 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "complete_goal",
-    description: "宣言済み目標を完了にする",
+    summary: "宣言した目標を完了にする",
+    description:
+      "set_goals で付けた目標の 1 件を完了にする。作業が終わっても呼ばないとループは未完了のまま再駆動する。",
     fields: [
       {
         name: "goal_id",
-        description: "完了する目標の id",
+        description:
+          "完了する目標の UUID。未完了一覧が出ているときは番号でも指定できる。1 件だけなら空 Enter。",
         required: true,
         kind: "uuid",
       },
@@ -104,30 +130,37 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "search_threads",
-    description: "プロジェクト内のスレッドを検索する",
+    summary: "プロジェクト内のスレッドを探す",
+    description:
+      "既存の議題を探す。create_thread の重複検索の前に使う。textQuery と状態で絞れる。",
     fields: [
       {
         name: "textQuery",
-        description: "検索語",
+        description:
+          "タイトルや本文に近い検索語。create_thread の duplicateSearchQuery には、ここで実際に使った語を書く。",
         required: false,
         kind: "string",
       },
       {
         name: "state",
-        description: "スレッド状態",
+        description: "議論中・判断待ちなどに絞る。空なら状態を問わない。",
         required: false,
         kind: "enum",
         enumValues: THREAD_STATES,
+        enumLabels: THREAD_STATE_LABELS,
       },
     ],
   },
   {
     name: "search_decisions",
-    description: "合意物（決定）を検索する",
+    summary: "拘束中の合意物（決定）を探す",
+    description:
+      "既に決まったことを探す。create_thread の衝突確認に使う。新しい提案が既存の拘束決定と矛盾しないか、ここで見る。",
     fields: [
       {
         name: "onlyActiveBinding",
-        description: "拘束中の有効決定だけ",
+        description:
+          "true ならいま拘束中の有効決定だけ。衝突チェックなら true がよい。",
         required: false,
         kind: "boolean",
       },
@@ -135,11 +168,14 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "read_thread",
-    description: "スレッド内容を読む",
+    summary: "スレッドの議論を読む",
+    description:
+      "指定スレッドの内容。最新の争点要約と候補提案の版を先頭に付けて返すので、全投稿を追わなくてよい。投稿や宣言の前に現状を取る。",
     fields: [
       {
         name: "thread_id",
-        description: "スレッド id",
+        description:
+          "読むスレッドの UUID。直近に作ったスレッドがあれば空 Enter でそれを使う。",
         required: true,
         kind: "uuid",
       },
@@ -147,69 +183,83 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "create_thread",
-    description: "新しいスレッドを作成する（門: きっかけ・重複検索）",
+    summary: "議題スレッドを開く（門あり）",
+    description:
+      "相談・提案などの箱を新しく作る。post や add_proposal の受け皿。きっかけと重複検索クエリは必須。プロジェクトに拘束決定があるときは衝突確認済みフラグも必須。門を満たさないと board が拒否する。",
     fields: [
       {
         name: "type",
-        description: "スレッド型",
+        description:
+          "箱の種類。consultation=相談、proposal=提案（決定を目指す）。brainstorm では賛否を出せない。",
         required: true,
         kind: "enum",
         enumValues: THREAD_TYPES,
+        enumLabels: THREAD_TYPE_LABELS,
       },
       {
         name: "title",
-        description: "タイトル",
+        description: "スレッドの見出し。一覧と検索に出る短い名前。",
         required: true,
         kind: "string",
       },
       {
         name: "trigger",
-        description: "きっかけ",
+        description:
+          "なぜ今開くか。発見した事実やユーザー影響など、門の「きっかけ」。空は board が拒否する。",
         required: true,
         kind: "string",
       },
       {
         name: "duplicateSearchQuery",
-        description: "重複検索クエリ",
+        description:
+          "同じ議題が無いか探すときに使った検索語の証跡。先に search_threads した語を書く。空は門違反。",
         required: true,
         kind: "string",
       },
       {
         name: "consensusType",
-        description: "合意種類",
+        description:
+          "どう決めるか。rough=概略合意、human_ratification=人間の批准が要る、owner_decision=オーナーが決める。空なら board の既定。",
         required: false,
         kind: "enum",
         enumValues: CONSENSUS_TYPES,
+        enumLabels: CONSENSUS_TYPE_LABELS,
       },
       {
         name: "humanRequired",
-        description: "人間の判断が必要",
+        description:
+          "人間の判断を必ず挟むなら true。true だと決定前に判断待ちへ進む。",
         required: false,
         kind: "boolean",
       },
       {
         name: "target",
-        description: "提案の対象",
+        description:
+          "提案スレッドのとき、何を変えるか。repo_artifact=リポジトリ上の成果物、shared_artifact=ルール等の共有物。",
         required: false,
         kind: "enum",
         enumValues: PROPOSAL_TARGETS,
+        enumLabels: PROPOSAL_TARGET_LABELS,
       },
       {
         name: "sharedArtifactKind",
-        description: "共有物の種類",
+        description:
+          "target が shared_artifact のとき。project_rule / thread_template / skill。",
         required: false,
         kind: "enum",
         enumValues: SHARED_ARTIFACT_KINDS,
+        enumLabels: SHARED_ARTIFACT_KIND_LABELS,
       },
       {
         name: "conflictCitationsChecked",
-        description: "既存決定との衝突を確認済み",
+        description:
+          "既存の拘束決定と衝突しないことを確認したか。拘束決定があるプロジェクトでは必須。確認は search_decisions で行う。",
         required: false,
         kind: "boolean",
       },
       {
         name: "parentThreadId",
-        description: "親スレッド id",
+        description: "親スレッドがあるときその UUID。独立した議題なら空。",
         required: false,
         kind: "uuid",
       },
@@ -217,17 +267,20 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "add_proposal",
-    description: "スレッドに提案エンティティを追加する",
+    summary: "提案集に案・版を載せる",
+    description:
+      "提案エンティティ（案番号と版）を作る。post の type=proposal は「提案の発言」であり、ここではない。候補に載せる・賛否の対象にするにはこのツール。戻り値の proposal_version_id を post や declare で使う。",
     fields: [
       {
         name: "thread_id",
-        description: "スレッド id",
+        description:
+          "載せる先のスレッド。提案型スレッドが普通。直近スレッドは空 Enter。",
         required: true,
         kind: "uuid",
       },
       {
         name: "content",
-        description: "提案本文",
+        description: "案の本文。この内容が提案の第 1 版になる。",
         required: true,
         kind: "string",
       },
@@ -235,42 +288,50 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "post",
-    description: "スレッドに投稿する",
+    summary: "スレッドに発言する（状態は変わらない）",
+    description:
+      "会話への書き込み。提案エンティティも状態遷移も作れない。案を載せるなら add_proposal。候補選定や決定は declare。type=declaration は門違反（declare を使う）。",
     fields: [
       {
         name: "thread_id",
-        description: "スレッド id",
+        description:
+          "書き込むスレッドの UUID。直近スレッドは空 Enter。",
         required: true,
         kind: "uuid",
       },
       {
         name: "type",
-        description: "投稿型",
+        description:
+          "発言の型。proposal は「提案めいた発言」であり案は増えない。approval / objection は根拠と対象版が必須。declaration は使えない。",
         required: true,
         kind: "enum",
         enumValues: POST_TYPES,
+        enumLabels: POST_TYPE_LABELS,
       },
       {
         name: "body",
-        description: "本文",
+        description: "本文。議論に残る文章。",
         required: true,
         kind: "string",
       },
       {
         name: "rationale",
-        description: "根拠（approval / objection は必須）",
+        description:
+          "根拠。approval と objection では必須。なぜ賛成/反対かを書く。他の型では任意。",
         required: false,
         kind: "string",
       },
       {
         name: "blocking",
-        description: "ブロッキング異議",
+        description:
+          "objection のとき必須。true=合意を止める異議、false=記録だけの懸念。他の型では空。",
         required: false,
         kind: "boolean",
       },
       {
         name: "proposal_version_id",
-        description: "対象の提案版 id",
+        description:
+          "この発言が指す提案版 UUID。approval / objection では必須。add_proposal の戻り値。",
         required: false,
         kind: "uuid",
       },
@@ -278,24 +339,29 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "declare",
-    description: "宣言による状態遷移を行う",
+    summary: "宣言でスレッド状態を動かす",
+    description:
+      "状態遷移の唯一の口。post では遷移しない。スレッドオーナーまたはプロジェクトオーナーの制約が宣言種ごとに違う。人間専用の批准・差し戻しもある。resolve_objection はこのツールからは呼べない。",
     fields: [
       {
         name: "thread_id",
-        description: "スレッド id",
+        description:
+          "動かすスレッドの UUID。直近スレッドは空 Enter。",
         required: true,
         kind: "uuid",
       },
       {
         name: "kind",
-        description: "宣言の種類",
+        description:
+          "宣言の種類。候補選定のあと、合意種類に応じて declare_rough / owner_decide / request_ratification へ進む。",
         required: true,
         kind: "enum",
         enumValues: DECLARATION_KINDS,
+        enumLabels: DECLARATION_KIND_LABELS,
       },
       {
         name: "payload",
-        description: "追加ペイロード",
+        description: DECLARE_PAYLOAD_HELP,
         required: false,
         kind: "json",
       },
@@ -303,17 +369,19 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "link_pull_request",
-    description: "スレッドに GitHub PR をリンクする",
+    summary: "スレッドに GitHub PR を付ける",
+    description:
+      "実装の証跡として PR URL をスレッドにリンクする。コード作業をしたあとに、どの PR かがボードから辿れるようにする。",
     fields: [
       {
         name: "thread_id",
-        description: "スレッド id",
+        description: "付ける先のスレッドの UUID。直近スレッドは空 Enter。",
         required: true,
         kind: "uuid",
       },
       {
         name: "url",
-        description: "PR URL",
+        description: "GitHub の pull request URL。",
         required: true,
         kind: "url",
       },
@@ -321,11 +389,14 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   },
   {
     name: "end_session",
-    description: "セッションを終了する（申し送り必須）",
+    summary: "申し送りを書いて一日を閉じる",
+    description:
+      "セッションを終了する。handover は次の朝の get_briefing に出る。done はこの run を終えるだけでセッションは開いたまま。終了作業のプロンプトが出たらこれを使う。",
     fields: [
       {
         name: "handover",
-        description: "申し送り",
+        description:
+          "次の自分（または次のセッション）への申し送り。途中の判断、残した仕事、注意点。空は不可。",
         required: true,
         kind: "string",
       },
@@ -343,13 +414,68 @@ export function findTool(name: string): BoardToolSpec | undefined {
 export function formatToolMenu(tools: readonly BoardToolSpec[] = BOARD_TOOLS): string {
   const lines = tools.map(
     (tool, index) =>
-      `  ${String(index + 1).padStart(2, " ")}. ${tool.name.padEnd(20, " ")} ${tool.description}`,
+      `  ${String(index + 1).padStart(2, " ")}. ${tool.name.padEnd(20, " ")} ${tool.summary}`,
   );
-  lines.push("   0. done                 この run を終える");
+  lines.push("   0. done                 この run を終える（セッションは閉じない）");
   lines.push("  end. end_session         申し送りを書いて一日を閉じる");
-  lines.push(" help. この一覧を再表示");
+  lines.push(" help. 一日の流れと一覧（help <名前|番号> で個別）");
   lines.push("  Esc  ひとつ戻る（引数入力中）");
   return lines.join("\n");
+}
+
+export function formatToolsetHelp(
+  tools: readonly BoardToolSpec[] = BOARD_TOOLS,
+): string {
+  return [
+    "=== このボードでできること ===",
+    TOOLSET_OVERVIEW,
+    "",
+    "=== ツール ===",
+    formatToolMenu(tools),
+    "",
+    "個別の説明は help <番号|名前>（例: help post、help 9）。",
+  ].join("\n");
+}
+
+export function formatToolHelp(tool: BoardToolSpec): string {
+  const lines = [`=== ${tool.name} ===`, tool.description, ""];
+  if (tool.fields.length === 0) {
+    lines.push("引数なし。選ぶとそのまま呼ばれます。");
+    return lines.join("\n");
+  }
+  lines.push("項目:");
+  for (const field of tool.fields) {
+    lines.push(`  ${field.name}${field.required ? "（必須）" : "（任意）"}`);
+    for (const descLine of field.description.split("\n")) {
+      lines.push(`    ${descLine}`);
+    }
+    if (field.enumValues && field.enumValues.length > 0) {
+      for (const option of formatEnumOptionLines(field)) {
+        lines.push(`    ${option}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+export function resolveToolChoice(
+  query: string,
+  tools: readonly BoardToolSpec[] = BOARD_TOOLS,
+): BoardToolSpec | undefined {
+  const trimmed = query.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  const asIndex = Number(trimmed);
+  if (
+    Number.isInteger(asIndex) &&
+    asIndex >= 1 &&
+    asIndex <= tools.length
+  ) {
+    return tools[asIndex - 1];
+  }
+  const name = resolveToolName(trimmed, tools);
+  return name ? tools.find((tool) => tool.name === name) : undefined;
 }
 
 export function parseRunCommand(
@@ -369,6 +495,15 @@ export function parseRunCommand(
   }
   if (lowered === "help" || trimmed === "?") {
     return { kind: "help" };
+  }
+  if (lowered.startsWith("help ") || trimmed.startsWith("? ")) {
+    const query = lowered.startsWith("help ")
+      ? trimmed.slice(5).trim()
+      : trimmed.slice(2).trim();
+    if (query.length === 0) {
+      return { kind: "help" };
+    }
+    return { kind: "help-tool", query: query.toLowerCase() };
   }
   if (lowered === "end") {
     return { kind: "tool", name: "end_session" };
@@ -402,7 +537,7 @@ export function parseRunCommand(
   }
   return {
     kind: "error",
-    message: `未知の入力です: ${trimmed}（help で一覧）`,
+    message: `未知の入力です: ${trimmed}（help で一覧、help <名前> で個別）`,
   };
 }
 
@@ -448,10 +583,11 @@ export async function promptToolArgs(
   hints: ToolPromptHints,
 ): Promise<Record<string, unknown>> {
   const args: Record<string, unknown> = {};
+  write(`${tool.name}\n`);
+  write(`${tool.description}\n`);
   if (tool.fields.length === 0) {
     return args;
   }
-  write(`${tool.name}: ${tool.description}\n`);
   write("任意項目は空 Enter で省略。Esc でひとつ戻る。\n");
 
   let phase: "bulk" | number = "bulk";
@@ -522,9 +658,9 @@ async function promptField(
     return promptStringArray(field, ask, write);
   }
   if (field.kind === "enum") {
-    write(
-      `  候補: ${(field.enumValues ?? []).map((value, index) => `${index + 1}=${value}`).join("  ")}\n`,
-    );
+    for (const option of formatEnumOptionLines(field)) {
+      write(`  ${option}\n`);
+    }
   }
   if (field.name === "goal_id" && hints.goals.length > 0) {
     write("  未完了の目標:\n");
@@ -538,6 +674,18 @@ async function promptField(
     `${field.name}${field.required ? "" : " (任意)"}${suffix}: `,
   );
   return interpretFieldInput(field, line, ask, write, hints);
+}
+
+function formatEnumOptionLines(field: ToolFieldSpec): string[] {
+  const values = field.enumValues ?? [];
+  if (values.length === 0) {
+    return [];
+  }
+  return values.map((value, index) => {
+    const label = field.enumLabels?.[value];
+    const gloss = label ? `（${label}）` : "";
+    return `${index + 1}. ${value}${gloss}`;
+  });
 }
 
 function writeFieldIntro(

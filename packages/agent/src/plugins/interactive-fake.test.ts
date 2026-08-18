@@ -228,6 +228,35 @@ describe("interactive fake engine", () => {
     await plugin.stop();
   });
 
+  it("prints toolset help and a single-tool help page", async () => {
+    const scripted = createScriptedIo([
+      "help",
+      "help create_thread",
+      "help 9",
+      "help nope",
+      "done",
+    ]);
+    const plugin = createInteractiveFakeEnginePlugin({
+      io: scripted.io,
+      callTool: async () => jsonResult({}),
+    });
+    await plugin.start({
+      sessionId: "sess-help",
+      workDir: "/tmp/help",
+      mcp: { command: "node", args: [], env: {} },
+    });
+    await plugin.run("続きに取り組め");
+    const output = scripted.output();
+    expect(output).toContain("help で一日の流れと一覧");
+    expect(output).toContain("三つを混ぜない");
+    expect(output).toContain("=== create_thread ===");
+    expect(output).toContain("門の「きっかけ」");
+    expect(output).toContain("=== post ===");
+    expect(output).toContain("提案エンティティも状態遷移も作れない");
+    expect(output).toContain("ツールが見つかりません: nope");
+    await plugin.stop();
+  });
+
   it("ignores Escape on the tool menu", async () => {
     const scripted = createScriptedIo([ESCAPE_LINE, "done"]);
     const plugin = createInteractiveFakeEnginePlugin({

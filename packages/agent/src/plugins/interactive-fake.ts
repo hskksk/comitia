@@ -4,13 +4,16 @@ import type { McpProxyToolResult } from "../mcp-proxy.js";
 import {
   applyToolSideEffects,
   findTool,
+  formatToolHelp,
   formatToolMenu,
   formatToolResult,
+  formatToolsetHelp,
   isEscapeLine,
   isPromptCancelled,
   parseRunCommand,
   parseToolJson,
   promptToolArgs,
+  resolveToolChoice,
   remainingBudgetFrom,
   ESCAPE_LINE,
   type ToolPromptHints,
@@ -200,6 +203,7 @@ export function createInteractiveFakeEnginePlugin(
       write(`セッション: ${session.sessionId}`);
       write("エージェントと同じプロンプトとボードツールが出ます。");
       write("番号かツール名で呼び出し、done でこの run を終えます。Esc でひとつ戻る。Ctrl-C で切断。");
+      write("help で一日の流れと一覧。help post のように名前や番号を付けると個別の説明。");
       write("");
     },
 
@@ -251,7 +255,18 @@ export function createInteractiveFakeEnginePlugin(
           break;
         }
         if (command.kind === "help") {
-          write(formatToolMenu());
+          write(formatToolsetHelp());
+          continue;
+        }
+        if (command.kind === "help-tool") {
+          const spec = resolveToolChoice(command.query);
+          if (!spec) {
+            write(
+              `ツールが見つかりません: ${command.query}（help で一覧）`,
+            );
+            continue;
+          }
+          write(formatToolHelp(spec));
           continue;
         }
         if (command.kind === "error") {
