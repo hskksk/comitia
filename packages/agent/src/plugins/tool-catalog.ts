@@ -78,7 +78,7 @@ export const DECLARATION_KIND_LABELS: Record<string, string> = {
   send_back: "判断待ちから議論へ差し戻す",
   reject_thread: "スレッドを不採用にする",
   complete_thread: "スレッドを完了にする",
-  resolve_objection: "異議の解消（このツールでは不可）",
+  resolve_objection: "異議の解消。このツールでは不可",
 };
 
 export const DECLARE_PAYLOAD_HELP = `宣言種ごとの JSON。空 Enter で省略（その宣言にペイロードが要らないとき）。
