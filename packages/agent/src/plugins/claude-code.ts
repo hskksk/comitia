@@ -206,6 +206,7 @@ export function parseClaudeStream(output: string, run: number) {
 
 export function createClaudeCodePlugin(): EnginePlugin {
   let workDir: string | undefined;
+  let workDirPersistent = false;
   let isolatedHome: string | undefined;
   let runtimeDir: string | undefined;
   let mcpConfigPath: string | undefined;
@@ -217,6 +218,7 @@ export function createClaudeCodePlugin(): EnginePlugin {
   return {
     async start(session) {
       workDir = session.workDir;
+      workDirPersistent = session.workDirPersistent;
       isolatedHome = await mkdtemp(join(tmpdir(), "comitia-claude-home-"));
       runtimeDir = await mkdtemp(join(tmpdir(), "comitia-claude-runtime-"));
       mcpConfigPath = join(runtimeDir, "mcp-config.json");
@@ -306,11 +308,14 @@ export function createClaudeCodePlugin(): EnginePlugin {
       await Promise.all([
         isolatedHome ? rm(isolatedHome, { recursive: true, force: true }) : undefined,
         runtimeDir ? rm(runtimeDir, { recursive: true, force: true }) : undefined,
-        workDir ? rm(workDir, { recursive: true, force: true }) : undefined,
+        workDir && !workDirPersistent
+          ? rm(workDir, { recursive: true, force: true })
+          : undefined,
       ]);
       isolatedHome = undefined;
       runtimeDir = undefined;
       workDir = undefined;
+      workDirPersistent = false;
       mcpConfigPath = undefined;
     },
   };

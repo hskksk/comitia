@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -136,6 +137,35 @@ describe("resolveMcpStdioEntrypoint", () => {
 });
 
 
+describe("createClaudeCodePlugin work dir ownership", () => {
+  it("keeps a persistent work dir after stop()", async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "comitia-workdir-persist-"));
+    const plugin = createClaudeCodePlugin();
+    await plugin.start({
+      sessionId: "persist-test",
+      workDir,
+      workDirPersistent: true,
+      mcp: { command: process.execPath, args: [], env: {} },
+    });
+    await plugin.stop();
+    expect(existsSync(workDir)).toBe(true);
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  it("deletes a non-persistent work dir after stop()", async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "comitia-workdir-temp-"));
+    const plugin = createClaudeCodePlugin();
+    await plugin.start({
+      sessionId: "temp-test",
+      workDir,
+      workDirPersistent: false,
+      mcp: { command: process.execPath, args: [], env: {} },
+    });
+    await plugin.stop();
+    expect(existsSync(workDir)).toBe(false);
+  });
+});
+
 describe("Claude Code live CLI", () => {
   it.skipIf(process.env.COMITIA_LIVE_CLAUDE !== "1")(
     "calls get_briefing through the real Claude CLI",
@@ -167,6 +197,7 @@ describe("Claude Code live CLI", () => {
         await plugin.start({
           sessionId: "live-claude-test",
           workDir,
+          workDirPersistent: false,
           mcp: {
             command: process.execPath,
             args: [],

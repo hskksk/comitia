@@ -85,6 +85,7 @@ export async function runSessionLoop(
     await plugin.start({
       sessionId,
       workDir,
+      workDirPersistent: keepWorkDir,
       mcp: {
         command: process.execPath,
         args: [],

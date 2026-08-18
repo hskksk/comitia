@@ -93,6 +93,7 @@ describe("interactive fake engine", () => {
     await plugin.start({
       sessionId: "sess-walk",
       workDir: "/tmp/walk",
+      workDirPersistent: false,
       mcp: { command: "node", args: [], env: {} },
     });
 
@@ -150,6 +151,7 @@ describe("interactive fake engine", () => {
     await plugin.start({
       sessionId: "sess-err",
       workDir: "/tmp/err",
+      workDirPersistent: false,
       mcp: { command: "node", args: [], env: {} },
     });
     const result = await plugin.run("1. get_briefing を呼ぶ");
@@ -191,6 +193,7 @@ describe("interactive fake engine", () => {
     await plugin.start({
       sessionId: "sess-goal",
       workDir: "/tmp/goal",
+      workDirPersistent: false,
       mcp: { command: "node", args: [], env: {} },
     });
     const result = await plugin.run("続きに取り組め");
@@ -219,6 +222,7 @@ describe("interactive fake engine", () => {
     await plugin.start({
       sessionId: "sess-esc",
       workDir: "/tmp/esc",
+      workDirPersistent: false,
       mcp: { command: "node", args: [], env: {} },
     });
     const result = await plugin.run("1. get_briefing を呼ぶ");
@@ -243,6 +247,7 @@ describe("interactive fake engine", () => {
     await plugin.start({
       sessionId: "sess-help",
       workDir: "/tmp/help",
+      workDirPersistent: false,
       mcp: { command: "node", args: [], env: {} },
     });
     await plugin.run("続きに取り組め");
@@ -266,6 +271,7 @@ describe("interactive fake engine", () => {
     await plugin.start({
       sessionId: "sess-esc-menu",
       workDir: "/tmp/esc-menu",
+      workDirPersistent: false,
       mcp: { command: "node", args: [], env: {} },
     });
     const result = await plugin.run("続きに取り組め");

@@ -80,15 +80,18 @@ function wrapPlugin(inner: EnginePlugin): {
   plugin: EnginePlugin;
   stopped: () => boolean;
   workDir: () => string | undefined;
+  workDirPersistent: () => boolean | undefined;
   prompts: () => string[];
 } {
   let stopped = false;
   let workDir: string | undefined;
+  let workDirPersistent: boolean | undefined;
   const prompts: string[] = [];
   return {
     plugin: {
       start: async (session) => {
         workDir = session.workDir;
+        workDirPersistent = session.workDirPersistent;
         await inner.start(session);
       },
       run: (prompt) => {
@@ -103,6 +106,7 @@ function wrapPlugin(inner: EnginePlugin): {
     },
     stopped: () => stopped,
     workDir: () => workDir,
+    workDirPersistent: () => workDirPersistent,
     prompts: () => prompts,
   };
 }
@@ -158,6 +162,66 @@ describe("session loop with fake engine", () => {
         const dir = wrapped.workDir();
         expect(dir).toBeTruthy();
         expect(existsSync(dir!)).toBe(false);
+      },
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  it("keeps a caller-provided COMITIA_WORK_DIR after the session ends", async () => {
+    const { db, registered, configDir, boardUrl } = await bootAgent(
+      await createDb(),
+    );
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const persistentDir = await mkdtemp(
+      join(tmpdir(), "comitia-persistent-work-"),
+    );
+    const previous = process.env.COMITIA_WORK_DIR;
+    process.env.COMITIA_WORK_DIR = persistentDir;
+    cleanups.push(async () => {
+      if (previous === undefined) {
+        delete process.env.COMITIA_WORK_DIR;
+      } else {
+        process.env.COMITIA_WORK_DIR = previous;
+      }
+      await rm(persistentDir, { recursive: true, force: true });
+    });
+
+    const wrapped = wrapPlugin(
+      createFakeEnginePlugin({
+        callTool: (name, args) => runtime.callTool(name, args),
+        script: [
+          { tool: "get_briefing", args: {} },
+          {
+            tool: "set_goals",
+            args: { goals: ["report を投稿する"] },
+          },
+          { tool: "complete_goal", args: {} },
+        ],
+        handover: "永続ディレクトリで完了",
+      }),
+    );
+
+    const handle = await connectCommand({
+      name: "mika",
+      configDir,
+      plugin: wrapped.plugin,
+    });
+    cleanups.push(() => handle.close());
+
+    await vi.waitFor(
+      async () => {
+        const [session] = await db
+          .select()
+          .from(schema.sessions)
+          .where(eq(schema.sessions.participantId, registered.agent.id));
+        expect(session?.endedReason).toBe("completed");
+        expect(wrapped.stopped()).toBe(true);
+        expect(wrapped.workDir()).toBe(persistentDir);
+        expect(wrapped.workDirPersistent()).toBe(true);
+        expect(existsSync(persistentDir)).toBe(true);
       },
       { timeout: 15_000 },
     );
