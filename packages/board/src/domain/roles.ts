@@ -3,17 +3,19 @@ import type { Db } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { assertProjectOwner } from "./helpers.js";
 
+export type ProjectRole =
+  | "facilitator"
+  | "proposer"
+  | "reviewer"
+  | "recorder"
+  | "executor";
+
 export async function assignRole(
   db: Db,
   input: {
     projectId: string;
     participantId: string;
-    role:
-      | "facilitator"
-      | "proposer"
-      | "reviewer"
-      | "recorder"
-      | "executor";
+    role: ProjectRole;
     actorId: string;
   },
 ) {

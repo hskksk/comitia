@@ -12,6 +12,7 @@ import { hashToken, issueToken } from "./credentials.js";
 import { GateViolation } from "./errors.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
+import { assignRole, type ProjectRole } from "./roles.js";
 
 export async function bootstrapBoard(
   db: DbClient,
@@ -53,6 +54,7 @@ export async function registerAgent(
     ownerParticipantId: string;
     displayName: string;
     engine: string;
+    role?: ProjectRole;
   },
 ) {
   if (!isSupportedEngine(input.engine)) {
@@ -88,6 +90,14 @@ export async function registerAgent(
       participantId: agent.id,
       sessionStartMinute: assignSessionStartMinute(existingConnections.length),
     });
+    if (input.role) {
+      await assignRole(tx, {
+        projectId: project.id,
+        participantId: agent.id,
+        role: input.role,
+        actorId: input.ownerParticipantId,
+      });
+    }
 
     return { agent, projectId: project.id, agentToken };
   });

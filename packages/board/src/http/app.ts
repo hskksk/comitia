@@ -107,6 +107,9 @@ export function createBoardApp(input: {
       .object({
         displayName: z.string().min(1),
         engine: z.string(),
+        role: z
+          .enum(["facilitator", "proposer", "reviewer", "recorder", "executor"])
+          .optional(),
       })
       .parse(await c.req.json());
     const participant = c.get("participant");
@@ -114,6 +117,7 @@ export function createBoardApp(input: {
       ownerParticipantId: participant.id,
       displayName: body.displayName,
       engine: body.engine,
+      role: body.role,
     });
     return c.json(
       {

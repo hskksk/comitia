@@ -130,6 +130,62 @@ describe("board HTTP", () => {
     expect(regRes.status).toBe(201);
   });
 
+  it("accepts an optional role on registration", async () => {
+    const app = createBoardApp({ db });
+    const initRes = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerDisplayName: "ハル",
+        projectName: "comitia",
+      }),
+    });
+    const ownerToken = ((await initRes.json()) as { ownerToken: string })
+      .ownerToken;
+
+    const regRes = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({
+        displayName: "walker",
+        engine: "claude-code",
+        role: "proposer",
+      }),
+    });
+    expect(regRes.status).toBe(201);
+  });
+
+  it("rejects an unknown role on registration", async () => {
+    const app = createBoardApp({ db });
+    const initRes = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerDisplayName: "ハル",
+        projectName: "comitia",
+      }),
+    });
+    const ownerToken = ((await initRes.json()) as { ownerToken: string })
+      .ownerToken;
+
+    const regRes = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({
+        displayName: "walker",
+        engine: "claude-code",
+        role: "captain",
+      }),
+    });
+    expect(regRes.status).toBe(400);
+  });
+
   it("rejects tool calls without a token", async () => {
     const app = createBoardApp({ db });
     const res = await app.request("/v1/tools/get_briefing", {

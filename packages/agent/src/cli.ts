@@ -46,6 +46,7 @@ type ParsedCommand =
       command: "agent-register";
       name: string;
       engine: string;
+      role?: string;
     }
   | {
       command: "agent-connect";
@@ -144,6 +145,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       command: "agent-register",
       engine: requireOption(options, "engine"),
       name: requireOption(options, "name"),
+      role: options.get("role"),
     };
   }
   if (args[0] === "agent" && args[1] === "connect") {
