@@ -123,6 +123,7 @@ export async function runSessionLoop(
         prompt = buildRedrivePrompt({
           remainingBudget: priorDecision?.remainingBudget ?? null,
           incompleteGoals: priorDecision?.incompleteGoalTexts ?? [],
+          goalsEverSet: priorDecision?.goalsEverSet ?? false,
         });
       }
 

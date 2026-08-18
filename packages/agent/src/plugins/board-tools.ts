@@ -107,7 +107,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
       {
         name: "goals",
         description:
-          "今日やる具体的なこと。1 行 1 件、1 件以上。空 Enter で確定。例: docs/sample.md の typo 修正",
+          "今日やる具体的なこと。1 行 1 件、1 件以上。空 Enter で確定。",
         required: true,
         kind: "string[]",
       },

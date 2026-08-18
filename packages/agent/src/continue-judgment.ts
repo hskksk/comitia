@@ -11,6 +11,8 @@ export interface ContinueDecision {
   reason: string;
   remainingBudget: number | null;
   incompleteGoalTexts: string[];
+  /** True once set_goals has ever succeeded this session, even if all goals later complete. */
+  goalsEverSet: boolean;
 }
 
 export interface ContinueJudgmentOptions {
@@ -116,6 +118,7 @@ export function judgeContinue(
   const incomplete = incompleteGoals(entries);
   const incompleteGoalTexts = incomplete.map((goal) => goal.text);
   const trailingIdle = countTrailingIdleRuns(entries, runCount);
+  const goalsEverSet = parseGoalsFromLog(entries).length > 0;
 
   if (windDownRequested) {
     const hasEndSession = entries.some((entry) => entry.tool === "end_session");
@@ -125,6 +128,7 @@ export function judgeContinue(
       reason: hasEndSession ? "end_session 完了" : "終了作業（end_session）",
       remainingBudget,
       incompleteGoalTexts,
+      goalsEverSet,
     };
   }
 
@@ -135,6 +139,7 @@ export function judgeContinue(
       reason: `空転 run が ${trailingIdle} 回連続（上限 ${idleRunLimit}）`,
       remainingBudget,
       incompleteGoalTexts,
+      goalsEverSet,
     };
   }
 
@@ -145,6 +150,7 @@ export function judgeContinue(
       reason: "全目標完了",
       remainingBudget,
       incompleteGoalTexts,
+      goalsEverSet,
     };
   }
 
@@ -155,6 +161,7 @@ export function judgeContinue(
       reason: "活動量残量 0",
       remainingBudget,
       incompleteGoalTexts,
+      goalsEverSet,
     };
   }
 
@@ -165,6 +172,7 @@ export function judgeContinue(
       reason: `最大 run 数 ${maxRuns} に到達`,
       remainingBudget,
       incompleteGoalTexts,
+      goalsEverSet,
     };
   }
 
@@ -175,6 +183,18 @@ export function judgeContinue(
       reason: `未完了目標 ${incomplete.length} 件`,
       remainingBudget,
       incompleteGoalTexts,
+      goalsEverSet,
+    };
+  }
+
+  if (!goalsEverSet) {
+    return {
+      phase: "work",
+      shouldContinue: true,
+      reason: "目標未宣言",
+      remainingBudget,
+      incompleteGoalTexts,
+      goalsEverSet,
     };
   }
 
@@ -184,5 +204,6 @@ export function judgeContinue(
     reason: "継続理由なし",
     remainingBudget,
     incompleteGoalTexts,
+    goalsEverSet,
   };
 }

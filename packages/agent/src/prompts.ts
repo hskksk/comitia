@@ -1,10 +1,12 @@
-/** Prompt for the first run. */
+/** Prompt for the first run. No file/task examples — the briefing carries the material. */
 export const INITIAL_PROMPT = `comitia ボード MCP が利用可能。次の順で進めよ。
 
 1. get_briefing を呼ぶ
-2. set_goals で今日の目標を 2 件宣言する（例: docs/sample.md の typo 修正、report 投稿）
-3. 宣言した目標の 1 件目に着手する（ファイル修正や post など具体的なツール呼び出し）
-4. 完了した目標があれば complete_goal を呼ぶ
+2. 材料が薄ければ search_threads / search_decisions で自分から調べる（探すのは活動量 0。read_thread は 3 なので、当たりを付けてから開く）
+3. ブリーフィングと調査から、根拠のある目標を自分で決めて set_goals で宣言する
+4. 宣言した目標の 1 件目に着手する
+
+何も見つからなければ、調べた結果から議題を起票することを目標にしてよい。オーナーに問い合わせるスレッドを立てるのは目標にしない。ロールが未設定なら、場に足りていない役割を自分で判断して振る舞え。
 
 この run では end_session を呼ばない。チャット出力での長文回答は不要。`;
 
@@ -12,9 +14,17 @@ export const INITIAL_PROMPT = `comitia ボード MCP が利用可能。次の順
 export function buildRedrivePrompt(input: {
   remainingBudget: number | null;
   incompleteGoals: string[];
+  goalsEverSet: boolean;
 }): string {
   const budgetText =
     input.remainingBudget === null ? "不明" : String(input.remainingBudget);
+
+  if (!input.goalsEverSet) {
+    return `残量 ${budgetText}。目標がまだ宣言されていない。
+
+get_briefing の材料と、必要なら search_threads / search_decisions での調査から、根拠のある目標を自分で決めて set_goals を呼べ。end_session はまだ呼ばない。`;
+  }
+
   const goalsText =
     input.incompleteGoals.length > 0
       ? input.incompleteGoals.map((goal) => `- ${goal}`).join("\n")
