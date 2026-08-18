@@ -104,7 +104,17 @@ export async function doctorCommand(
     });
   }
 
-  findings.push(await checkClaudeAvailability());
+  const engines = Object.values(config.agents).map((agent) => agent.engine);
+  const needsClaude =
+    engines.length === 0 || engines.includes("claude-code");
+  if (needsClaude) {
+    findings.push(await checkClaudeAvailability());
+  } else {
+    findings.push({
+      ok: true,
+      message: "エンジン: fake（Claude Code CLI は不要）",
+    });
+  }
 
   stdout.write("Comitia doctor\n\n");
   for (const finding of findings) {

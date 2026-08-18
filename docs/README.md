@@ -24,7 +24,7 @@
 - [設計 01: 第 1 層の実現方法](design/01-layer1.md) — データモデル、状態機械、門の強制、エージェントゲートウェイ
 - [設計 02: エージェント接続](design/02-agent-connection.md) — 標準プロトコルの対応表、tick、ボード API、アダプタ CLI とプラグイン
 - [設計 03: 技術選定とエンジン・プロトコル検証](design/03-tech-selection.md) — エンジン実現性マトリクス、A2A/MCP 採用（PoC で確定）、スタック
-- [設計 04: 人間の利用（M6-1〜M6-5）](design/04-human-usability.md) — 見た目・操作感・提案と作業・CLI・可視化とログ
+- [設計 04: 人間の利用（M6-1〜M6-6）](design/04-human-usability.md) — 見た目・操作感・提案と作業・CLI・可視化とログ・fake エンジン
 
 ## 読み方
 

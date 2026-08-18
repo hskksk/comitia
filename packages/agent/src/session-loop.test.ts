@@ -18,6 +18,10 @@ import { connectCommand } from "./commands/connect.js";
 import { saveConfig } from "./config.js";
 import { createMcpProxyRuntime } from "./mcp-proxy.js";
 import { createFakeEnginePlugin } from "./plugins/fake.js";
+import {
+  createInteractiveFakeEnginePlugin,
+  createScriptedIo,
+} from "./plugins/interactive-fake.js";
 import type { EnginePlugin } from "./plugins/types.js";
 import { runSessionLoop } from "./session-loop.js";
 
@@ -284,5 +288,61 @@ describe("session loop with fake engine", () => {
       .where(eq(schema.handovers.sessionId, sessionId));
     expect(handover?.body).toBe("maxRuns で終了");
     expect(wrapped.stopped()).toBe(true);
+  }, 20_000);
+});
+
+describe("interactive fake engine through connect", () => {
+  it("lets a human finish a session with prompted tools", async () => {
+    const { db, registered, configDir, boardUrl } = await bootAgent(
+      await createDb(),
+    );
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const scripted = createScriptedIo([
+      "1",
+      'json set_goals {"goals":["typo を直す"]}',
+      "complete_goal",
+      "",
+      "",
+      "done",
+      "end",
+      "",
+      "一日を体験した",
+    ]);
+    const wrapped = wrapPlugin(
+      createInteractiveFakeEnginePlugin({
+        io: scripted.io,
+        callTool: (name, args) => runtime.callTool(name, args),
+      }),
+    );
+
+    const handle = await connectCommand({
+      name: "mika",
+      configDir,
+      plugin: wrapped.plugin,
+    });
+    cleanups.push(() => handle.close());
+
+    await vi.waitFor(
+      async () => {
+        const [session] = await db
+          .select()
+          .from(schema.sessions)
+          .where(eq(schema.sessions.participantId, registered.agent.id));
+        expect(session?.endedReason).toBe("completed");
+        const [handover] = await db
+          .select()
+          .from(schema.handovers)
+          .where(eq(schema.handovers.sessionId, session!.id));
+        expect(handover?.body).toBe("一日を体験した");
+        expect(wrapped.stopped()).toBe(true);
+      },
+      { timeout: 15_000 },
+    );
+
+    expect(scripted.output()).toContain("get_briefing");
+    expect(scripted.output()).toContain("終了作業です");
   }, 20_000);
 });

@@ -1,4 +1,5 @@
 import { loadConfig, saveConfig } from "../config.js";
+import { assertSupportedEngine } from "../engines.js";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
 
@@ -12,9 +13,7 @@ export interface UpdateCommandOptions {
 export async function updateCommand(
   options: UpdateCommandOptions,
 ): Promise<void> {
-  if (options.engine !== "claude-code") {
-    throw new Error(`Unsupported engine: ${options.engine}`);
-  }
+  assertSupportedEngine(options.engine);
 
   const stdout = options.stdout ?? process.stdout;
   const config = await loadConfig(options.configDir);

@@ -101,10 +101,10 @@ describe("init and agent register commands", () => {
       sessionId: "sess-1",
       follow: true,
     });
-    expect(parseCliArgs(["agent", "update", "mika", "--engine", "claude-code"])).toEqual({
+    expect(parseCliArgs(["agent", "update", "mika", "--engine", "fake"])).toEqual({
       command: "agent-update",
       name: "mika",
-      engine: "claude-code",
+      engine: "fake",
     });
   });
 
@@ -167,6 +167,15 @@ describe("init and agent register commands", () => {
     expect(registered.agents.mika?.agentId).toBeTruthy();
     expect(registered.agents.mika?.token).toMatch(/^comt_/);
     expect(registered.agents.mika?.engine).toBe("claude-code");
+
+    await registerCommand({
+      name: "walker",
+      engine: "fake",
+      configDir,
+    });
+    const withFake = await loadConfig(configDir);
+    expect(withFake.agents.walker?.engine).toBe("fake");
+    expect(withFake.agents.walker?.agentId).toBeTruthy();
   });
 
   it("rejects unsupported engines before making a request", async () => {
@@ -327,6 +336,47 @@ describe("operator commands", () => {
     expect(output).toContain("ボード: 到達できません");
     expect(output).toContain("pnpm build && pnpm start");
     expect(output).toContain("pnpm dogfood");
+  });
+
+  it("skips Claude Code when every agent uses the fake engine", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          ownerToken: "comt_owner_test",
+          ownerId: "owner-1",
+          projectId: "project-1",
+          agents: {
+            walker: {
+              agentId: "agent-fake",
+              token: "comt_agent_test",
+              engine: "fake",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({ configDir, fetch: fetchMock as typeof fetch, stdout });
+    const output = chunks.join("");
+    expect(output).toContain("エンジン: fake");
+    expect(output).not.toContain("Claude Code CLI が見つかりません");
   });
 
   it("wakes an agent via owner request-session", async () => {

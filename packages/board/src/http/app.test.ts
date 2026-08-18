@@ -102,6 +102,34 @@ describe("board HTTP", () => {
     expect(typeof briefing.remaining_budget).toBe("number");
   });
 
+  it("registers a fake walkthrough engine", async () => {
+    const app = createBoardApp({ db });
+    const initRes = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerDisplayName: "ハル",
+        projectName: "comitia",
+      }),
+    });
+    expect(initRes.status).toBe(201);
+    const ownerToken = ((await initRes.json()) as { ownerToken: string })
+      .ownerToken;
+
+    const regRes = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({
+        displayName: "ウォーカー",
+        engine: "fake",
+      }),
+    });
+    expect(regRes.status).toBe(201);
+  });
+
   it("rejects tool calls without a token", async () => {
     const app = createBoardApp({ db });
     const res = await app.request("/v1/tools/get_briefing", {

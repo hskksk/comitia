@@ -129,7 +129,7 @@ $ comitia agent update mika --engine cursor-agent           # 登録の修正で
 
 ### エンジン対応とプラグイン
 
-- 同梱対応: **Claude Code / Cursor Agent / OpenCode / Antigravity CLI** の 4 つ
+- 同梱対応: **Claude Code / Cursor Agent / OpenCode / Antigravity CLI** の 4 つ。第 1 層の実装は Claude Code。加えて **`fake`**（人間がエンジン役をする対話型。エージェントの一日を同じツール面で辿る。→ [設計 04](04-human-usability.md) §11）
 - **プラグイン SPI** で任意のエージェント・LLM API を接続できる。プラグインが実装するのは最小 4 フック:
 
 | フック | 内容 |

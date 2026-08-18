@@ -62,6 +62,13 @@ export function pullRequestStateLabel(value: string): string {
   return labelOf(pullRequestStateLabels, value);
 }
 
+export function engineLabel(engine: string | null): string {
+  if (engine === "fake") {
+    return "fake（人間が操作）";
+  }
+  return engine ?? "";
+}
+
 /** One-line "what we need" for queue cards (M6-1 / M6-2). */
 export function judgmentNeedLabel(consensusType: string | null): string {
   switch (consensusType) {

@@ -17,9 +17,9 @@ import {
   UsageError,
 } from "./cli-usage.js";
 import { loadConfig } from "./config.js";
+import { assertSupportedEngine } from "./engines.js";
 import { createMcpProxyRuntime } from "./mcp-proxy.js";
-import { createClaudeCodePlugin } from "./plugins/claude-code.js";
-import { createFakeEnginePlugin } from "./plugins/fake.js";
+import { createEnginePlugin } from "./plugins/create-engine.js";
 
 type ParsedCommand =
   | { command: "help" }
@@ -278,21 +278,46 @@ export async function runCli(
   if (!agent || !config.boardUrl) {
     throw new Error(`Unknown agent: ${command.name}`);
   }
-  if (agent.engine !== "claude-code") {
-    throw new Error(`Unsupported engine: ${agent.engine}`);
-  }
+  assertSupportedEngine(agent.engine);
 
-  const plugin = process.env.COMITIA_FAKE_ENGINE === "1"
-    ? createFakeEnginePlugin({
-        script: [{ tool: "get_briefing", args: {} }],
-        callTool: (name, toolArgs) =>
-          createMcpProxyRuntime({
-            boardUrl: config.boardUrl,
-            agentToken: agent.token,
-          }).callTool(name, toolArgs),
-      })
-    : createClaudeCodePlugin();
-  await connectCommand({ name: command.name, plugin });
+  const stdout = options.stdout ?? process.stdout;
+  const runtime = createMcpProxyRuntime({
+    boardUrl: config.boardUrl,
+    agentToken: agent.token,
+  });
+  let handle: Awaited<ReturnType<typeof connectCommand>> | undefined;
+  const plugin = createEnginePlugin({
+    engine: agent.engine,
+    callTool: (name, toolArgs) => runtime.callTool(name, toolArgs),
+    scriptedFake: process.env.COMITIA_FAKE_ENGINE === "1",
+    stdout,
+    onInterrupt: () => {
+      void handle?.close().finally(() => {
+        process.exit(0);
+      });
+    },
+  });
+  if (agent.engine === "fake" && process.env.COMITIA_FAKE_ENGINE !== "1") {
+    stdout.write(
+      `${command.name} を fake エンジンで接続します。tick のあと、エージェントと同じプロンプトとツール選択が出ます。Ctrl-C で切断します。\n`,
+    );
+  } else {
+    stdout.write(
+      `${command.name} を接続しています。Ctrl-C で切断します。\n`,
+    );
+  }
+  handle = await connectCommand({
+    name: command.name,
+    plugin,
+    configDir: options.configDir,
+  });
+  if (options.stdout === undefined) {
+    process.once("SIGINT", () => {
+      void handle?.close().finally(() => {
+        process.exit(0);
+      });
+    });
+  }
 }
 
 const entrypoint = process.argv[1];
