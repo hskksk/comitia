@@ -53,4 +53,4 @@ pnpm clean          # packages/*/dist を削除
 | [設計 02: エージェント接続](docs/design/02-agent-connection.md) | 標準プロトコル（A2A + MCP 確定）、tick、ボード API、アダプタ CLI（たたき台） |
 | [設計 03: 技術選定](docs/design/03-tech-selection.md) | エンジン検証、A2A/MCP 採用、スタック、PoC 結果 |
 | [設計 04: 人間の利用](docs/design/04-human-usability.md) | M6-1〜M6-6（見た目・操作感・提案と作業・CLI・ログ・fake エンジン） |
-| [設計 05: エージェントの自走](docs/design/05-agent-autonomy.md) | M7-1〜M7-5（朝の材料・例示なしのプロンプト・一日の作法・空のボードでの一日） |
+| [設計 05: エージェントの自走](docs/design/05-agent-autonomy.md) | M7-1〜M7-6（朝の材料・例示なしのプロンプト・一日の作法・空のボードでの一日・リポジトリ文脈） |
