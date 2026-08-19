@@ -282,6 +282,7 @@ export function registerHumanRoutes(
     const claim = await releaseWork(db, {
       claimId: c.req.param("claimId"),
       actorId: c.get("participant").id,
+      threadId,
     });
     return c.json({ id: claim.id, active: claim.active });
   });

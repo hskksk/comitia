@@ -11,7 +11,7 @@ import { registerParticipant } from "./participants.js";
 import { declare } from "./declare.js";
 import { openOrGetSession, endSession } from "./sessions.js";
 import { createThread } from "./threads.js";
-import { GateViolation, PermissionDenied } from "./errors.js";
+import { GateViolation, NotFoundError, PermissionDenied } from "./errors.js";
 import {
   claimPathsOverlap,
   claimWork,
@@ -189,6 +189,39 @@ describe("releaseWork", () => {
       .from(events)
       .where(eq(events.threadId, thread.id));
     expect(rows.some((row) => row.kind === "work_released")).toBe(true);
+  });
+
+  it("rejects release when the given threadId does not match the claim's thread", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+      title: "対象スレッド",
+    });
+    const other = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+      title: "別スレッド",
+    });
+    const { claim } = await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["docs/"],
+    });
+
+    await expect(
+      releaseWork(db, {
+        claimId: claim.id,
+        actorId: agent.id,
+        threadId: other.thread.id,
+      }),
+    ).rejects.toThrow(NotFoundError);
+
+    const [row] = await db
+      .select()
+      .from(workClaims)
+      .where(eq(workClaims.id, claim.id));
+    expect(row?.active).toBe(true);
   });
 });
 

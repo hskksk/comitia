@@ -1,11 +1,18 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { participants, threads, workClaims } from "../db/schema.js";
-import type { Db } from "../db/test-setup.js";
+import type { Db, DbClient } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError, PermissionDenied } from "./errors.js";
 import { getParticipant, getThreadRow } from "./helpers.js";
 import { addPost } from "./posts.js";
 import { listProjectPullRequestsForThreads } from "./pull-requests.js";
+
+function runInTransaction<T>(db: Db, fn: (tx: Db) => Promise<T>): Promise<T> {
+  if (typeof (db as DbClient).transaction === "function") {
+    return (db as DbClient).transaction((tx) => fn(tx));
+  }
+  return fn(db);
+}
 
 export type WorkClaimOverlap = {
   claimId: string;
@@ -59,30 +66,34 @@ export async function claimWork(
       claimPathsOverlap(row.paths as string[], input.paths),
   );
 
-  const [claim] = await db
-    .insert(workClaims)
-    .values({
+  const { claim, post } = await runInTransaction(db, async (tx) => {
+    const [insertedClaim] = await tx
+      .insert(workClaims)
+      .values({
+        threadId: input.threadId,
+        projectId: thread.projectId,
+        participantId: input.participantId,
+        paths: input.paths,
+        active: true,
+      })
+      .returning();
+
+    const insertedPost = await addPost(tx, {
       threadId: input.threadId,
+      authorId: input.participantId,
+      type: "report",
+      body: `${actor.displayName} が着手を表明: ${input.paths.join(", ")}`,
+    });
+
+    await recordEvent(tx, {
       projectId: thread.projectId,
-      participantId: input.participantId,
-      paths: input.paths,
-      active: true,
-    })
-    .returning();
+      threadId: input.threadId,
+      actorParticipantId: input.participantId,
+      kind: "work_claimed",
+      payload: { claimId: insertedClaim!.id, paths: input.paths },
+    });
 
-  const post = await addPost(db, {
-    threadId: input.threadId,
-    authorId: input.participantId,
-    type: "report",
-    body: `${actor.displayName} が着手を表明: ${input.paths.join(", ")}`,
-  });
-
-  await recordEvent(db, {
-    projectId: thread.projectId,
-    threadId: input.threadId,
-    actorParticipantId: input.participantId,
-    kind: "work_claimed",
-    payload: { claimId: claim!.id, paths: input.paths },
+    return { claim: insertedClaim!, post: insertedPost };
   });
 
   const overlaps: WorkClaimOverlap[] = await Promise.all(
@@ -101,18 +112,18 @@ export async function claimWork(
     }),
   );
 
-  return { claim: claim!, post, overlaps };
+  return { claim, post, overlaps };
 }
 
 export async function releaseWork(
   db: Db,
-  input: { claimId: string; actorId: string },
+  input: { claimId: string; actorId: string; threadId?: string },
 ) {
   const [claim] = await db
     .select()
     .from(workClaims)
     .where(eq(workClaims.id, input.claimId));
-  if (!claim) {
+  if (!claim || (input.threadId !== undefined && claim.threadId !== input.threadId)) {
     throw new NotFoundError("着手表明が見つかりません");
   }
   if (claim.participantId !== input.actorId) {

@@ -395,6 +395,41 @@ describe("human REST", () => {
     );
     expect(released.status).toBe(400);
   });
+
+  it("rejects releasing a claim through a different thread's URL", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const seeded = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+      title: "対象スレッド",
+    });
+    const otherThread = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+      title: "別スレッド",
+    });
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const claimed = await app.request(
+      `/v1/threads/${seeded.thread.id}/work-claims`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ paths: ["docs/"] }),
+      },
+    );
+    const claim = (await claimed.json()) as { id: string };
+
+    const released = await app.request(
+      `/v1/threads/${otherThread.thread.id}/work-claims/${claim.id}/release`,
+      { method: "POST", headers },
+    );
+    expect(released.status).toBe(400);
+  });
 });
 
 describe("human ops REST", () => {
