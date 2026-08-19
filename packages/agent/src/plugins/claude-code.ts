@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 import type { EnginePlugin } from "./types.js";
 
 const RUN_TIMEOUT_MS = 300_000;
@@ -12,6 +13,7 @@ export function buildClaudeArgs(options: {
   prompt: string;
   mcpConfigPath: string;
   hasBare: boolean;
+  appendSystemPrompt?: string;
 }): string[] {
   const args = [
     "-p",
@@ -25,6 +27,9 @@ export function buildClaudeArgs(options: {
     "stream-json",
     "--verbose",
   ];
+  if (options.appendSystemPrompt) {
+    args.push("--append-system-prompt", options.appendSystemPrompt);
+  }
   if (options.hasBare) {
     args.push("--bare");
   }
@@ -250,7 +255,12 @@ export function createClaudeCodePlugin(): EnginePlugin {
       }
       const home = isolatedHome;
       runIndex += 1;
-      const args = buildClaudeArgs({ prompt, mcpConfigPath, hasBare });
+      const args = buildClaudeArgs({
+        prompt,
+        mcpConfigPath,
+        hasBare,
+        appendSystemPrompt: TOOLSET_OVERVIEW,
+      });
       const result = await new Promise<{ stdout: string; stderr: string }>(
         (resolve, reject) => {
           const running = spawn("claude", args, {

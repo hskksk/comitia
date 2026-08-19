@@ -33,6 +33,9 @@ describe("board tool catalog", () => {
     expect(overview).toContain("朝 → 作業 → 申し送り");
     expect(overview).toContain("三つを混ぜない");
     expect(overview).toContain("type=proposal でも案は増えない");
+    expect(overview).toContain("活動量の単価");
+    expect(overview).toContain("read_thread は 3");
+    expect(overview).toContain("書く操作は 5");
 
     const create = formatToolHelp(
       BOARD_TOOLS.find((tool) => tool.name === "create_thread")!,

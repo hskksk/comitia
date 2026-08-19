@@ -14,6 +14,7 @@ import {
   parseClaudeStream,
   resolveMcpStdioEntrypoint,
 } from "./claude-code.js";
+import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 
 describe("buildClaudeArgs", () => {
   it("uses isolated MCP with bypass permissions and stream JSON", () => {
@@ -45,6 +46,28 @@ describe("buildClaudeArgs", () => {
         hasBare: true,
       }),
     ).toContain("--bare");
+  });
+
+  it("appends a system prompt when given one", () => {
+    const args = buildClaudeArgs({
+      prompt: "continue",
+      mcpConfigPath: "/tmp/mcp-config.json",
+      hasBare: false,
+      appendSystemPrompt: TOOLSET_OVERVIEW,
+    });
+    const flagIndex = args.indexOf("--append-system-prompt");
+    expect(flagIndex).toBeGreaterThan(-1);
+    expect(args[flagIndex + 1]).toBe(TOOLSET_OVERVIEW);
+  });
+
+  it("omits --append-system-prompt when no system prompt is given", () => {
+    expect(
+      buildClaudeArgs({
+        prompt: "continue",
+        mcpConfigPath: "/tmp/mcp-config.json",
+        hasBare: false,
+      }),
+    ).not.toContain("--append-system-prompt");
   });
 });
 
