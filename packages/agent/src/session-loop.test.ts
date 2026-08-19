@@ -1,5 +1,6 @@
-import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,7 +24,7 @@ import {
   createScriptedIo,
 } from "./plugins/interactive-fake.js";
 import type { EnginePlugin } from "./plugins/types.js";
-import { runSessionLoop } from "./session-loop.js";
+import { ensureRepoCheckout, runSessionLoop } from "./session-loop.js";
 
 const cleanups: Array<() => Promise<void> | void> = [];
 
@@ -44,12 +45,16 @@ async function createDb() {
   return db as unknown as Parameters<typeof startBoardServer>[0]["db"];
 }
 
-async function bootAgent(db: Awaited<ReturnType<typeof createDb>>) {
+async function bootAgent(
+  db: Awaited<ReturnType<typeof createDb>>,
+  options?: { repoUrl?: string },
+) {
   const server = await startBoardServer({ db, port: 0 });
   cleanups.push(() => server.close());
   const boot = await bootstrapBoard(db, {
     ownerDisplayName: "ハル",
     projectName: "comitia",
+    repoUrl: options?.repoUrl,
   });
   const registered = await registerAgent(db, {
     ownerParticipantId: boot.owner.id,
@@ -110,6 +115,65 @@ function wrapPlugin(inner: EnginePlugin): {
     prompts: () => prompts,
   };
 }
+
+async function createFixtureRepo(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "comitia-fixture-repo-"));
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  const git = (args: string[]) =>
+    execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  git(["init", "-q", "-b", "main"]);
+  git(["config", "user.email", "test@example.com"]);
+  git(["config", "user.name", "test"]);
+  await writeFile(join(dir, "README.md"), "hello from the fixture repo\n");
+  git(["add", "README.md"]);
+  git(["commit", "-q", "-m", "initial"]);
+  return dir;
+}
+
+describe("ensureRepoCheckout", () => {
+  it("clones into an empty work dir", async () => {
+    const repo = await createFixtureRepo();
+    const workDir = await mkdtemp(join(tmpdir(), "comitia-checkout-"));
+    cleanups.push(() => rm(workDir, { recursive: true, force: true }));
+
+    const result = ensureRepoCheckout(workDir, repo);
+    expect(result.ok).toBe(true);
+    expect(readFileSync(join(workDir, "README.md"), "utf8")).toContain(
+      "hello from the fixture repo",
+    );
+  });
+
+  it("pulls instead of cloning when the work dir already has a .git", async () => {
+    const repo = await createFixtureRepo();
+    const workDir = await mkdtemp(join(tmpdir(), "comitia-checkout-"));
+    cleanups.push(() => rm(workDir, { recursive: true, force: true }));
+
+    expect(ensureRepoCheckout(workDir, repo).ok).toBe(true);
+
+    execFileSync(
+      "git",
+      ["-c", "user.email=test@example.com", "-c", "user.name=test", "commit", "--allow-empty", "-q", "-m", "second"],
+      { cwd: repo, encoding: "utf8" },
+    );
+
+    const second = ensureRepoCheckout(workDir, repo);
+    expect(second.ok).toBe(true);
+    const log = execFileSync("git", ["-C", workDir, "log", "--oneline"], {
+      encoding: "utf8",
+    });
+    expect(log.split("\n").filter(Boolean)).toHaveLength(2);
+  });
+
+  it("reports failure without throwing when the repo can't be reached", () => {
+    const workDir = join(tmpdir(), `comitia-checkout-missing-${Date.now()}`);
+    cleanups.push(() => rm(workDir, { recursive: true, force: true }));
+    const result = ensureRepoCheckout(workDir, "/no/such/path/on/disk");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.length).toBeGreaterThan(0);
+    }
+  });
+});
 
 describe("session loop with fake engine", () => {
   it("completes goals then ends the session through connect", async () => {
@@ -222,6 +286,65 @@ describe("session loop with fake engine", () => {
         expect(wrapped.workDir()).toBe(persistentDir);
         expect(wrapped.workDirPersistent()).toBe(true);
         expect(existsSync(persistentDir)).toBe(true);
+      },
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  it("clones the project's repoUrl into the work dir before the first run", async () => {
+    const fixtureRepo = await createFixtureRepo();
+    const { db, registered, configDir, boardUrl } = await bootAgent(
+      await createDb(),
+      { repoUrl: fixtureRepo },
+    );
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const persistentDir = await mkdtemp(
+      join(tmpdir(), "comitia-repo-checkout-"),
+    );
+    const previous = process.env.COMITIA_WORK_DIR;
+    process.env.COMITIA_WORK_DIR = persistentDir;
+    cleanups.push(async () => {
+      if (previous === undefined) {
+        delete process.env.COMITIA_WORK_DIR;
+      } else {
+        process.env.COMITIA_WORK_DIR = previous;
+      }
+      await rm(persistentDir, { recursive: true, force: true });
+    });
+
+    const wrapped = wrapPlugin(
+      createFakeEnginePlugin({
+        callTool: (name, args) => runtime.callTool(name, args),
+        script: [
+          { tool: "get_briefing", args: {} },
+          { tool: "set_goals", args: { goals: ["README を読む"] } },
+          { tool: "complete_goal", args: {} },
+        ],
+        handover: "リポジトリを読んで完了",
+      }),
+    );
+
+    const handle = await connectCommand({
+      name: "mika",
+      configDir,
+      plugin: wrapped.plugin,
+    });
+    cleanups.push(() => handle.close());
+
+    await vi.waitFor(
+      async () => {
+        const [session] = await db
+          .select()
+          .from(schema.sessions)
+          .where(eq(schema.sessions.participantId, registered.agent.id));
+        expect(session?.endedReason).toBe("completed");
+        expect(existsSync(join(persistentDir, "README.md"))).toBe(true);
+        expect(readFileSync(join(persistentDir, "README.md"), "utf8")).toContain(
+          "hello from the fixture repo",
+        );
       },
       { timeout: 15_000 },
     );

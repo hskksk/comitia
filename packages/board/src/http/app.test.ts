@@ -60,6 +60,70 @@ describe("board HTTP", () => {
     expect(initRes.status).toBe(201);
   });
 
+  it("lets an agent read its own project's repoUrl via GET /v1/me/project", async () => {
+    const app = createBoardApp({ db });
+    const initRes = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerDisplayName: "ハル",
+        projectName: "comitia",
+        repoUrl: "https://github.com/hskksk/comitia",
+      }),
+    });
+    const initBody = (await initRes.json()) as { ownerToken: string };
+
+    const regRes = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${initBody.ownerToken}`,
+      },
+      body: JSON.stringify({ displayName: "ミカ", engine: "claude-code" }),
+    });
+    const agentBody = (await regRes.json()) as { agentToken: string };
+
+    const projectRes = await app.request("/v1/me/project", {
+      headers: { authorization: `Bearer ${agentBody.agentToken}` },
+    });
+    expect(projectRes.status).toBe(200);
+    expect(await projectRes.json()).toEqual({
+      repoUrl: "https://github.com/hskksk/comitia",
+      githubOwner: null,
+      githubRepo: null,
+    });
+  });
+
+  it("returns null repoUrl fields for a repo-less project", async () => {
+    const app = createBoardApp({ db });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    const projectRes = await app.request("/v1/me/project", {
+      headers: { authorization: `Bearer ${agentBody.agentToken}` },
+    });
+    expect(projectRes.status).toBe(200);
+    expect(await projectRes.json()).toEqual({
+      repoUrl: null,
+      githubOwner: null,
+      githubRepo: null,
+    });
+  });
+
+  it("rejects GET /v1/me/project without a token", async () => {
+    const app = createBoardApp({ db });
+    const res = await app.request("/v1/me/project");
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects GET /v1/me/project for an owner token (agent-only route)", async () => {
+    const app = createBoardApp({ db });
+    const { initBody } = await bootstrapOwnerAndAgent(app);
+    const res = await app.request("/v1/me/project", {
+      headers: { authorization: `Bearer ${initBody.ownerToken}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
   it("init → register → get_briefing over REST", async () => {
     const app = createBoardApp({ db });
 
