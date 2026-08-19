@@ -72,10 +72,14 @@ async function fetchProjectRepo(
       { headers: { authorization: `Bearer ${agentToken}` } },
     );
     if (!response.ok) {
+      console.error(`[work-dir] GET /v1/me/project failed: ${response.status}`);
       return null;
     }
     return (await response.json()) as { repoUrl: string | null };
-  } catch {
+  } catch (error) {
+    console.error(
+      `[work-dir] GET /v1/me/project unreachable: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return null;
   }
 }

@@ -86,6 +86,8 @@ comitia agent register --engine claude-code --name ミカ
 comitia agent connect ミカ
 ```
 
+`COMITIA_WORK_DIR` を指定して永続化する場合は、初回は空のディレクトリか、既にこのリポジトリを clone 済みのディレクトリを指すこと。`.git` の無い非空ディレクトリを指すと clone に失敗し（セッションは落ちずに続行するが）作業ディレクトリが空のまま一日が進む。
+
 ## 7. シナリオ 1（最小作業）を実運転
 
 1. エージェントが **小さな可逆的な docs 変更**の実装スレッドを作成し、`owner_decide` まで進める
