@@ -198,4 +198,53 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
       }),
     ).rejects.toThrow(InvalidTransition);
   });
+
+  it("候補提案版の著者は自分の版を批准できない（自己批准の禁止）", async () => {
+    const owner = await registerParticipant(db, {
+      kind: "human",
+      displayName: "ハル",
+    });
+    const project = await createProject(db, {
+      name: `self-ratify-${Date.now()}-${Math.random()}`,
+      ownerParticipantId: owner.id,
+    });
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+      type: "proposal",
+      target: "shared_artifact",
+      sharedArtifactKind: "project_rule",
+      title: "オーナー自身の提案",
+      trigger: "テスト",
+      duplicateSearchQuery: "self-ratify",
+      consensusType: "human_ratification",
+      conflictCitationsChecked: true,
+    });
+    const { version } = await addProposal(db, {
+      threadId: thread.id,
+      authorId: owner.id,
+      content: "オーナー自身が書いた案",
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: owner.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: owner.id,
+      kind: "request_ratification",
+      payload: {},
+    });
+
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: owner.id,
+        kind: "ratify",
+        payload: { binding: true, summary: "自分で決める" },
+      }),
+    ).rejects.toThrow(PermissionDenied);
+  });
 });

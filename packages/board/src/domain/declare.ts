@@ -426,6 +426,15 @@ async function declareInTx(
       if (!thread.candidateProposalVersionId) {
         throw new InvalidTransition("候補提案版が選定されていません");
       }
+      const { proposal } = await getProposalVersion(
+        db,
+        thread.candidateProposalVersionId,
+      );
+      if (proposal.authorParticipantId === input.actorId) {
+        throw new PermissionDenied(
+          "候補提案版の著者は自分の版を批准できません",
+        );
+      }
 
       const { binding, summary } = requireDecisionPayload(input.payload);
       const result = await finalizeDecided(db, {
