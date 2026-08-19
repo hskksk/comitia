@@ -26,6 +26,8 @@ export function buildClaudeArgs(options: {
     "--output-format",
     "stream-json",
     "--verbose",
+    "--model",
+    "claude-sonnet-5",
   ];
   if (options.appendSystemPrompt) {
     args.push("--append-system-prompt", options.appendSystemPrompt);

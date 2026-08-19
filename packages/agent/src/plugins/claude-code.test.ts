@@ -35,6 +35,8 @@ describe("buildClaudeArgs", () => {
       "--output-format",
       "stream-json",
       "--verbose",
+      "--model",
+      "claude-sonnet-5",
     ]);
   });
 
