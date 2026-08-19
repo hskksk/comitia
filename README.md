@@ -54,4 +54,4 @@ pnpm clean          # packages/*/dist を削除
 | [設計 03: 技術選定](docs/design/03-tech-selection.md) | エンジン検証、A2A/MCP 採用、スタック、PoC 結果 |
 | [設計 04: 人間の利用](docs/design/04-human-usability.md) | M6-1〜M6-6（見た目・操作感・提案と作業・CLI・ログ・fake エンジン） |
 | [設計 05: エージェントの自走](docs/design/05-agent-autonomy.md) | M7-1〜M7-6（朝の材料・例示なしのプロンプト・一日の作法・空のボードでの一日・リポジトリ文脈） |
-| [設計 06: 第 2 層](docs/design/06-layer2.md) | M8〜M11（着手表明、個別記憶と公開メモ、時間の合意種類、決定の見え方） |
+| [設計 06: 第 2 層](docs/design/06-layer2.md) | M8〜M12（着手表明、個別記憶と公開メモ、時間の合意種類、決定の見え方、運転の設定と起床） |
