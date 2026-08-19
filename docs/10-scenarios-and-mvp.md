@@ -2,7 +2,7 @@
 
 次のステップの計画。ここに書くのは要件ではなく **進め方の提案** であり、シナリオを通す中で要件（01〜08）の矛盾・欠落が見つかれば、要件側を直すか [09 未決事項](09-open-questions.md) に追記する。
 
-> **状況**: シナリオ検証 4 本は実施済み。書き下しと結果は [scenarios/](scenarios/README.md)。矛盾 2 件（F1・F2）は 03 へ反映済み、欠落 9 件は 09 へ追記済み。10.5 (3) の「実装前に決め切る最小セット」も確定済み — 状態の名称・識別子（03 3.3）、投稿の型（03 3.12）、Issue と対応させないこと（07 7.5）、参加者の登録（04 4.7）。第 1 層の実現方法は [design/01](design/01-layer1.md)、エージェント接続は要件 04 4.8 と [design/02](design/02-agent-connection.md)。技術選定は [design/03](design/03-tech-selection.md)。**PoC 3 本は合格**。**M1〜M6 のコードは完了。シナリオ 1 の live dogfood は [ops/m5-dogfood.md](ops/m5-dogfood.md)。次は M7 エージェントの自走**（[design/05](design/05-agent-autonomy.md)）。地図は [design/00](design/00-milestones.md)。
+> **状況**: シナリオ検証 4 本は実施済み。書き下しと結果は [scenarios/](scenarios/README.md)。矛盾 2 件（F1・F2）は 03 へ反映済み、欠落 9 件は 09 へ追記済み。10.5 (3) の「実装前に決め切る最小セット」も確定済み — 状態の名称・識別子（03 3.3）、投稿の型（03 3.12）、Issue と対応させないこと（07 7.5）、参加者の登録（04 4.7）。第 1 層の実現方法は [design/01](design/01-layer1.md)、エージェント接続は要件 04 4.8 と [design/02](design/02-agent-connection.md)。技術選定は [design/03](design/03-tech-selection.md)。**PoC 3 本は合格**。**M1〜M7 のコードは完了。シナリオ 1 の live dogfood は [ops/m5-dogfood.md](ops/m5-dogfood.md)。次は第 2 層（M8〜M12）**（[design/06](design/06-layer2.md)）。地図は [design/00](design/00-milestones.md)。
 
 ## 10.1 位置づけ
 
@@ -84,6 +84,8 @@
 
 ### 第 2 層 — 運転が安定してから
 
+切り出しと実装順は [設計 06](design/06-layer2.md)（M8〜M12）。運転で開いた穴（自己批准の禁止、プロジェクト repo の CLI、wake 表示）も含む。
+
 - 残りの合意種類（全員賛成、異議なし、沈黙期限）と期限のセッション換算
 - 着手表明、個別記憶、公開メモ（work out loud）と助言の作法
 - 記録・実行ロール、エンジン多様性の成立条件
@@ -139,6 +141,6 @@
 
 1. `docs/scenarios/` にシナリオ 1 から順に書き下す。1 本終えるごとに、見つかった問題を要件へ反映する ✅
 2. 4 本通ったら、第 1 層の範囲で **実現方法の議論**（データモデル、エンジンとの接続、判断キューの形）に進む ✅
-3. 実装は第 1 層 → 実プロジェクト 1 つで運転 → 運転の学びを持って第 2 層へ。PoC 3 本と M1〜M6 のコードは完了。**live dogfood は ops/m5-dogfood.md。次の実装は M7**。地図は [design/00](design/00-milestones.md)
+3. 実装は第 1 層 → 実プロジェクト 1 つで運転 → 運転の学びを持って第 2 層へ。PoC 3 本と M1〜M7 のコードは完了。**live dogfood は ops/m5-dogfood.md。次の実装は第 2 層（M8 着手表明から）**。地図は [design/00](design/00-milestones.md)。設計は [design/06](design/06-layer2.md)
 
 シナリオ検証の成果物自体も「レビュー可能な具体物」なので、このリポジトリの PR として出し、Comitia 的に言えば提案スレッド相当のレビューを経て取り込む。

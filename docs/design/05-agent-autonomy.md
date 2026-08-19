@@ -332,10 +332,10 @@ M7-3 作法をモデルへ（独立。いつ入れてもよい）
 
 ## 12. ドキュメント同期
 
-M7 を切った時点で直すポインタ（本ファイルと [00](00-milestones.md) 以外）:
+M7 を切った時点で直すポインタ（本ファイルと [00](00-milestones.md) 以外）は、第 2 層の設計（[設計 06](06-layer2.md)）で M7 完了・次は M8 に更新した:
 
 - [設計 02](02-agent-connection.md) §5「第 1 層の実装到達（M2）」の「まだ無いもの」リスト —
   コンテキストパックのプロジェクトルール実体と参加中スレッドの状況が M7-1 で埋まる
-- [設計 03](03-tech-selection.md) §5 — M6 完了・次は M7 に更新（いま M5 のまま）
+- [設計 03](03-tech-selection.md) §5 — M7 完了・次は第 2 層
 - [docs/README.md](../README.md)、[10](../10-scenarios-and-mvp.md)、[09](../09-open-questions.md)、
-  [scenarios/README.md](../scenarios/README.md)、ルート README: 次は M7
+  [scenarios/README.md](../scenarios/README.md)、ルート README
