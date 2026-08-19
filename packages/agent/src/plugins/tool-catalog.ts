@@ -1,3 +1,5 @@
+import { DEFAULT_MUTATING_TOOL_COST, TOOL_COSTS } from "@comitia/shared";
+
 /** Fake-engine copy: menu one-liners stay short; this file is the longer help. */
 
 export const TOOLSET_OVERVIEW = `このツールセットはエージェントの一日を回す口です。朝 → 作業 → 申し送りの順が決まっています。
@@ -22,7 +24,9 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
   end_session        申し送りを書いて一日を閉じる
   done               この run を終えるだけ。セッションは開いたまま
 
-post の type=declaration は門違反。遷移は必ず declare。`;
+post の type=declaration は門違反。遷移は必ず declare。
+
+活動量の単価: 探す（get_briefing・search_threads・search_decisions）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
 
 export const THREAD_TYPE_LABELS: Record<string, string> = {
   consultation: "相談",

@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -61,6 +62,23 @@ describe("init and agent register commands", () => {
       command: "agent-register",
       engine: "claude-code",
       name: "mika",
+    });
+    expect(
+      parseCliArgs([
+        "agent",
+        "register",
+        "--engine",
+        "claude-code",
+        "--name",
+        "walker",
+        "--role",
+        "proposer",
+      ]),
+    ).toEqual({
+      command: "agent-register",
+      engine: "claude-code",
+      name: "walker",
+      role: "proposer",
     });
   });
 
@@ -176,6 +194,53 @@ describe("init and agent register commands", () => {
     const withFake = await loadConfig(configDir);
     expect(withFake.agents.walker?.engine).toBe("fake");
     expect(withFake.agents.walker?.agentId).toBeTruthy();
+  });
+
+  it("assigns a role only when --role is given", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+
+    const client = new PGlite();
+    cleanups.push(() => client.close());
+    const db = drizzle(client, { schema });
+    const here = dirname(fileURLToPath(import.meta.url));
+    await migrate(db, {
+      migrationsFolder: join(here, "../../board/drizzle"),
+    });
+    const server = await startBoardServer({
+      db: db as unknown as Parameters<typeof startBoardServer>[0]["db"],
+      port: 0,
+    });
+    cleanups.push(() => server.close());
+
+    await initCommand({
+      boardUrl: server.baseUrl,
+      name: "ハル",
+      project: "comitia",
+      configDir,
+    });
+
+    await registerCommand({ name: "mika", engine: "claude-code", configDir });
+    const mika = (await loadConfig(configDir)).agents.mika;
+    const mikaRoles = await db
+      .select()
+      .from(schema.roleAssignments)
+      .where(eq(schema.roleAssignments.participantId, mika!.agentId));
+    expect(mikaRoles).toEqual([]);
+
+    await registerCommand({
+      name: "walker",
+      engine: "claude-code",
+      role: "proposer",
+      configDir,
+    });
+    const walker = (await loadConfig(configDir)).agents.walker;
+    const walkerRoles = await db
+      .select()
+      .from(schema.roleAssignments)
+      .where(eq(schema.roleAssignments.participantId, walker!.agentId));
+    expect(walkerRoles).toHaveLength(1);
+    expect(walkerRoles[0]?.role).toBe("proposer");
   });
 
   it("rejects unsupported engines before making a request", async () => {

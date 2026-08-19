@@ -1,7 +1,12 @@
 import "../test/helpers.js";
 import { asc, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { agentConnections, agentCredentials, participants } from "../db/schema.js";
+import {
+  agentConnections,
+  agentCredentials,
+  participants,
+  roleAssignments,
+} from "../db/schema.js";
 import { db } from "../test/helpers.js";
 import { authenticateToken } from "./credentials.js";
 import { assignSessionStartMinute } from "./connections.js";
@@ -120,6 +125,43 @@ describe("bootstrap", () => {
       engine: "fake",
     });
     expect(registered.agent.engine).toBe("fake");
+  });
+
+  it("registers without a role by default", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const registered = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "ミカ",
+      engine: "claude-code",
+    });
+    const roles = await db
+      .select()
+      .from(roleAssignments)
+      .where(eq(roleAssignments.participantId, registered.agent.id));
+    expect(roles).toEqual([]);
+  });
+
+  it("assigns the requested role in the same transaction as registration", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const registered = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "ミカ",
+      engine: "claude-code",
+      role: "proposer",
+    });
+    const roles = await db
+      .select()
+      .from(roleAssignments)
+      .where(eq(roleAssignments.participantId, registered.agent.id));
+    expect(roles).toHaveLength(1);
+    expect(roles[0]?.role).toBe("proposer");
+    expect(roles[0]?.projectId).toBe(registered.projectId);
   });
 
   it("assigns staggered connection start minutes", async () => {

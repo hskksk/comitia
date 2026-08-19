@@ -11,6 +11,7 @@ import {
   NotFoundError,
   PermissionDenied,
 } from "../domain/errors.js";
+import { getProject } from "../domain/helpers.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
 import type { GitHubClient } from "../github/types.js";
 import { maybeSendEndWarning } from "../gateway/health.js";
@@ -107,6 +108,9 @@ export function createBoardApp(input: {
       .object({
         displayName: z.string().min(1),
         engine: z.string(),
+        role: z
+          .enum(["facilitator", "proposer", "reviewer", "recorder", "executor"])
+          .optional(),
       })
       .parse(await c.req.json());
     const participant = c.get("participant");
@@ -114,6 +118,7 @@ export function createBoardApp(input: {
       ownerParticipantId: participant.id,
       displayName: body.displayName,
       engine: body.engine,
+      role: body.role,
     });
     return c.json(
       {
@@ -185,6 +190,16 @@ export function createBoardApp(input: {
     return c.json({
       status: conn.status,
       lastSeenAt: conn.lastSeenAt ? conn.lastSeenAt.toISOString() : null,
+    });
+  });
+
+  app.get("/v1/me/project", auth, agent, async (c) => {
+    const projectId = c.get("projectId");
+    const project = await getProject(db, projectId);
+    return c.json({
+      repoUrl: project.repoUrl,
+      githubOwner: project.githubOwner,
+      githubRepo: project.githubRepo,
     });
   });
 

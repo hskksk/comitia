@@ -87,7 +87,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   status            ボードとエージェントの状態
   doctor            設定と環境を診断
   agent list        登録済みエージェント一覧
-  agent register    エージェントを登録（--engine claude-code | fake）
+  agent register    エージェントを登録（--engine claude-code | fake、--role は任意）
   agent connect     エージェントを接続（claude-code / fake）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
@@ -97,5 +97,6 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
   comitia agent register --engine claude-code --name mika
   comitia agent register --engine fake --name walker
+  comitia agent register --engine claude-code --name walker --role proposer
   comitia agent connect walker
   comitia status`;

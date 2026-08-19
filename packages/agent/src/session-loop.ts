@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -60,6 +62,49 @@ async function resolveWorkDir(): Promise<{ path: string; persistent: boolean }> 
   return { path, persistent: false };
 }
 
+async function fetchProjectRepo(
+  boardUrl: string,
+  agentToken: string,
+): Promise<{ repoUrl: string | null } | null> {
+  try {
+    const response = await fetch(
+      `${boardUrl.replace(/\/$/, "")}/v1/me/project`,
+      { headers: { authorization: `Bearer ${agentToken}` } },
+    );
+    if (!response.ok) {
+      console.error(`[work-dir] GET /v1/me/project failed: ${response.status}`);
+      return null;
+    }
+    return (await response.json()) as { repoUrl: string | null };
+  } catch (error) {
+    console.error(
+      `[work-dir] GET /v1/me/project unreachable: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
+/** Clone repoUrl into workDir, or pull it if already checked out there. Never throws. */
+export function ensureRepoCheckout(
+  workDir: string,
+  repoUrl: string,
+): { ok: true } | { ok: false; error: string } {
+  const args = existsSync(join(workDir, ".git"))
+    ? ["-C", workDir, "pull", "--ff-only"]
+    : ["clone", repoUrl, workDir];
+  const result = spawnSync("git", args, { encoding: "utf8", timeout: 120_000 });
+  if (result.error) {
+    return { ok: false, error: result.error.message };
+  }
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      error: (result.stderr || result.stdout || "git exited non-zero").trim(),
+    };
+  }
+  return { ok: true };
+}
+
 /** Drive an engine plugin until wind-down and end_session. */
 export async function runSessionLoop(
   options: SessionLoopOptions,
@@ -82,9 +127,20 @@ export async function runSessionLoop(
   let runIndex = 0;
 
   try {
+    const project = await fetchProjectRepo(boardUrl, agentToken);
+    if (project?.repoUrl) {
+      const checkout = ensureRepoCheckout(workDir, project.repoUrl);
+      if (!checkout.ok) {
+        const note = `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。作業ディレクトリの中身無しで続行する。`;
+        console.error(note);
+        await onChatLog(note);
+      }
+    }
+
     await plugin.start({
       sessionId,
       workDir,
+      workDirPersistent: keepWorkDir,
       mcp: {
         command: process.execPath,
         args: [],
@@ -122,6 +178,7 @@ export async function runSessionLoop(
         prompt = buildRedrivePrompt({
           remainingBudget: priorDecision?.remainingBudget ?? null,
           incompleteGoals: priorDecision?.incompleteGoalTexts ?? [],
+          goalsEverSet: priorDecision?.goalsEverSet ?? false,
         });
       }
 

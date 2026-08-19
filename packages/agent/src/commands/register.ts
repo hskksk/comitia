@@ -4,6 +4,7 @@ import { assertSupportedEngine } from "../engines.js";
 export interface RegisterCommandOptions {
   name: string;
   engine: string;
+  role?: string;
   configDir?: string;
 }
 
@@ -26,6 +27,7 @@ export async function registerCommand(
     body: JSON.stringify({
       displayName: options.name,
       engine: options.engine,
+      ...(options.role ? { role: options.role } : {}),
     }),
   });
   if (!response.ok) {

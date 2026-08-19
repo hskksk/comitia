@@ -135,6 +135,59 @@ describe("judgeContinue", () => {
     });
   });
 
+  it("stays in work (not wind-down) when goals were never declared and idle limit isn't reached", () => {
+    const decision = judgeContinue({
+      entries: [entry({ tool: "get_briefing", result: { remaining_budget: 1000 } })],
+      runCount: 1,
+      maxRuns: 8,
+      idleRunLimit: 2,
+      windDownRequested: false,
+    });
+    expect(decision).toMatchObject({
+      phase: "work",
+      shouldContinue: true,
+      reason: "目標未宣言",
+      goalsEverSet: false,
+    });
+  });
+
+  it("still winds down via the idle path when goals are never declared and idle limit is reached", () => {
+    const decision = judgeContinue({
+      entries: [
+        entry({ run: 1, tool: "read_thread", args: { thread_id: "t1" } }),
+        entry({ run: 1, tool: "read_thread", args: { thread_id: "t1" } }),
+        entry({ run: 2, tool: "read_thread", args: { thread_id: "t1" } }),
+        entry({ run: 2, tool: "read_thread", args: { thread_id: "t1" } }),
+      ],
+      runCount: 2,
+      maxRuns: 8,
+      idleRunLimit: 2,
+      windDownRequested: false,
+    });
+    expect(decision).toMatchObject({
+      phase: "wind-down",
+      shouldContinue: true,
+      goalsEverSet: false,
+    });
+  });
+
+  it("marks goalsEverSet true once set_goals has succeeded, even after all goals complete", () => {
+    const decision = judgeContinue({
+      entries: [
+        entry({
+          tool: "set_goals",
+          result: { goals: [{ id: "g1", text: "typo", status: "pending" }] },
+        }),
+        entry({ tool: "complete_goal", result: { goal_id: "g1" } }),
+      ],
+      runCount: 1,
+      maxRuns: 8,
+      idleRunLimit: 2,
+      windDownRequested: false,
+    });
+    expect(decision.goalsEverSet).toBe(true);
+  });
+
   it("continues work when incomplete goals remain", () => {
     const decision = judgeContinue({
       entries: [
