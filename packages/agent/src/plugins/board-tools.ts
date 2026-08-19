@@ -368,6 +368,47 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     ],
   },
   {
+    name: "claim_work",
+    summary: "作業範囲を着手表明する（リポジトリに触る前に）",
+    description:
+      "スレッドに紐づけて paths（prefix の配列）を宣言する。重なる他者の着手は結果とブリーフィングに出るが、止められはしない。空配列は拒否。リポジトリ全部に触るなら [\".\"] を明示する。",
+    fields: [
+      {
+        name: "thread_id",
+        description: "作業のスレッド UUID。直近スレッドは空 Enter。",
+        required: true,
+        kind: "uuid",
+      },
+      {
+        name: "paths",
+        description:
+          "触る範囲。prefix でよい（例: docs/、packages/web/src/labels.ts）。1 行 1 件、1 件以上。",
+        required: true,
+        kind: "string[]",
+      },
+    ],
+  },
+  {
+    name: "release_work",
+    summary: "自分の着手表明を解除する",
+    description:
+      "claim_work で作った着手を解除する。本人のみ。スレッド完了・不採用でも自動解除されるので、続く作業がなければ呼ばなくてよい。",
+    fields: [
+      {
+        name: "claim_id",
+        description: "解除する着手の UUID。",
+        required: true,
+        kind: "uuid",
+      },
+    ],
+  },
+  {
+    name: "list_work_claims",
+    summary: "プロジェクトの active な着手を見る",
+    description: "重なりを事前に確認するための検索。活動量は掛からない。",
+    fields: [],
+  },
+  {
     name: "link_pull_request",
     summary: "スレッドに GitHub PR を付ける",
     description:

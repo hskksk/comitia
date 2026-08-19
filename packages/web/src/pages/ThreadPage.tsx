@@ -38,6 +38,7 @@ export function ThreadPage() {
   const [proposalContent, setProposalContent] = useState("");
   const [targetVersionId, setTargetVersionId] = useState("");
   const [ownerSummary, setOwnerSummary] = useState("");
+  const [claimPathsText, setClaimPathsText] = useState("");
 
   useEffect(() => {
     if (!id) {
@@ -150,6 +151,47 @@ export function ThreadPage() {
     }
   }
 
+  async function onClaimWork(event: FormEvent) {
+    event.preventDefault();
+    if (!id) {
+      return;
+    }
+    const paths = claimPathsText
+      .split("\n")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (paths.length === 0) {
+      return;
+    }
+    setError(null);
+    setIsDeclaring(true);
+    try {
+      await boardClient.claimWork(id, paths);
+      setClaimPathsText("");
+      await reloadThread();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "失敗しました");
+    } finally {
+      setIsDeclaring(false);
+    }
+  }
+
+  async function onReleaseWork(claimId: string) {
+    if (!id) {
+      return;
+    }
+    setError(null);
+    setIsDeclaring(true);
+    try {
+      await boardClient.releaseWork(id, claimId);
+      await reloadThread();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "失敗しました");
+    } finally {
+      setIsDeclaring(false);
+    }
+  }
+
   if (error && !view) {
     return <p className="status status-error">{error}</p>;
   }
@@ -162,6 +204,8 @@ export function ThreadPage() {
   const canCompose = discussing || awaiting;
   const isThreadOwner = me?.participant.id === view.thread.ownerParticipantId;
   const needsRationale = postType === "objection" || postType === "approval";
+  const canClaimWork =
+    view.thread.state !== "completed" && view.thread.state !== "rejected";
 
   return (
     <article>
@@ -220,6 +264,55 @@ export function ThreadPage() {
             ))}
           </ul>
         </>
+      ) : null}
+      {view.workClaims.length > 0 ? (
+        <>
+          <h2>着手</h2>
+          <ul>
+            {view.workClaims.map((claim) => (
+              <li key={claim.id}>
+                {claim.displayName}: {claim.paths.join(", ")}{" "}
+                <time
+                  className="muted"
+                  dateTime={claim.createdAt}
+                  title={claim.createdAt}
+                >
+                  {formatRelativeTimeJa(claim.createdAt)}
+                </time>{" "}
+                {me?.participant.id === claim.participantId ? (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={isDeclaring}
+                    onClick={() => void onReleaseWork(claim.id)}
+                  >
+                    解除
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {canClaimWork ? (
+        <form className="composer" onSubmit={onClaimWork}>
+          <h2>着手を表明する</h2>
+          <label>
+            paths（1 行 1 件。全部なら "."）
+            <textarea
+              value={claimPathsText}
+              onChange={(event) => setClaimPathsText(event.target.value)}
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            className="btn-secondary"
+            disabled={isDeclaring || !claimPathsText.trim()}
+          >
+            着手を表明
+          </button>
+        </form>
       ) : null}
       <h2>投稿</h2>
       <ol className="minutes-list">

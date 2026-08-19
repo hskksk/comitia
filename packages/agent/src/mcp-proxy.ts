@@ -22,6 +22,9 @@ export const MCP_PROXY_TOOLS = [
   "add_proposal",
   "post",
   "declare",
+  "claim_work",
+  "release_work",
+  "list_work_claims",
   "link_pull_request",
   "end_session",
 ] as const;
@@ -210,6 +213,40 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
       },
     },
     async (args) => runtime.callTool("declare", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "claim_work",
+    {
+      description: "作業範囲を着手表明する。重なる他者の着手は結果に出るが止まらない",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+        paths: z.array(z.string().min(1)).min(1),
+      },
+    },
+    async (args) => runtime.callTool("claim_work", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "release_work",
+    {
+      description: "自分の着手表明を解除する",
+      inputSchema: {
+        claim_id: z.string().uuid(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("release_work", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "list_work_claims",
+    {
+      description: "プロジェクトの active な着手を見る",
+      inputSchema: {},
+    },
+    async (args) =>
+      runtime.callTool("list_work_claims", args as Record<string, unknown>),
   );
 
   server.registerTool(

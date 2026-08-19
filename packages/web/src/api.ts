@@ -56,6 +56,14 @@ export type HumanProposal = {
   content: string;
 };
 
+export type ThreadWorkClaim = {
+  id: string;
+  participantId: string;
+  displayName: string;
+  paths: string[];
+  createdAt: string;
+};
+
 export type HumanThreadView = {
   thread: {
     id: string;
@@ -89,6 +97,7 @@ export type HumanThreadView = {
     title: string;
     state: "open" | "merged" | "closed";
   }>;
+  workClaims: ThreadWorkClaim[];
 };
 
 export type SearchThreadItem = {
@@ -247,6 +256,26 @@ export class BoardClient {
     return this.request(`/v1/threads/${threadId}/declare`, {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  }
+
+  async claimWork(
+    threadId: string,
+    paths: string[],
+  ): Promise<{ id: string; threadId: string; paths: string[]; overlaps: unknown[] }> {
+    return this.request(`/v1/threads/${threadId}/work-claims`, {
+      method: "POST",
+      body: JSON.stringify({ paths }),
+    });
+  }
+
+  async releaseWork(
+    threadId: string,
+    claimId: string,
+  ): Promise<{ id: string; active: boolean }> {
+    return this.request(`/v1/threads/${threadId}/work-claims/${claimId}/release`, {
+      method: "POST",
+      body: "{}",
     });
   }
 

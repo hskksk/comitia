@@ -20,6 +20,7 @@ import {
   NotFoundError,
   PermissionDenied,
 } from "../domain/errors.js";
+import { getThreadRow } from "../domain/helpers.js";
 import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { readThread } from "../domain/read-thread.js";
@@ -31,6 +32,11 @@ import {
 } from "../domain/sessions.js";
 import { createThread, searchThreads } from "../domain/threads.js";
 import { linkPullRequest } from "../domain/pull-requests.js";
+import {
+  claimWork,
+  listActiveProjectClaims,
+  releaseWork,
+} from "../domain/work-claims.js";
 import type { GitHubClient } from "../github/types.js";
 
 export type ToolCallResult = {
@@ -89,10 +95,11 @@ export function createBoardToolRuntime(input: {
   async function runTool(
     toolName: string,
     handler: () => Promise<Record<string, unknown>>,
+    options?: { threadId?: string },
   ): Promise<ToolCallResult> {
     try {
       const sid = await ensureSessionId();
-      const remaining = await spend(db, sid, toolName);
+      const remaining = await spend(db, sid, toolName, options?.threadId);
       const data = await handler();
       return jsonResult({ ...data, remaining_budget: remaining });
     } catch (error) {
@@ -101,6 +108,22 @@ export function createBoardToolRuntime(input: {
         return mapped;
       }
       throw error;
+    }
+  }
+
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  /** Resolves args.thread_id to a real thread id for budget-event tagging, or undefined if malformed/unknown. */
+  async function resolveThreadId(raw: unknown): Promise<string | undefined> {
+    if (typeof raw !== "string" || !UUID_RE.test(raw)) {
+      return undefined;
+    }
+    try {
+      await getThreadRow(db, raw);
+      return raw;
+    } catch {
+      return undefined;
     }
   }
 
@@ -178,14 +201,20 @@ export function createBoardToolRuntime(input: {
         return { agreements: rows };
       }),
 
-    read_thread: async (args) =>
-      runTool("read_thread", async () => {
-        const parsed = z.object({ thread_id: z.string().uuid() }).parse(args);
-        return (await readThread(db, parsed.thread_id)) as unknown as Record<
-          string,
-          unknown
-        >;
-      }),
+    read_thread: async (args) => {
+      const threadId = await resolveThreadId(args.thread_id);
+      return runTool(
+        "read_thread",
+        async () => {
+          const parsed = z.object({ thread_id: z.string().uuid() }).parse(args);
+          return (await readThread(db, parsed.thread_id)) as unknown as Record<
+            string,
+            unknown
+          >;
+        },
+        { threadId },
+      );
+    },
 
     create_thread: async (args) =>
       runTool("create_thread", async () => {
@@ -220,96 +249,163 @@ export function createBoardToolRuntime(input: {
         return { thread_id: thread.id, state: thread.state };
       }),
 
-    add_proposal: async (args) =>
-      runTool("add_proposal", async () => {
-        const parsed = z
-          .object({
-            thread_id: z.string().uuid(),
-            content: z.string().min(1),
-          })
-          .parse(args);
-        const { proposal, version } = await addProposal(db, {
-          threadId: parsed.thread_id,
-          authorId: participantId,
-          content: parsed.content,
-        });
-        return {
-          proposal_id: proposal.id,
-          proposal_version_id: version.id,
-          number: proposal.number,
-        };
-      }),
+    add_proposal: async (args) => {
+      const threadId = await resolveThreadId(args.thread_id);
+      return runTool(
+        "add_proposal",
+        async () => {
+          const parsed = z
+            .object({
+              thread_id: z.string().uuid(),
+              content: z.string().min(1),
+            })
+            .parse(args);
+          const { proposal, version } = await addProposal(db, {
+            threadId: parsed.thread_id,
+            authorId: participantId,
+            content: parsed.content,
+          });
+          return {
+            proposal_id: proposal.id,
+            proposal_version_id: version.id,
+            number: proposal.number,
+          };
+        },
+        { threadId },
+      );
+    },
 
-    post: async (args) =>
-      runTool("post", async () => {
-        const parsed = z
-          .object({
-            thread_id: z.string().uuid(),
-            type: z.enum(POST_TYPES),
-            body: z.string().min(1),
-            rationale: z.string().optional(),
-            blocking: z.boolean().optional(),
-            proposal_version_id: z.string().uuid().optional(),
-          })
-          .parse(args);
-        const post = await addPost(db, {
-          threadId: parsed.thread_id,
-          authorId: participantId,
-          type: parsed.type,
-          body: parsed.body,
-          rationale: parsed.rationale,
-          blocking: parsed.blocking,
-          proposalVersionId: parsed.proposal_version_id,
-        });
-        return { post_id: post.id, type: post.type };
-      }),
+    post: async (args) => {
+      const threadId = await resolveThreadId(args.thread_id);
+      return runTool(
+        "post",
+        async () => {
+          const parsed = z
+            .object({
+              thread_id: z.string().uuid(),
+              type: z.enum(POST_TYPES),
+              body: z.string().min(1),
+              rationale: z.string().optional(),
+              blocking: z.boolean().optional(),
+              proposal_version_id: z.string().uuid().optional(),
+            })
+            .parse(args);
+          const post = await addPost(db, {
+            threadId: parsed.thread_id,
+            authorId: participantId,
+            type: parsed.type,
+            body: parsed.body,
+            rationale: parsed.rationale,
+            blocking: parsed.blocking,
+            proposalVersionId: parsed.proposal_version_id,
+          });
+          return { post_id: post.id, type: post.type };
+        },
+        { threadId },
+      );
+    },
 
-    declare: async (args) =>
-      runTool("declare", async () => {
-        const parsed = z
-          .object({
-            thread_id: z.string().uuid(),
-            kind: declarationKindSchema,
-            payload: z.record(z.string(), z.unknown()).default({}),
-          })
-          .parse(args);
-        const result = await declare(db as DbClient, {
-          threadId: parsed.thread_id,
+    declare: async (args) => {
+      const threadId = await resolveThreadId(args.thread_id);
+      return runTool(
+        "declare",
+        async () => {
+          const parsed = z
+            .object({
+              thread_id: z.string().uuid(),
+              kind: declarationKindSchema,
+              payload: z.record(z.string(), z.unknown()).default({}),
+            })
+            .parse(args);
+          const result = await declare(db as DbClient, {
+            threadId: parsed.thread_id,
+            actorId: participantId,
+            kind: parsed.kind,
+            payload: parsed.payload,
+          });
+          return {
+            thread_id: parsed.thread_id,
+            state: result.thread.state,
+            kind: parsed.kind,
+          };
+        },
+        { threadId },
+      );
+    },
+
+    link_pull_request: async (args) => {
+      const threadId = await resolveThreadId(args.thread_id);
+      return runTool(
+        "link_pull_request",
+        async () => {
+          if (!github) {
+            throw new GateViolation("GitHub App が接続されていません");
+          }
+          const parsed = z
+            .object({
+              thread_id: z.string().uuid(),
+              url: z.string().url(),
+            })
+            .parse(args);
+          const row = await linkPullRequest(db, github, {
+            threadId: parsed.thread_id,
+            actorId: participantId,
+            url: parsed.url,
+          });
+          return {
+            thread_id: parsed.thread_id,
+            number: row.number,
+            url: row.url,
+            title: row.title,
+            state: row.state,
+          };
+        },
+        { threadId },
+      );
+    },
+
+    claim_work: async (args) => {
+      const threadId = await resolveThreadId(args.thread_id);
+      return runTool(
+        "claim_work",
+        async () => {
+          const parsed = z
+            .object({
+              thread_id: z.string().uuid(),
+              paths: z.array(z.string().min(1)).min(1),
+            })
+            .parse(args);
+          const result = await claimWork(db, {
+            threadId: parsed.thread_id,
+            participantId,
+            paths: parsed.paths,
+          });
+          return {
+            claim_id: result.claim.id,
+            thread_id: result.claim.threadId,
+            paths: result.claim.paths,
+            post_id: result.post.id,
+            overlaps: result.overlaps,
+          };
+        },
+        { threadId },
+      );
+    },
+
+    release_work: async (args) =>
+      runTool("release_work", async () => {
+        const parsed = z.object({ claim_id: z.string().uuid() }).parse(args);
+        const claim = await releaseWork(db, {
+          claimId: parsed.claim_id,
           actorId: participantId,
-          kind: parsed.kind,
-          payload: parsed.payload,
         });
-        return {
-          thread_id: parsed.thread_id,
-          state: result.thread.state,
-          kind: parsed.kind,
-        };
+        return { claim_id: claim.id, active: claim.active };
       }),
 
-    link_pull_request: async (args) =>
-      runTool("link_pull_request", async () => {
-        if (!github) {
-          throw new GateViolation("GitHub App が接続されていません");
-        }
-        const parsed = z
-          .object({
-            thread_id: z.string().uuid(),
-            url: z.string().url(),
-          })
-          .parse(args);
-        const row = await linkPullRequest(db, github, {
-          threadId: parsed.thread_id,
-          actorId: participantId,
-          url: parsed.url,
-        });
-        return {
-          thread_id: parsed.thread_id,
-          number: row.number,
-          url: row.url,
-          title: row.title,
-          state: row.state,
-        };
-      }),
+    list_work_claims: async () =>
+      runTool("list_work_claims", async () => ({
+        claims: await listActiveProjectClaims(db, projectId),
+      })),
 
     end_session: async (args) => {
       try {
@@ -509,6 +605,40 @@ export function createBoardMcpServer(input: {
     },
     async (args) =>
       runtime.callTool("link_pull_request", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "claim_work",
+    {
+      description: "作業範囲を着手表明する。重なる他者の着手は結果に出るが止まらない",
+      inputSchema: {
+        thread_id: z.string().uuid(),
+        paths: z.array(z.string().min(1)).min(1),
+      },
+    },
+    async (args) => runtime.callTool("claim_work", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "release_work",
+    {
+      description: "自分の着手表明を解除する",
+      inputSchema: {
+        claim_id: z.string().uuid(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("release_work", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "list_work_claims",
+    {
+      description: "プロジェクトの active な着手を見る",
+      inputSchema: {},
+    },
+    async (args) =>
+      runtime.callTool("list_work_claims", args as Record<string, unknown>),
   );
 
   server.registerTool(

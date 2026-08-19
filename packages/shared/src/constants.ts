@@ -140,6 +140,7 @@ export const TOOL_COSTS = {
   read_thread: 3,
   search_threads: 0,
   search_decisions: 0,
+  list_work_claims: 0,
 } as const;
 
 export const DEFAULT_MUTATING_TOOL_COST = 5;
@@ -181,5 +182,7 @@ export const EVENT_KINDS = [
   "github_issue_redirected",
   "github_installation_connected",
   "github_owner_bound",
+  "work_claimed",
+  "work_released",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];

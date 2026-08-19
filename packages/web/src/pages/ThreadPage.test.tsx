@@ -38,6 +38,7 @@ const threadView = {
   ],
   proposals: [],
   pullRequests: [],
+  workClaims: [],
 };
 
 const declareMock = vi.fn().mockResolvedValue({ thread: { state: "decided" } });
@@ -54,6 +55,13 @@ const addProposalMock = vi.fn().mockResolvedValue({
   versionNumber: 1,
   content: "案",
 });
+const claimWorkMock = vi.fn().mockResolvedValue({
+  id: "claim-1",
+  threadId: "t1",
+  paths: ["docs/"],
+  overlaps: [],
+});
+const releaseWorkMock = vi.fn().mockResolvedValue({ id: "claim-1", active: false });
 
 vi.mock("../api.js", () => ({
   boardClient: {
@@ -62,6 +70,8 @@ vi.mock("../api.js", () => ({
     me: (...args: unknown[]) => meMock(...args),
     addPost: (...args: unknown[]) => addPostMock(...args),
     addProposal: (...args: unknown[]) => addProposalMock(...args),
+    claimWork: (...args: unknown[]) => claimWorkMock(...args),
+    releaseWork: (...args: unknown[]) => releaseWorkMock(...args),
   },
 }));
 
@@ -91,6 +101,15 @@ describe("ThreadPage", () => {
     });
     addPostMock.mockClear();
     addProposalMock.mockClear();
+    claimWorkMock.mockClear();
+    claimWorkMock.mockResolvedValue({
+      id: "claim-1",
+      threadId: "t1",
+      paths: ["docs/"],
+      overlaps: [],
+    });
+    releaseWorkMock.mockClear();
+    releaseWorkMock.mockResolvedValue({ id: "claim-1", active: false });
   });
 
   it("ratifies with summary", async () => {
@@ -314,5 +333,55 @@ describe("ThreadPage", () => {
       kind: "select_candidate",
       proposalVersionId: "v1",
     });
+  });
+
+  it("submits a work claim with one path per line", async () => {
+    const user = userEvent.setup();
+    renderThread();
+    await screen.findByText("ルール改正");
+
+    await user.type(
+      screen.getByLabelText('paths（1 行 1 件。全部なら "."）'),
+      "docs/\npackages/web/src/labels.ts",
+    );
+    await user.click(screen.getByRole("button", { name: "着手を表明" }));
+
+    expect(claimWorkMock).toHaveBeenCalledWith("t1", [
+      "docs/",
+      "packages/web/src/labels.ts",
+    ]);
+  });
+
+  it("shows a release button for the current user's own claim", async () => {
+    const user = userEvent.setup();
+    threadMock.mockResolvedValue({
+      ...threadView,
+      workClaims: [
+        {
+          id: "claim-1",
+          participantId: "p1",
+          displayName: "ハル",
+          paths: ["docs/"],
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+        {
+          id: "claim-2",
+          participantId: "other",
+          displayName: "ミカ",
+          paths: ["packages/"],
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+      ],
+    });
+    renderThread();
+    await screen.findByText("ルール改正");
+
+    expect(screen.getByText(/ハル: docs\//)).toBeInTheDocument();
+    expect(screen.getByText(/ミカ: packages\//)).toBeInTheDocument();
+    const releaseButtons = screen.getAllByRole("button", { name: "解除" });
+    expect(releaseButtons).toHaveLength(1);
+
+    await user.click(releaseButtons[0]!);
+    expect(releaseWorkMock).toHaveBeenCalledWith("t1", "claim-1");
   });
 });

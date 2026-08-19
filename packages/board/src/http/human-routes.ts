@@ -33,6 +33,7 @@ import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { createThread, searchThreads } from "../domain/threads.js";
 import { linkPullRequest, refreshStalePullRequests } from "../domain/pull-requests.js";
+import { claimWork, releaseWork } from "../domain/work-claims.js";
 import type { GitHubClient } from "../github/types.js";
 import { type BoardEnv, requireAuth, requireOwner } from "./auth.js";
 
@@ -249,6 +250,40 @@ export function registerHumanRoutes(
       title: row.title,
       state: row.state,
     });
+  });
+
+  app.post("/v1/threads/:id/work-claims", auth, owner, async (c) => {
+    const body = z
+      .object({ paths: z.array(z.string().min(1)).min(1) })
+      .parse(await c.req.json());
+    const threadId = c.req.param("id");
+    const view = await getHumanThreadView(db, threadId);
+    assertProject(view.thread.projectId, c.get("projectId"));
+    const result = await claimWork(db, {
+      threadId,
+      participantId: c.get("participant").id,
+      paths: body.paths,
+    });
+    return c.json(
+      {
+        id: result.claim.id,
+        threadId: result.claim.threadId,
+        paths: result.claim.paths,
+        overlaps: result.overlaps,
+      },
+      201,
+    );
+  });
+
+  app.post("/v1/threads/:id/work-claims/:claimId/release", auth, owner, async (c) => {
+    const threadId = c.req.param("id");
+    const view = await getHumanThreadView(db, threadId);
+    assertProject(view.thread.projectId, c.get("projectId"));
+    const claim = await releaseWork(db, {
+      claimId: c.req.param("claimId"),
+      actorId: c.get("participant").id,
+    });
+    return c.json({ id: claim.id, active: claim.active });
   });
 
   app.get("/v1/project", auth, owner, async (c) => {

@@ -11,6 +11,7 @@ import {
 import type { Db } from "../db/test-setup.js";
 import { getThreadRow } from "./helpers.js";
 import { listProjectPullRequestsForThreads, listThreadPullRequests } from "./pull-requests.js";
+import { listActiveThreadClaims, type ThreadWorkClaim } from "./work-claims.js";
 
 export type JudgmentQueueItem = {
   threadId: string;
@@ -83,6 +84,7 @@ export type HumanThreadView = {
   proposals: HumanProposal[];
   posts: HumanThreadPost[];
   pullRequests: PullRequestRow[];
+  workClaims: ThreadWorkClaim[];
 };
 
 async function latestSynthesis(db: Db, threadId: string) {
@@ -265,6 +267,7 @@ export async function getHumanThreadView(
       createdAt: post.createdAt.toISOString(),
     })),
     pullRequests: await listThreadPullRequests(db, threadId),
+    workClaims: await listActiveThreadClaims(db, threadId),
   };
 }
 

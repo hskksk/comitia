@@ -318,6 +318,83 @@ describe("human REST", () => {
     });
     expect(declaration.status).toBe(400);
   });
+
+  it("claims and releases work on a thread via REST", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const seeded = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const claimed = await app.request(
+      `/v1/threads/${seeded.thread.id}/work-claims`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ paths: ["docs/"] }),
+      },
+    );
+    expect(claimed.status).toBe(201);
+    const claim = (await claimed.json()) as { id: string; paths: string[] };
+    expect(claim.paths).toEqual(["docs/"]);
+
+    const view = await app.request(`/v1/threads/${seeded.thread.id}`, {
+      headers,
+    });
+    const viewBody = (await view.json()) as {
+      workClaims: Array<{ id: string; paths: string[] }>;
+    };
+    expect(viewBody.workClaims.some((row) => row.id === claim.id)).toBe(true);
+
+    const released = await app.request(
+      `/v1/threads/${seeded.thread.id}/work-claims/${claim.id}/release`,
+      { method: "POST", headers },
+    );
+    expect(released.status).toBe(200);
+    expect((await released.json()) as { active: boolean }).toMatchObject({
+      active: false,
+    });
+  });
+
+  it("rejects releasing another participant's claim", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const seeded = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const ownerHeaders = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const claimed = await app.request(
+      `/v1/threads/${seeded.thread.id}/work-claims`,
+      {
+        method: "POST",
+        headers: ownerHeaders,
+        body: JSON.stringify({ paths: ["docs/"] }),
+      },
+    );
+    const claim = (await claimed.json()) as { id: string };
+
+    const other = await registerParticipant(db, {
+      kind: "human",
+      displayName: "別の人",
+    });
+    const otherHeaders = await ownerAuthHeader(other.id, project.id);
+
+    const released = await app.request(
+      `/v1/threads/${seeded.thread.id}/work-claims/${claim.id}/release`,
+      { method: "POST", headers: otherHeaders },
+    );
+    expect(released.status).toBe(400);
+  });
 });
 
 describe("human ops REST", () => {

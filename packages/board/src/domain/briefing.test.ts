@@ -8,6 +8,8 @@ import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
 import { createThread } from "./threads.js";
+import { claimWork } from "./work-claims.js";
+import { seedDecidedImplementation } from "../test/human-fixtures.js";
 
 async function setupParticipants() {
   const owner = await registerParticipant(db, {
@@ -173,5 +175,68 @@ describe("getBriefing (M7-1 material)", () => {
     });
 
     expect(second.remaining_budget).toBe(first.remaining_budget);
+  });
+
+  it("surfaces active work_claims from another agent in situation.work_claims", async () => {
+    const { owner, agent, project } = await setupParticipants();
+    const otherAgent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "リン",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: otherAgent.id,
+      projectId: project.id,
+    });
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: otherAgent.id,
+      paths: ["docs/"],
+    });
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    expect(briefing.situation.work_claims).toHaveLength(1);
+    expect(briefing.situation.work_claims[0]).toMatchObject({
+      threadId: thread.id,
+      threadTitle: thread.title,
+      participantId: otherAgent.id,
+      displayName: "リン",
+      paths: ["docs/"],
+    });
+  });
+
+  it("lists a decided implementation thread as unclaimed_decided until it is claimed", async () => {
+    const { agent, project } = await setupParticipants();
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+
+    const before = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(before.situation.unclaimed_decided.map((row) => row.id)).toContain(
+      thread.id,
+    );
+
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["docs/"],
+    });
+
+    const after = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(after.situation.unclaimed_decided.map((row) => row.id)).not.toContain(
+      thread.id,
+    );
   });
 });

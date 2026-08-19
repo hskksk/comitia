@@ -145,6 +145,25 @@ export const threadPullRequests = pgTable(
   (table) => [unique().on(table.projectId, table.number)],
 );
 
+export const workClaims = pgTable("work_claims", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => threads.id),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  participantId: uuid("participant_id")
+    .notNull()
+    .references(() => participants.id),
+  paths: jsonb("paths").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+});
+
 export const githubIssueIntakes = pgTable(
   "github_issue_intakes",
   {
@@ -405,6 +424,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   agentCredentials: many(agentCredentials),
   pullRequests: many(threadPullRequests),
   issueIntakes: many(githubIssueIntakes),
+  workClaims: many(workClaims),
 }));
 
 export const threadsRelations = relations(threads, ({ one, many }) => ({
@@ -419,6 +439,7 @@ export const threadsRelations = relations(threads, ({ one, many }) => ({
   proposals: many(proposals),
   posts: many(posts),
   pullRequests: many(threadPullRequests),
+  workClaims: many(workClaims),
 }));
 
 export const proposalsRelations = relations(proposals, ({ one, many }) => ({
@@ -508,6 +529,7 @@ export const schema = {
   roleAssignments,
   threads,
   threadPullRequests,
+  workClaims,
   githubIssueIntakes,
   githubOauthStates,
   proposals,

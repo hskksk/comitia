@@ -18,6 +18,11 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
   post           スレッドへの発言。type=proposal でも案は増えない。状態も変わらない
   declare        候補選定・決定・差し戻しなど、スレッド状態を動かす唯一の口
 
+着手（リポジトリに触る前に）
+  claim_work        paths（prefix の配列）を宣言する。重なる他者の着手は結果に出るが止まらない。空配列は拒否（全部なら ["."]）
+  release_work      自分の着手を解除する
+  list_work_claims  プロジェクトの active な着手を見る（検索扱い）
+
 締める
   complete_goal      宣言した目標を完了にする（しないとループが終わらない）
   link_pull_request  実装の証跡として PR をスレッドに付ける
@@ -26,7 +31,7 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
 
 post の type=declaration は門違反。遷移は必ず declare。
 
-活動量の単価: 探す（get_briefing・search_threads・search_decisions）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
+活動量の単価: 探す（get_briefing・search_threads・search_decisions・list_work_claims）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
 
 export const THREAD_TYPE_LABELS: Record<string, string> = {
   consultation: "相談",

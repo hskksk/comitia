@@ -20,6 +20,7 @@ import {
   isProjectOwner,
 } from "./helpers.js";
 import { getThreadObjections } from "./posts.js";
+import { deactivateThreadClaims } from "./work-claims.js";
 
 type DeclarePayload = Record<string, unknown>;
 
@@ -505,6 +506,11 @@ async function declareInTx(
         reason: (input.payload.summary as string) ?? "不採用",
       });
 
+      await deactivateThreadClaims(db, {
+        threadId: input.threadId,
+        actorId: input.actorId,
+      });
+
       let agreement;
       if (input.payload.recordAsAgreement) {
         if (!thread.candidateProposalVersionId) {
@@ -552,6 +558,11 @@ async function declareInTx(
         from: thread.state,
         to: "completed",
         reason: "スレッド完了",
+      });
+
+      await deactivateThreadClaims(db, {
+        threadId: input.threadId,
+        actorId: input.actorId,
       });
 
       return { thread: updated!, post: declarationPost };
