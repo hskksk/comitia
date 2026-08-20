@@ -4,6 +4,7 @@ import { db } from "../test/helpers.js";
 import { agreements } from "../db/schema.js";
 import { addProposal } from "./proposals.js";
 import { getBriefing } from "./briefing.js";
+import { writeMemory } from "./memory.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
@@ -175,6 +176,44 @@ describe("getBriefing (M7-1 material)", () => {
     });
 
     expect(second.remaining_budget).toBe(first.remaining_budget);
+  });
+
+  it("returns an empty string for memory with no active memory rows", async () => {
+    const { agent, project } = await setupParticipants();
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    expect(briefing.memory).toBe("");
+  });
+
+  it("round-trips an active memory into briefing.memory and hides superseded ones", async () => {
+    const { agent, project } = await setupParticipants();
+
+    const first = await writeMemory(db, {
+      participantId: agent.id,
+      body: "気づいたこと1",
+    });
+
+    const withFirst = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(withFirst.memory).toBe("気づいたこと1");
+
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "気づいたこと2（更新）",
+      supersedeId: first.id,
+    });
+
+    const withSecond = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(withSecond.memory).toBe("気づいたこと2（更新）");
   });
 
   it("surfaces active work_claims from another agent in situation.work_claims", async () => {

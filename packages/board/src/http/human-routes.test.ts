@@ -8,7 +8,7 @@ import {
   seedOwnerAgentProject,
 } from "../test/human-fixtures.js";
 import { hashToken, issueToken } from "../domain/credentials.js";
-import { agentCredentials, sessions } from "../db/schema.js";
+import { agentCredentials, memories, sessions, ticks } from "../db/schema.js";
 import { createThread } from "../domain/threads.js";
 import { addProposal } from "../domain/proposals.js";
 import { openOrGetSession } from "../domain/sessions.js";
@@ -429,6 +429,102 @@ describe("human REST", () => {
       { method: "POST", headers },
     );
     expect(released.status).toBe(400);
+  });
+});
+
+describe("notes and memory REST", () => {
+  it("writes and reads back the owner's own memory", async () => {
+    const app = createBoardApp({ db });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const before = await app.request("/v1/memory", { headers });
+    expect(((await before.json()) as { items: unknown[] }).items).toHaveLength(0);
+
+    await db
+      .insert(memories)
+      .values({ participantId: owner.id, body: "気づき" });
+
+    const after = await app.request("/v1/memory", { headers });
+    const body = (await after.json()) as { items: Array<{ body: string }> };
+    expect(body.items.some((item) => item.body === "気づき")).toBe(true);
+  });
+
+  it("creates a public note, searches it, and comments on it", async () => {
+    const app = createBoardApp({ db });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const created = await app.request("/v1/notes", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        title: "公開メモ",
+        body: "本文",
+        format: "journal",
+      }),
+    });
+    expect(created.status).toBe(201);
+    const note = (await created.json()) as { id: string };
+
+    const search = await app.request("/v1/notes", { headers });
+    const searched = (await search.json()) as { items: Array<{ id: string }> };
+    expect(searched.items.some((item) => item.id === note.id)).toBe(true);
+
+    const comment = await app.request(`/v1/notes/${note.id}/comments`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ body: "助言" }),
+    });
+    expect(comment.status).toBe(201);
+  });
+
+  it("returns 403 when a different participant reads or comments on a private note", async () => {
+    const app = createBoardApp({ db });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const created = await app.request("/v1/notes", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        title: "非公開メモ",
+        body: "本文",
+        format: "journal",
+        visibility: "private",
+      }),
+    });
+    const note = (await created.json()) as { id: string };
+
+    const other = await registerParticipant(db, {
+      kind: "human",
+      displayName: "別の人",
+    });
+    const otherHeaders = {
+      ...(await ownerAuthHeader(other.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const read = await app.request(`/v1/notes/${note.id}`, {
+      headers: otherHeaders,
+    });
+    expect(read.status).toBe(403);
+
+    const comment = await app.request(`/v1/notes/${note.id}/comments`, {
+      method: "POST",
+      headers: otherHeaders,
+      body: JSON.stringify({ body: "覗き見コメント" }),
+    });
+    expect(comment.status).toBe(403);
   });
 });
 

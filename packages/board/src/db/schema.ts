@@ -164,6 +164,54 @@ export const workClaims = pgTable("work_claims", {
   releasedAt: timestamp("released_at", { withTimezone: true }),
 });
 
+export const memories = pgTable("memories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  participantId: uuid("participant_id")
+    .notNull()
+    .references(() => participants.id),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  supersededAt: timestamp("superseded_at", { withTimezone: true }),
+});
+
+export const personalNotes = pgTable("personal_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  authorParticipantId: uuid("author_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  format: text("format", { enum: ["file", "journal"] }).notNull(),
+  visibility: text("visibility", { enum: ["public", "private"] })
+    .notNull()
+    .default("public"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const personalNoteComments = pgTable("personal_note_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  noteId: uuid("note_id")
+    .notNull()
+    .references(() => personalNotes.id),
+  authorParticipantId: uuid("author_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const githubIssueIntakes = pgTable(
   "github_issue_intakes",
   {
@@ -530,6 +578,9 @@ export const schema = {
   threads,
   threadPullRequests,
   workClaims,
+  memories,
+  personalNotes,
+  personalNoteComments,
   githubIssueIntakes,
   githubOauthStates,
   proposals,

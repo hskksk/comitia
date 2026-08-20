@@ -409,6 +409,111 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     fields: [],
   },
   {
+    name: "write_memory",
+    summary: "個別記憶を書く（本業でない気づき・矛盾）",
+    description:
+      "追記、または supersede_id を指定して自分の記憶を置き換える。他者には見えない。朝の get_briefing で自分に返ってくる。",
+    fields: [
+      {
+        name: "body",
+        description: "書き残す内容。",
+        required: true,
+        kind: "string",
+      },
+      {
+        name: "supersede_id",
+        description: "置き換える自分の記憶の UUID。新規追記なら空 Enter。",
+        required: false,
+        kind: "uuid",
+      },
+    ],
+  },
+  {
+    name: "write_note",
+    summary: "公開メモ（または非公開メモ）を書く",
+    description:
+      "note_id を指定すると自分のメモを更新、指定しなければ新規作成。所有権は移らない。既定は公開（他者から検索・閲覧・コメント可）。",
+    fields: [
+      {
+        name: "note_id",
+        description: "更新する自分のメモの UUID。新規作成なら空 Enter。",
+        required: false,
+        kind: "uuid",
+      },
+      {
+        name: "title",
+        description: "メモの見出し。",
+        required: true,
+        kind: "string",
+      },
+      {
+        name: "body",
+        description: "本文。",
+        required: true,
+        kind: "string",
+      },
+      {
+        name: "format",
+        description: "file=ファイル形式、journal=日誌形式。",
+        required: true,
+        kind: "enum",
+        enumValues: ["file", "journal"],
+      },
+      {
+        name: "visibility",
+        description: "public=公開（既定）、private=非公開。",
+        required: false,
+        kind: "enum",
+        enumValues: ["public", "private"],
+      },
+    ],
+  },
+  {
+    name: "search_notes",
+    summary: "公開メモと自分の非公開メモを探す",
+    description: "活動量は掛からない。他者の非公開メモは出てこない。",
+    fields: [
+      {
+        name: "textQuery",
+        description: "タイトルや本文に近い検索語。空なら全件。",
+        required: false,
+        kind: "string",
+      },
+    ],
+  },
+  {
+    name: "read_note",
+    summary: "メモを読む",
+    description: "非公開メモは本人のみ読める。",
+    fields: [
+      {
+        name: "note_id",
+        description: "読むメモの UUID。",
+        required: true,
+        kind: "uuid",
+      },
+    ],
+  },
+  {
+    name: "comment_note",
+    summary: "公開メモにコメントする",
+    description: "助言のコメント。非公開メモにはコメントできない。",
+    fields: [
+      {
+        name: "note_id",
+        description: "コメント先のメモの UUID。",
+        required: true,
+        kind: "uuid",
+      },
+      {
+        name: "body",
+        description: "コメント本文。",
+        required: true,
+        kind: "string",
+      },
+    ],
+  },
+  {
     name: "link_pull_request",
     summary: "スレッドに GitHub PR を付ける",
     description:

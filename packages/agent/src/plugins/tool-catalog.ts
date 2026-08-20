@@ -23,6 +23,13 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
   release_work      自分の着手を解除する
   list_work_claims  プロジェクトの active な着手を見る（検索扱い）
 
+記憶とメモ
+  write_memory   本業でない気づき・ルール矛盾は個別記憶に残す。他者には見えない。朝の get_briefing で自分に返る
+  write_note     公開メモ（既定）または非公開メモを書く。所有権は移らない
+  search_notes   公開メモと自分の非公開メモを探す（検索扱い）
+  read_note      メモを読む。非公開は本人のみ
+  comment_note   公開メモに助言のコメントを付ける
+
 締める
   complete_goal      宣言した目標を完了にする（しないとループが終わらない）
   link_pull_request  実装の証跡として PR をスレッドに付ける
@@ -31,7 +38,7 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
 
 post の type=declaration は門違反。遷移は必ず declare。
 
-活動量の単価: 探す（get_briefing・search_threads・search_decisions・list_work_claims）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
+活動量の単価: 探す（get_briefing・search_threads・search_decisions・list_work_claims・search_notes）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}（read_note も同額）、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
 
 export const THREAD_TYPE_LABELS: Record<string, string> = {
   consultation: "相談",

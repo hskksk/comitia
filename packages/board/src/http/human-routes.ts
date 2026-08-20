@@ -32,7 +32,11 @@ import {
 import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { createThread, searchThreads } from "../domain/threads.js";
+import { updateProjectRepo } from "../domain/projects.js";
 import { linkPullRequest, refreshStalePullRequests } from "../domain/pull-requests.js";
+import { listActiveMemory } from "../domain/memory.js";
+import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
+import { commentNote, readNote, searchNotes, writeNote } from "../domain/notes.js";
 import { claimWork, releaseWork } from "../domain/work-claims.js";
 import type { GitHubClient } from "../github/types.js";
 import { type BoardEnv, requireAuth, requireOwner } from "./auth.js";
@@ -396,5 +400,90 @@ export function registerHumanRoutes(
       limit,
     });
     return c.json({ items });
+  });
+
+  app.get("/v1/memory", auth, owner, async (c) => {
+    const items = await listActiveMemory(db, c.get("participant").id);
+    return c.json({ items });
+  });
+
+  app.get("/v1/notes", auth, owner, async (c) => {
+    const q = c.req.query("q");
+    const items = await searchNotes(db, {
+      callerId: c.get("participant").id,
+      projectId: c.get("projectId"),
+      textQuery: q,
+    });
+    return c.json({ items });
+  });
+
+  app.post("/v1/notes", auth, owner, async (c) => {
+    const body = z
+      .object({
+        noteId: z.string().uuid().optional(),
+        title: z.string().min(1),
+        body: z.string().min(1),
+        format: z.enum(["file", "journal"]),
+        visibility: z.enum(["public", "private"]).optional(),
+      })
+      .parse(await c.req.json());
+    try {
+      const note = await writeNote(db, {
+        authorParticipantId: c.get("participant").id,
+        projectId: c.get("projectId"),
+        noteId: body.noteId,
+        title: body.title,
+        body: body.body,
+        format: body.format,
+        visibility: body.visibility,
+      });
+      return c.json(note, 201);
+    } catch (error) {
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/v1/notes/:id", auth, owner, async (c) => {
+    try {
+      const note = await readNote(db, {
+        noteId: c.req.param("id"),
+        callerId: c.get("participant").id,
+      });
+      return c.json(note);
+    } catch (error) {
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/v1/notes/:id/comments", auth, owner, async (c) => {
+    const body = z.object({ body: z.string().min(1) }).parse(await c.req.json());
+    try {
+      const comment = await commentNote(db, {
+        noteId: c.req.param("id"),
+        authorParticipantId: c.get("participant").id,
+        body: body.body,
+      });
+      return c.json(comment, 201);
+    } catch (error) {
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
   });
 }

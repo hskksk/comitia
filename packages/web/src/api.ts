@@ -64,6 +64,34 @@ export type ThreadWorkClaim = {
   createdAt: string;
 };
 
+export type MemoryItem = {
+  id: string;
+  participantId: string;
+  body: string;
+  createdAt: string;
+  supersededAt: string | null;
+};
+
+export type NoteItem = {
+  id: string;
+  authorParticipantId: string;
+  projectId: string;
+  title: string;
+  body: string;
+  format: "file" | "journal";
+  visibility: "public" | "private";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NoteCommentItem = {
+  id: string;
+  noteId: string;
+  authorParticipantId: string;
+  body: string;
+  createdAt: string;
+};
+
 export type HumanThreadView = {
   thread: {
     id: string;
@@ -276,6 +304,39 @@ export class BoardClient {
     return this.request(`/v1/threads/${threadId}/work-claims/${claimId}/release`, {
       method: "POST",
       body: "{}",
+    });
+  }
+
+  async memory(): Promise<{ items: MemoryItem[] }> {
+    return this.request("/v1/memory");
+  }
+
+  async notes(q?: string): Promise<{ items: NoteItem[] }> {
+    const params = q ? `?${new URLSearchParams({ q }).toString()}` : "";
+    return this.request(`/v1/notes${params}`);
+  }
+
+  async writeNote(input: {
+    noteId?: string;
+    title: string;
+    body: string;
+    format: "file" | "journal";
+    visibility?: "public" | "private";
+  }): Promise<NoteItem> {
+    return this.request("/v1/notes", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async note(id: string): Promise<NoteItem> {
+    return this.request(`/v1/notes/${id}`);
+  }
+
+  async commentNote(id: string, body: string): Promise<NoteCommentItem> {
+    return this.request(`/v1/notes/${id}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
     });
   }
 

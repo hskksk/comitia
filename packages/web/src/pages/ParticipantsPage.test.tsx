@@ -29,11 +29,16 @@ const participantsMock = vi.fn().mockResolvedValue({
   ],
 });
 const wakeMock = vi.fn().mockResolvedValue({ tickId: "tick-1", status: "queued" });
+const meMock = vi.fn().mockResolvedValue({
+  participant: { id: "owner-1", kind: "human", displayName: "ハル" },
+  projectId: "proj",
+});
 
 vi.mock("../api.js", () => ({
   boardClient: {
     participants: (...args: unknown[]) => participantsMock(...args),
     wakeAgent: (...args: unknown[]) => wakeMock(...args),
+    me: (...args: unknown[]) => meMock(...args),
   },
 }));
 
@@ -56,5 +61,17 @@ describe("ParticipantsPage", () => {
     );
     await user.click(screen.getByRole("button", { name: "起こす" }));
     expect(wakeMock).toHaveBeenCalledWith("agent-1");
+  });
+
+  it("shows a notes link only on the current user's own card", async () => {
+    render(
+      <MemoryRouter>
+        <ParticipantsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("ミカ");
+    const links = await screen.findAllByRole("link", { name: "自分のメモ" });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "/notes");
   });
 });

@@ -141,6 +141,8 @@ export const TOOL_COSTS = {
   search_threads: 0,
   search_decisions: 0,
   list_work_claims: 0,
+  search_notes: 0,
+  read_note: 3,
 } as const;
 
 export const DEFAULT_MUTATING_TOOL_COST = 5;
