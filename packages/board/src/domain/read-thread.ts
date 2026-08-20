@@ -1,6 +1,7 @@
 import { asc, desc, eq, and } from "drizzle-orm";
 import { posts, proposalVersions } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
+import { getDecisionView } from "./decision-view.js";
 import { getThreadRow } from "./helpers.js";
 
 export async function readThread(db: Db, threadId: string) {
@@ -64,5 +65,6 @@ export async function readThread(db: Db, threadId: string) {
     synthesis: latestSynthesis ?? null,
     candidate_proposal: candidateProposal,
     posts: threadPosts,
+    decision_view: await getDecisionView(db, threadId),
   };
 }

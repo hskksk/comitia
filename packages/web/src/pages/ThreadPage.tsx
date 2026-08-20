@@ -314,6 +314,24 @@ export function ThreadPage() {
           </button>
         </form>
       ) : null}
+      {view.decisionView ? (
+        <div className="card">
+          <h2>決まったこと</h2>
+          <p className="muted">活動量 {view.decisionView.activitySpent}</p>
+          {view.decisionView.diff ? (
+            <>
+              <p className="muted">前版との差</p>
+              <pre>{view.decisionView.diff}</pre>
+            </>
+          ) : null}
+          {view.decisionView.previousAgreement ? (
+            <>
+              <p className="muted">前の合意との差</p>
+              <pre>{view.decisionView.previousAgreement.summaryDiff}</pre>
+            </>
+          ) : null}
+        </div>
+      ) : null}
       <h2>投稿</h2>
       <ol className="minutes-list">
         {view.posts.map((post) => (
@@ -471,6 +489,26 @@ export function ThreadPage() {
             </button>
           </div>
         </form>
+      ) : null}
+      {awaiting && (view.thread.timingEndsAt || view.consensusReasons.length > 0) ? (
+        <div className="card">
+          <h2>時間の合意</h2>
+          {view.thread.timingEndsAt ? (
+            <p className="muted">
+              期限:{" "}
+              <time dateTime={view.thread.timingEndsAt}>
+                {new Date(view.thread.timingEndsAt).toLocaleString("ja-JP")}
+              </time>
+            </p>
+          ) : null}
+          {view.consensusReasons.length > 0 ? (
+            <ul>
+              {view.consensusReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
       {awaiting ? (
         <form className="decision-panel" onSubmit={onRatify}>

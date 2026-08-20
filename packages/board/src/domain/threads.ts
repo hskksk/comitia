@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type {
   ConsensusType,
+  EngineDiversity,
   ProposalTarget,
   SharedArtifactKind,
   ThreadState,
@@ -32,6 +33,7 @@ export async function createThread(
     conflictCitations?: { agreementId: string; note: string }[];
     conflictCitationsChecked?: boolean;
     parentThreadId?: string;
+    engineDiversity?: EngineDiversity;
   },
 ) {
   if (!input.trigger.trim()) {
@@ -90,6 +92,7 @@ export async function createThread(
       trigger: input.trigger,
       duplicateSearchQuery: input.duplicateSearchQuery,
       parentThreadId: input.parentThreadId ?? null,
+      ...(input.engineDiversity ? { engineDiversity: input.engineDiversity } : {}),
     })
     .returning();
 

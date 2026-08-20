@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { boardClient, type ParticipantItem } from "../api.js";
+import { boardClient, type MeResponse, type ParticipantItem } from "../api.js";
 import { engineLabel } from "../labels.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 
@@ -14,8 +14,19 @@ function connectionLabel(status: "connected" | "disconnected" | "never"): string
   return "未接続";
 }
 
+function wakeLabel(wake: "undigested" | "queued" | "idle"): string {
+  if (wake === "undigested") {
+    return "起床待ち（未消化）";
+  }
+  if (wake === "queued") {
+    return "起床待ち（未接続）";
+  }
+  return "休眠";
+}
+
 export function ParticipantsPage() {
   const [items, setItems] = useState<ParticipantItem[] | null>(null);
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -28,6 +39,10 @@ export function ParticipantsPage() {
 
   useEffect(() => {
     load();
+    boardClient
+      .me()
+      .then((res) => setMe(res))
+      .catch(() => undefined);
   }, []);
   useFocusPoll(load, 15_000);
 
@@ -78,19 +93,35 @@ export function ParticipantsPage() {
                 : ""}
             </p>
           ) : null}
-          {item.kind === "agent" ? (
+          {item.wake ? (
+            <p>
+              <span className={`wake-badge is-${item.wake}`}>
+                {wakeLabel(item.wake)}
+              </span>
+            </p>
+          ) : null}
+          {item.kind === "agent" || item.id === me?.participant.id ? (
             <div className="actions">
-              <Link to={`/participants/${item.id}`} className="btn-secondary">
-                ログ
-              </Link>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={busyId === item.id}
-                onClick={() => void onWake(item.id)}
-              >
-                起こす
-              </button>
+              {item.kind === "agent" ? (
+                <>
+                  <Link to={`/participants/${item.id}`} className="btn-secondary">
+                    ログ
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={busyId === item.id}
+                    onClick={() => void onWake(item.id)}
+                  >
+                    起こす
+                  </button>
+                </>
+              ) : null}
+              {item.id === me?.participant.id ? (
+                <Link to="/notes" className="btn-secondary">
+                  自分のメモ
+                </Link>
+              ) : null}
             </div>
           ) : null}
         </article>

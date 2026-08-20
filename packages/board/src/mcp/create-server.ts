@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CONSENSUS_TYPES,
+  ENGINE_DIVERSITY,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -21,6 +22,8 @@ import {
   PermissionDenied,
 } from "../domain/errors.js";
 import { getThreadRow } from "../domain/helpers.js";
+import { listActiveMemory, writeMemory } from "../domain/memory.js";
+import { commentNote, readNote, searchNotes, writeNote } from "../domain/notes.js";
 import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { readThread } from "../domain/read-thread.js";
@@ -31,6 +34,7 @@ import {
   setGoals,
 } from "../domain/sessions.js";
 import { createThread, searchThreads } from "../domain/threads.js";
+import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
 import { linkPullRequest } from "../domain/pull-requests.js";
 import {
   claimWork,
@@ -230,6 +234,7 @@ export function createBoardToolRuntime(input: {
             sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
             conflictCitationsChecked: z.boolean().optional(),
             parentThreadId: z.string().uuid().optional(),
+            engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
           })
           .parse(args);
         const thread = await createThread(db, {
@@ -245,6 +250,7 @@ export function createBoardToolRuntime(input: {
           sharedArtifactKind: parsed.sharedArtifactKind,
           conflictCitationsChecked: parsed.conflictCitationsChecked,
           parentThreadId: parsed.parentThreadId,
+          engineDiversity: parsed.engineDiversity,
         });
         return { thread_id: thread.id, state: thread.state };
       }),
@@ -299,6 +305,9 @@ export function createBoardToolRuntime(input: {
             blocking: parsed.blocking,
             proposalVersionId: parsed.proposal_version_id,
           });
+          if (parsed.type === "approval") {
+            await maybeFinalizeUnanimous(db, { threadId: parsed.thread_id });
+          }
           return { post_id: post.id, type: post.type };
         },
         { threadId },
@@ -406,6 +415,90 @@ export function createBoardToolRuntime(input: {
       runTool("list_work_claims", async () => ({
         claims: await listActiveProjectClaims(db, projectId),
       })),
+
+    write_memory: async (args) =>
+      runTool("write_memory", async () => {
+        const parsed = z
+          .object({ body: z.string().min(1), supersede_id: z.string().uuid().optional() })
+          .parse(args);
+        const memory = await writeMemory(db, {
+          participantId,
+          body: parsed.body,
+          supersedeId: parsed.supersede_id,
+        });
+        return { memory_id: memory.id };
+      }),
+
+    write_note: async (args) =>
+      runTool("write_note", async () => {
+        const parsed = z
+          .object({
+            note_id: z.string().uuid().optional(),
+            title: z.string().min(1),
+            body: z.string().min(1),
+            format: z.enum(["file", "journal"]),
+            visibility: z.enum(["public", "private"]).optional(),
+          })
+          .parse(args);
+        const note = await writeNote(db, {
+          authorParticipantId: participantId,
+          projectId,
+          noteId: parsed.note_id,
+          title: parsed.title,
+          body: parsed.body,
+          format: parsed.format,
+          visibility: parsed.visibility,
+        });
+        return {
+          note_id: note.id,
+          title: note.title,
+          visibility: note.visibility,
+        };
+      }),
+
+    search_notes: async (args) =>
+      runTool("search_notes", async () => {
+        const parsed = z.object({ textQuery: z.string().optional() }).parse(args);
+        const notes = await searchNotes(db, {
+          callerId: participantId,
+          projectId,
+          textQuery: parsed.textQuery,
+        });
+        return {
+          notes: notes.map((n) => ({
+            id: n.id,
+            title: n.title,
+            visibility: n.visibility,
+            authorParticipantId: n.authorParticipantId,
+          })),
+        };
+      }),
+
+    read_note: async (args) =>
+      runTool("read_note", async () => {
+        const parsed = z.object({ note_id: z.string().uuid() }).parse(args);
+        const note = await readNote(db, { noteId: parsed.note_id, callerId: participantId });
+        return {
+          note_id: note.id,
+          title: note.title,
+          body: note.body,
+          format: note.format,
+          visibility: note.visibility,
+        };
+      }),
+
+    comment_note: async (args) =>
+      runTool("comment_note", async () => {
+        const parsed = z
+          .object({ note_id: z.string().uuid(), body: z.string().min(1) })
+          .parse(args);
+        const comment = await commentNote(db, {
+          noteId: parsed.note_id,
+          authorParticipantId: participantId,
+          body: parsed.body,
+        });
+        return { comment_id: comment.id };
+      }),
 
     end_session: async (args) => {
       try {
@@ -546,6 +639,7 @@ export function createBoardMcpServer(input: {
         sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
+        engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
       },
     },
     async (args) =>
@@ -639,6 +733,67 @@ export function createBoardMcpServer(input: {
     },
     async (args) =>
       runtime.callTool("list_work_claims", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "write_memory",
+    {
+      description: "個別記憶を書く（追記、または supersede_id で自分の記憶を置き換え）",
+      inputSchema: {
+        body: z.string().min(1),
+        supersede_id: z.string().uuid().optional(),
+      },
+    },
+    async (args) => runtime.callTool("write_memory", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "write_note",
+    {
+      description: "公開メモ（または非公開メモ）を作成・更新する",
+      inputSchema: {
+        note_id: z.string().uuid().optional(),
+        title: z.string().min(1),
+        body: z.string().min(1),
+        format: z.enum(["file", "journal"]),
+        visibility: z.enum(["public", "private"]).optional(),
+      },
+    },
+    async (args) => runtime.callTool("write_note", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "search_notes",
+    {
+      description: "公開メモと自分の非公開メモを検索する",
+      inputSchema: {
+        textQuery: z.string().optional(),
+      },
+    },
+    async (args) => runtime.callTool("search_notes", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "read_note",
+    {
+      description: "メモを読む（非公開は本人のみ）",
+      inputSchema: {
+        note_id: z.string().uuid(),
+      },
+    },
+    async (args) => runtime.callTool("read_note", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "comment_note",
+    {
+      description: "公開メモにコメントする",
+      inputSchema: {
+        note_id: z.string().uuid(),
+        body: z.string().min(1),
+      },
+    },
+    async (args) => runtime.callTool("comment_note", args as Record<string, unknown>),
   );
 
   server.registerTool(

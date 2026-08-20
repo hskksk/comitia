@@ -13,6 +13,8 @@ export function NewThreadPage() {
   );
   const [sharedArtifactKind, setSharedArtifactKind] = useState("project_rule");
   const [conflictChecked, setConflictChecked] = useState(false);
+  const [consensusType, setConsensusType] = useState("");
+  const [engineDiversity, setEngineDiversity] = useState("off");
   const [searched, setSearched] = useState(false);
   const [duplicates, setDuplicates] = useState<SearchThreadItem[]>([]);
   const [decisions, setDecisions] = useState<AgreementItem[]>([]);
@@ -50,7 +52,9 @@ export function NewThreadPage() {
         duplicateSearchQuery: query.trim(),
         conflictCitationsChecked: conflictChecked || decisions.length === 0,
         consensusType:
-          type === "proposal" ? "human_ratification" : "owner_decision",
+          consensusType ||
+          (type === "proposal" ? "human_ratification" : "owner_decision"),
+        ...(consensusType === "unanimous" ? { engineDiversity } : {}),
         ...(type === "proposal"
           ? {
               target,
@@ -156,6 +160,38 @@ export function NewThreadPage() {
             required
           />
         </label>
+        <label>
+          合意種類
+          <select
+            value={consensusType}
+            onChange={(event) => setConsensusType(event.target.value)}
+          >
+            <option value="">既定（提案=人間批准、実装=オーナー決定）</option>
+            <option value="human_ratification">人間による批准</option>
+            <option value="owner_decision">オーナー決定</option>
+            <option value="rough">概略合意</option>
+            <option value="unanimous">全員賛成</option>
+            <option value="no_objection">異議なし（24時間）</option>
+            <option value="silence">沈黙期限（48時間）</option>
+          </select>
+        </label>
+        {consensusType === "unanimous" ? (
+          <label>
+            エンジン多様性
+            <select
+              value={engineDiversity}
+              onChange={(event) => setEngineDiversity(event.target.value)}
+            >
+              <option value="off">off（人ごとに1）</option>
+              <option value="collapse_same_engine">
+                collapse_same_engine（同一エンジンは1）
+              </option>
+              <option value="require_other_engine">
+                require_other_engine（エンジン2種以上必須）
+              </option>
+            </select>
+          </label>
+        ) : null}
         {type === "proposal" ? (
           <>
             <label>

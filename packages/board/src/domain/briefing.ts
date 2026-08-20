@@ -13,6 +13,7 @@ import {
   wasLatestPreviousSessionInterrupted,
 } from "./sessions.js";
 import { searchThreads } from "./threads.js";
+import { listActiveMemory } from "./memory.js";
 import {
   listActiveProjectClaims,
   listUnclaimedDecidedImplementations,
@@ -76,6 +77,7 @@ export async function getBriefing(
     participants,
     workClaims,
     unclaimedDecided,
+    activeMemory,
   ] = await Promise.all([
     getProject(db, input.projectId),
     getParticipant(db, input.participantId),
@@ -87,6 +89,7 @@ export async function getBriefing(
     listProjectParticipants(db, input.projectId),
     listActiveProjectClaims(db, input.projectId),
     listUnclaimedDecidedImplementations(db, input.projectId),
+    listActiveMemory(db, input.participantId),
   ]);
 
   const you = participants.find((row) => row.id === input.participantId);
@@ -102,6 +105,7 @@ export async function getBriefing(
   return {
     sessionId: digestedSession.id,
     handover,
+    memory: activeMemory.map((m) => m.body).join("\n"),
     you: {
       displayName: participant.displayName,
       roles: you?.roles ?? [],

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CONSENSUS_TYPES,
+  ENGINE_DIVERSITY,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -25,6 +26,11 @@ export const MCP_PROXY_TOOLS = [
   "claim_work",
   "release_work",
   "list_work_claims",
+  "write_memory",
+  "write_note",
+  "search_notes",
+  "read_note",
+  "comment_note",
   "link_pull_request",
   "end_session",
 ] as const;
@@ -167,6 +173,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
         sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
+        engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
       },
     },
     async (args) =>
@@ -247,6 +254,67 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
     },
     async (args) =>
       runtime.callTool("list_work_claims", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "write_memory",
+    {
+      description: "個別記憶を書く（追記、または supersede_id で自分の記憶を置き換え）",
+      inputSchema: {
+        body: z.string().min(1),
+        supersede_id: z.string().uuid().optional(),
+      },
+    },
+    async (args) => runtime.callTool("write_memory", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "write_note",
+    {
+      description: "公開メモ（または非公開メモ）を作成・更新する",
+      inputSchema: {
+        note_id: z.string().uuid().optional(),
+        title: z.string().min(1),
+        body: z.string().min(1),
+        format: z.enum(["file", "journal"]),
+        visibility: z.enum(["public", "private"]).optional(),
+      },
+    },
+    async (args) => runtime.callTool("write_note", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "search_notes",
+    {
+      description: "公開メモと自分の非公開メモを検索する",
+      inputSchema: {
+        textQuery: z.string().optional(),
+      },
+    },
+    async (args) => runtime.callTool("search_notes", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "read_note",
+    {
+      description: "メモを読む（非公開は本人のみ）",
+      inputSchema: {
+        note_id: z.string().uuid(),
+      },
+    },
+    async (args) => runtime.callTool("read_note", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "comment_note",
+    {
+      description: "公開メモにコメントする",
+      inputSchema: {
+        note_id: z.string().uuid(),
+        body: z.string().min(1),
+      },
+    },
+    async (args) => runtime.callTool("comment_note", args as Record<string, unknown>),
   );
 
   server.registerTool(

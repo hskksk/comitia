@@ -12,6 +12,7 @@ const TOP_LEVEL_COMMANDS = [
   "status",
   "doctor",
   "agent",
+  "project",
 ] as const;
 
 const AGENT_SUBCOMMANDS = [
@@ -22,6 +23,8 @@ const AGENT_SUBCOMMANDS = [
   "update",
   "logs",
 ] as const;
+
+const PROJECT_SUBCOMMANDS = ["set"] as const;
 
 function levenshtein(a: string, b: string): number {
   const rows = a.length + 1;
@@ -67,10 +70,17 @@ export function formatUnknownCommandMessage(args: string[]): string {
     suggestCommand(top, TOP_LEVEL_COMMANDS) ??
     (top === "agent" && args[1]
       ? suggestCommand(args[1], AGENT_SUBCOMMANDS)
+      : undefined) ??
+    (top === "project" && args[1]
+      ? suggestCommand(args[1], PROJECT_SUBCOMMANDS)
       : undefined);
   const lines = [`不明なコマンド: ${args.join(" ")}`, "", USAGE_TEXT];
   if (suggestion) {
-    lines.splice(2, 0, `もしかして: ${top === "agent" ? `agent ${suggestion}` : suggestion}`);
+    lines.splice(
+      2,
+      0,
+      `もしかして: ${top === "agent" || top === "project" ? `${top} ${suggestion}` : suggestion}`,
+    );
   }
   return lines.join("\n");
 }
@@ -92,6 +102,8 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
   agent update      エージェント設定を更新
+  project           プロジェクトのリポジトリ紐づけを表示
+  project set       リポジトリ紐づけを設定・解除（--repo-url <url> | --clear-repo）
 
 例:
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
