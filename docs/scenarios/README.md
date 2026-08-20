@@ -73,6 +73,6 @@
 
 ## 次のステップ
 
-4 本とも通った。10.6 の 1〜2 と PoC 3 本・M1〜M7 のコードは完了している。**シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)**。次の実装は M13（[設計 07](../design/07-accounts-and-shell.md)）。第 2 層のドメインは [設計 06](../design/06-layer2.md)。地図は [設計 00](../design/00-milestones.md)。
+4 本とも通った。10.6 の 1〜2 と PoC 3 本・M1〜M7 のコードは完了している。**シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)**。次の実装は第 2 層（M8 着手表明から）。地図は [設計 00](../design/00-milestones.md)、設計は [設計 06](../design/06-layer2.md)。
 
 実装前に決め切る最小セット（10.5 (3)）と第 1 層の実現方法は反映済み。設計側の不確実性の閉じ方は [設計 03](../design/03-tech-selection.md) §4。
