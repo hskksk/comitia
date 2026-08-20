@@ -1,14 +1,15 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import type { AgreementState } from "@comitia/shared";
+import { formatParticipantLabel, type AgreementState } from "@comitia/shared";
 import {
   agentConnections,
-  agentCredentials,
   agreements,
   events,
   participants,
+  projectMemberships,
   roleAssignments,
   sessions,
   threads,
+  ticks,
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
@@ -31,7 +32,9 @@ export async function getProjectSummary(db: Db, projectId: string) {
       type: threads.type,
     })
     .from(threads)
-    .where(eq(threads.projectId, projectId));
+    .where(
+      and(eq(threads.projectId, projectId), isNull(threads.archivedAt)),
+    );
 
   const threadCounts = {
     discussing: 0,
@@ -52,40 +55,54 @@ export async function getProjectSummary(db: Db, projectId: string) {
   return {
     id: project.id,
     name: project.name,
+    repoUrl: project.repoUrl,
+    githubOwner: project.githubOwner,
+    githubRepo: project.githubRepo,
+    githubInstallationId: project.githubInstallationId,
+    ownerParticipantId: project.ownerParticipantId,
     threadCounts,
     queueCount: queue.length,
     inboxCount: inbox.length,
+    repoUrl: project.repoUrl,
+    githubOwner: project.githubOwner,
+    githubRepo: project.githubRepo,
+    githubInstallationId: project.githubInstallationId !== null,
+    queuePreview: queue.slice(0, 3).map((item) => ({
+      threadId: item.threadId,
+      title: item.title,
+      consensusType: item.consensusType,
+      enteredAt: item.enteredAt,
+    })),
   };
 }
 
 export async function listProjectParticipants(db: Db, projectId: string) {
-  const project = await getProject(db, projectId);
-  const owner = await getParticipant(db, project.ownerParticipantId);
-  const ownedAgents = await db
-    .select()
-    .from(participants)
-    .where(eq(participants.ownerParticipantId, owner.id));
-  const creds = await db
-    .select()
-    .from(agentCredentials)
-    .where(eq(agentCredentials.projectId, projectId));
-  const credAgentIds = creds.map((row) => row.participantId);
-  const credAgents =
-    credAgentIds.length === 0
+  await getProject(db, projectId);
+  const memberRows = await db
+    .select({ participantId: projectMemberships.participantId })
+    .from(projectMemberships)
+    .where(eq(projectMemberships.projectId, projectId));
+  const ids = memberRows.map((row) => row.participantId);
+  const people =
+    ids.length === 0
+      ? []
+      : await db.select().from(participants).where(inArray(participants.id, ids));
+  const agentIds = people.filter((row) => row.kind === "agent").map((row) => row.id);
+  const ownerIds = [
+    ...new Set(
+      people
+        .filter((row) => row.kind === "agent" && row.ownerParticipantId)
+        .map((row) => row.ownerParticipantId!),
+    ),
+  ];
+  const ownerRows =
+    ownerIds.length === 0
       ? []
       : await db
-          .select()
+          .select({ id: participants.id, displayName: participants.displayName })
           .from(participants)
-          .where(inArray(participants.id, credAgentIds));
-
-  const byId = new Map<string, (typeof owner)>();
-  byId.set(owner.id, owner);
-  for (const person of [...ownedAgents, ...credAgents]) {
-    byId.set(person.id, person);
-  }
-  const people = [...byId.values()];
-  const ids = people.map((row) => row.id);
-  const agentIds = people.filter((row) => row.kind === "agent").map((row) => row.id);
+          .where(inArray(participants.id, ownerIds));
+  const ownerNameById = new Map(ownerRows.map((row) => [row.id, row.displayName]));
 
   const roleRows =
     ids.length === 0
@@ -112,6 +129,21 @@ export async function listProjectParticipants(db: Db, projectId: string) {
     .select()
     .from(sessions)
     .where(and(eq(sessions.projectId, projectId), isNull(sessions.endedAt)));
+
+  const queuedStartTicks =
+    agentIds.length === 0
+      ? []
+      : await db
+          .select({ participantId: ticks.participantId })
+          .from(ticks)
+          .where(
+            and(
+              inArray(ticks.participantId, agentIds),
+              eq(ticks.status, "queued"),
+              eq(ticks.type, "session.start"),
+            ),
+          );
+  const queuedSet = new Set(queuedStartTicks.map((row) => row.participantId));
 
   const rolesByParticipant = new Map<string, string[]>();
   for (const row of roleRows) {
@@ -144,12 +176,31 @@ export async function listProjectParticipants(db: Db, projectId: string) {
             }
           : { status: "never", lastSeenAt: null };
       }
+      let wake: "undigested" | "queued" | "idle" | null = null;
+      if (person.kind === "agent") {
+        if (open && open.briefingAt === null) {
+          wake = "undigested";
+        } else if (queuedSet.has(person.id)) {
+          wake = "queued";
+        } else if (!open) {
+          wake = "idle";
+        }
+      }
+
       return {
         id: person.id,
         kind: person.kind,
         displayName: person.displayName,
+        label: formatParticipantLabel({
+          kind: person.kind,
+          displayName: person.displayName,
+          ownerDisplayName: person.ownerParticipantId
+            ? ownerNameById.get(person.ownerParticipantId)
+            : undefined,
+        }),
         engine: person.engine,
         ownerParticipantId: person.ownerParticipantId,
+        archivedAt: person.archivedAt ? person.archivedAt.toISOString() : null,
         roles: rolesByParticipant.get(person.id) ?? [],
         connection,
         openSession: open
@@ -160,6 +211,7 @@ export async function listProjectParticipants(db: Db, projectId: string) {
               startedAt: open.startedAt.toISOString(),
             }
           : null,
+        wake,
       };
     }),
   );
@@ -170,15 +222,32 @@ async function serializeSession(db: Db, session: typeof sessions.$inferSelect) {
   const [person] = await db
     .select({
       id: participants.id,
+      kind: participants.kind,
       displayName: participants.displayName,
+      ownerParticipantId: participants.ownerParticipantId,
     })
     .from(participants)
     .where(eq(participants.id, session.participantId))
     .limit(1);
+  let ownerDisplayName: string | undefined;
+  if (person?.kind === "agent" && person.ownerParticipantId) {
+    const [owner] = await db
+      .select({ displayName: participants.displayName })
+      .from(participants)
+      .where(eq(participants.id, person.ownerParticipantId))
+      .limit(1);
+    ownerDisplayName = owner?.displayName;
+  }
   return {
     id: session.id,
     participantId: session.participantId,
-    displayName: person?.displayName ?? session.participantId,
+    displayName: person
+      ? formatParticipantLabel({
+          kind: person.kind,
+          displayName: person.displayName,
+          ownerDisplayName,
+        })
+      : session.participantId,
     startedAt: session.startedAt.toISOString(),
     endedAt: iso(session.endedAt),
     endedReason: session.endedReason,

@@ -48,8 +48,10 @@ describe("QueuePage", () => {
 
   it("renders queue items with Japanese labels, synthesis, and candidate proposal", async () => {
     render(
-      <MemoryRouter>
-        <QueuePage />
+      <MemoryRouter initialEntries={["/p/proj-1/queue"]}>
+        <Routes>
+          <Route path="/p/:projectId/queue" element={<QueuePage />} />
+        </Routes>
       </MemoryRouter>,
     );
     expect(await screen.findByText("ルール改正")).toBeInTheDocument();
@@ -65,10 +67,13 @@ describe("QueuePage", () => {
   it("moves selection with j/k and opens with Enter", async () => {
     const user = userEvent.setup();
     render(
-      <MemoryRouter initialEntries={["/"]}>
+      <MemoryRouter initialEntries={["/p/proj-1/queue"]}>
         <Routes>
-          <Route path="/" element={<QueuePage />} />
-          <Route path="/threads/:id" element={<p>opened-thread</p>} />
+          <Route path="/p/:projectId/queue" element={<QueuePage />} />
+          <Route
+            path="/p/:projectId/threads/:id"
+            element={<p>opened-thread</p>}
+          />
         </Routes>
       </MemoryRouter>,
     );

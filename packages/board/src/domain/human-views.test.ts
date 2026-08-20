@@ -17,6 +17,8 @@ import { createFakeGitHubClient } from "../github/fake-client.js";
 import { eq } from "drizzle-orm";
 import { projects } from "../db/schema.js";
 import { linkPullRequest } from "./pull-requests.js";
+import { addProposal } from "./proposals.js";
+import { createThread } from "./threads.js";
 
 const PR_URL = "https://github.com/hskksk/comitia/pull/101";
 
@@ -116,6 +118,60 @@ describe("listJudgmentQueue", () => {
     const queue = await listJudgmentQueue(db, { projectId: project.id });
     expect(queue.map((item) => item.threadId)).toEqual([awaiting.thread.id]);
   });
+
+  it("silence 待ちは humanRequired でなければキューに入らない", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "implementation",
+      title: "沈黙で決める",
+      trigger: "テスト",
+      duplicateSearchQuery: "沈黙",
+      consensusType: "silence",
+    });
+    const { version } = await addProposal(db, {
+      threadId: thread.id,
+      authorId: agent.id,
+      content: "案",
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+
+    const queue = await listJudgmentQueue(db, { projectId: project.id });
+    expect(queue.map((item) => item.threadId)).not.toContain(thread.id);
+  });
+
+  it("unanimous 待ちで人間の主な参加者が未承認ならキューに入る", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "implementation",
+      title: "全員賛成で決める",
+      trigger: "テスト",
+      duplicateSearchQuery: "全員賛成",
+      consensusType: "unanimous",
+    });
+    const { version } = await addProposal(db, {
+      threadId: thread.id,
+      authorId: agent.id,
+      content: "案",
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+
+    const queue = await listJudgmentQueue(db, { projectId: project.id });
+    expect(queue.map((item) => item.threadId)).toContain(thread.id);
+  });
 });
 
 describe("listNonblockingInbox", () => {
@@ -178,7 +234,7 @@ describe("getHumanThreadView", () => {
     expect(view.thread.state).toBe("awaiting_decision");
     expect(view.synthesis?.body).toBe("争点は遡及の扱い");
     expect(view.candidateProposal?.content).toBe("区分を導入する");
-    expect(view.posts.some((post) => post.authorDisplayName === "ミカ")).toBe(
+    expect(view.posts.some((post) => post.authorDisplayName === "ミカ@ハル")).toBe(
       true,
     );
   });

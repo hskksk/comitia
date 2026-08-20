@@ -94,6 +94,21 @@ describe("board HTTP", () => {
     });
   });
 
+  it("lets an agent read identity via GET /v1/me", async () => {
+    const app = createBoardApp({ db });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+    const me = await app.request("/v1/me", {
+      headers: { authorization: `Bearer ${agentBody.agentToken}` },
+    });
+    expect(me.status).toBe(200);
+    expect(await me.json()).toMatchObject({
+      participant: { kind: "agent", displayName: "ミカ" },
+      label: "ミカ@ハル",
+      owner: { displayName: "ハル" },
+      project: { name: "comitia" },
+    });
+  });
+
   it("returns null repoUrl fields for a repo-less project", async () => {
     const app = createBoardApp({ db });
     const { agentBody } = await bootstrapOwnerAndAgent(app);
@@ -400,7 +415,7 @@ describe("board HTTP", () => {
       },
     );
     expect(res.status).toBe(403);
-    expect(await res.json()).toEqual({ error: "owner required" });
+    expect(await res.json()).toEqual({ error: "human required" });
   });
 
   it("returns 404 for unknown agent on POST /v1/agents/:id/request-session", async () => {

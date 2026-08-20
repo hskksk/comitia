@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: comitia
+      POSTGRES_USER: comitia
+      POSTGRES_PASSWORD: comitia
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comitia -d comitia"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  board:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://comitia:comitia@db:5432/comitia
+      PORT: 8787
+      HOST: 0.0.0.0
+      BOARD_PUBLIC_URL: ${BOARD_PUBLIC_URL:-http://localhost:8787}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+    ports:
+      - "8787:8787"
+
+volumes:
+  db_data:

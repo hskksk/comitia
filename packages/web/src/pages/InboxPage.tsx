@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { boardClient, type InboxItem } from "../api.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
 import { pullRequestStateLabel } from "../labels.js";
+import { projectPath } from "../projectContext.js";
 
 const KIND_LABEL = {
   merge_wait: "マージ待ち",
@@ -10,6 +11,7 @@ const KIND_LABEL = {
 } as const;
 
 export function InboxPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -19,7 +21,7 @@ export function InboxPage() {
       .inbox()
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     reload();
@@ -38,6 +40,9 @@ export function InboxPage() {
     }
   }
 
+  if (!projectId) {
+    return null;
+  }
   if (error && !items) {
     return <p className="status status-error">{error}</p>;
   }
@@ -57,7 +62,9 @@ export function InboxPage() {
       {items.map((item) => (
         <article key={item.threadId} className="card">
           <h2>
-            <Link to={`/threads/${item.threadId}`}>{item.title}</Link>
+            <Link to={projectPath(projectId, `threads/${item.threadId}`)}>
+              {item.title}
+            </Link>
           </h2>
           <p className="muted">{KIND_LABEL[item.kind]}</p>
           {item.latestReport ? (

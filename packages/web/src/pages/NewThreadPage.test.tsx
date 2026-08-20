@@ -28,10 +28,10 @@ describe("NewThreadPage", () => {
   it("searches then creates a proposal thread", async () => {
     const user = userEvent.setup();
     render(
-      <MemoryRouter initialEntries={["/threads/new"]}>
+      <MemoryRouter initialEntries={["/p/proj-1/threads/new"]}>
         <Routes>
-          <Route path="/threads/new" element={<NewThreadPage />} />
-          <Route path="/threads/:id" element={<p>created</p>} />
+          <Route path="/p/:projectId/threads/new" element={<NewThreadPage />} />
+          <Route path="/p/:projectId/threads/:id" element={<p>created</p>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -53,5 +53,35 @@ describe("NewThreadPage", () => {
       }),
     );
     expect(await screen.findByText("created")).toBeInTheDocument();
+  });
+
+  it("lets the author pick unanimous with engine diversity", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/p/proj-1/threads/new"]}>
+        <Routes>
+          <Route path="/p/:projectId/threads/new" element={<NewThreadPage />} />
+          <Route path="/p/:projectId/threads/:id" element={<p>created</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText("重複検索"), "検索語");
+    await user.click(screen.getByRole("button", { name: "重複を検索" }));
+    await user.type(screen.getByLabelText("タイトル"), "全員賛成で決める");
+    await user.type(screen.getByLabelText("きっかけ"), "きっかけ");
+    await user.selectOptions(screen.getByLabelText("合意種類"), "unanimous");
+    await user.selectOptions(
+      screen.getByLabelText("エンジン多様性"),
+      "require_other_engine",
+    );
+    await user.click(screen.getByRole("button", { name: "スレッドを立てる" }));
+
+    expect(createThreadMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        consensusType: "unanimous",
+        engineDiversity: "require_other_engine",
+      }),
+    );
   });
 });

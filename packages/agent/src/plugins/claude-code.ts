@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
+import { joinSystemPrompt } from "../environment-prompt.js";
 import type { EnginePlugin } from "./types.js";
 
 const RUN_TIMEOUT_MS = 300_000;
@@ -221,11 +222,13 @@ export function createClaudeCodePlugin(): EnginePlugin {
   let child: ChildProcess | undefined;
   let runIndex = 0;
   let lastTokens = 0;
+  let environmentPrompt = "";
 
   return {
     async start(session) {
       workDir = session.workDir;
       workDirPersistent = session.workDirPersistent;
+      environmentPrompt = session.environmentPrompt ?? "";
       isolatedHome = await mkdtemp(join(tmpdir(), "comitia-claude-home-"));
       runtimeDir = await mkdtemp(join(tmpdir(), "comitia-claude-runtime-"));
       mcpConfigPath = join(runtimeDir, "mcp-config.json");
@@ -261,7 +264,9 @@ export function createClaudeCodePlugin(): EnginePlugin {
         prompt,
         mcpConfigPath,
         hasBare,
-        appendSystemPrompt: TOOLSET_OVERVIEW,
+        appendSystemPrompt: environmentPrompt
+          ? joinSystemPrompt(environmentPrompt, TOOLSET_OVERVIEW)
+          : TOOLSET_OVERVIEW,
       });
       const result = await new Promise<{ stdout: string; stderr: string }>(
         (resolve, reject) => {

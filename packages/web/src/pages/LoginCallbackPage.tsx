@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { setToken } from "../auth.js";
 import { boardClient } from "../api.js";
+import { resolvePostLoginPath } from "../projectContext.js";
 
 export function LoginCallbackPage() {
   const [params] = useSearchParams();
@@ -16,7 +17,7 @@ export function LoginCallbackPage() {
     setToken(token);
     void boardClient
       .me()
-      .then(() => navigate("/", { replace: true }))
+      .then((me) => navigate(resolvePostLoginPath(me), { replace: true }))
       .catch(() => navigate("/login", { replace: true }));
   }, [navigate, params]);
 

@@ -4,10 +4,14 @@ import { db } from "../test/helpers.js";
 import { agreements } from "../db/schema.js";
 import { addProposal } from "./proposals.js";
 import { getBriefing } from "./briefing.js";
+import { writeMemory } from "./memory.js";
+import { addMembership } from "./memberships.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
 import { createThread } from "./threads.js";
+import { claimWork } from "./work-claims.js";
+import { seedDecidedImplementation } from "../test/human-fixtures.js";
 
 async function setupParticipants() {
   const owner = await registerParticipant(db, {
@@ -24,6 +28,11 @@ async function setupParticipants() {
     name: "comitia-web",
     ownerParticipantId: owner.id,
     repoUrl: "https://github.com/hskksk/comitia",
+  });
+  await addMembership(db, {
+    projectId: project.id,
+    participantId: agent.id,
+    actorId: owner.id,
   });
   return { owner, agent, project };
 }
@@ -71,7 +80,7 @@ describe("getBriefing (M7-1 material)", () => {
     });
 
     expect(briefing.you).toEqual({
-      displayName: "ソウ",
+      displayName: "ソウ@ハル",
       roles: [],
       engine: "claude-code",
     });
@@ -84,7 +93,7 @@ describe("getBriefing (M7-1 material)", () => {
     expect(briefing.situation.threads).toEqual([]);
     expect(briefing.situation.open_threads).toEqual([]);
     expect(briefing.situation.participants.map((p) => p.displayName)).toEqual(
-      expect.arrayContaining(["ハル", "ソウ"]),
+      expect.arrayContaining(["ハル", "ソウ@ハル"]),
     );
   });
 
@@ -173,5 +182,106 @@ describe("getBriefing (M7-1 material)", () => {
     });
 
     expect(second.remaining_budget).toBe(first.remaining_budget);
+  });
+
+  it("returns an empty string for memory with no active memory rows", async () => {
+    const { agent, project } = await setupParticipants();
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    expect(briefing.memory).toBe("");
+  });
+
+  it("round-trips an active memory into briefing.memory and hides superseded ones", async () => {
+    const { agent, project } = await setupParticipants();
+
+    const first = await writeMemory(db, {
+      participantId: agent.id,
+      body: "気づいたこと1",
+    });
+
+    const withFirst = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(withFirst.memory).toBe("気づいたこと1");
+
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "気づいたこと2（更新）",
+      supersedeId: first.id,
+    });
+
+    const withSecond = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(withSecond.memory).toBe("気づいたこと2（更新）");
+  });
+
+  it("surfaces active work_claims from another agent in situation.work_claims", async () => {
+    const { owner, agent, project } = await setupParticipants();
+    const otherAgent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "リン",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: otherAgent.id,
+      projectId: project.id,
+    });
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: otherAgent.id,
+      paths: ["docs/"],
+    });
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    expect(briefing.situation.work_claims).toHaveLength(1);
+    expect(briefing.situation.work_claims[0]).toMatchObject({
+      threadId: thread.id,
+      threadTitle: thread.title,
+      participantId: otherAgent.id,
+      displayName: "リン",
+      paths: ["docs/"],
+    });
+  });
+
+  it("lists a decided implementation thread as unclaimed_decided until it is claimed", async () => {
+    const { agent, project } = await setupParticipants();
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+
+    const before = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(before.situation.unclaimed_decided.map((row) => row.id)).toContain(
+      thread.id,
+    );
+
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["docs/"],
+    });
+
+    const after = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(after.situation.unclaimed_decided.map((row) => row.id)).not.toContain(
+      thread.id,
+    );
   });
 });

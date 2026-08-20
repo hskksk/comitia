@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BoardClient } from "./api.js";
+import {
+  BoardClient,
+  getCurrentProjectId,
+  setCurrentProjectId,
+} from "./api.js";
 import { getToken, setToken } from "./auth.js";
 
 afterEach(() => {
   sessionStorage.clear();
   vi.unstubAllGlobals();
+  setCurrentProjectId(null);
 });
 
 describe("BoardClient", () => {
@@ -31,6 +36,29 @@ describe("BoardClient", () => {
         }),
       }),
     );
+  });
+
+  it("sends x-comitia-project-id when project is set", async () => {
+    setToken("comt_abc");
+    setCurrentProjectId("proj-1");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new BoardClient().queue();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/v1/queue",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-comitia-project-id": "proj-1",
+        }),
+      }),
+    );
+    expect(getCurrentProjectId()).toBe("proj-1");
   });
 
   it("clears the stored token and throws on 401", async () => {

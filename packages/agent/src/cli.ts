@@ -6,6 +6,13 @@ import { agentListCommand } from "./commands/agent-list.js";
 import { connectCommand } from "./commands/connect.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { initCommand } from "./commands/init.js";
+import {
+  projectCreateCommand,
+  projectListCommand,
+  projectUseCommand,
+  projectCommand,
+  projectSetCommand,
+} from "./commands/project.js";
 import { registerCommand } from "./commands/register.js";
 import { statusCommand } from "./commands/status.js";
 import { tokenCommand } from "./commands/token.js";
@@ -43,10 +50,18 @@ type ParsedCommand =
       command: "agent-list";
     }
   | {
+      command: "project-create";
+      name: string;
+      repoUrl?: string;
+    }
+  | { command: "project-list" }
+  | { command: "project-use"; projectId: string }
+  | {
       command: "agent-register";
       name: string;
       engine: string;
       role?: string;
+      project?: string;
     }
   | {
       command: "agent-connect";
@@ -66,6 +81,14 @@ type ParsedCommand =
       command: "agent-update";
       name: string;
       engine: string;
+    }
+  | {
+      command: "project";
+    }
+  | {
+      command: "project-set";
+      repoUrl?: string;
+      clearRepo: boolean;
     };
 
 function isHelpArgs(args: string[]): boolean {
@@ -133,6 +156,26 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
     return { command: "doctor" };
   }
+  if (args[0] === "project" && args[1] === "create") {
+    const options = parseOptions(args.slice(2));
+    return {
+      command: "project-create",
+      name: requireOption(options, "name"),
+      repoUrl: options.get("repo-url"),
+    };
+  }
+  if (args[0] === "project" && args[1] === "list") {
+    if (args.length !== 2) {
+      throw new UsageError("Usage: comitia project list");
+    }
+    return { command: "project-list" };
+  }
+  if (args[0] === "project" && args[1] === "use") {
+    if (!args[2] || args.length !== 3) {
+      throw new UsageError("Usage: comitia project use <projectId>");
+    }
+    return { command: "project-use", projectId: args[2] };
+  }
   if (args[0] === "agent" && args[1] === "list") {
     if (args.length !== 2) {
       throw new UsageError("Usage: comitia agent list");
@@ -146,6 +189,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       engine: requireOption(options, "engine"),
       name: requireOption(options, "name"),
       role: options.get("role"),
+      project: options.get("project"),
     };
   }
   if (args[0] === "agent" && args[1] === "connect") {
@@ -210,6 +254,37 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       engine: requireOption(options, "engine"),
     };
   }
+  if (args[0] === "project" && args[1] === undefined) {
+    return { command: "project" };
+  }
+  if (args[0] === "project" && args[1] === "set") {
+    const rest = args.slice(2);
+    let repoUrl: string | undefined;
+    let clearRepo = false;
+    const usage =
+      "Usage: comitia project set --repo-url <url> | --clear-repo";
+    for (let index = 0; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--clear-repo") {
+        clearRepo = true;
+        continue;
+      }
+      if (token === "--repo-url") {
+        const value = rest[index + 1];
+        if (!value) {
+          throw new UsageError(usage);
+        }
+        repoUrl = value;
+        index += 1;
+        continue;
+      }
+      throw new UsageError(usage);
+    }
+    if (repoUrl === undefined && !clearRepo) {
+      throw new UsageError(usage);
+    }
+    return { command: "project-set", repoUrl, clearRepo };
+  }
   throw new UsageError(formatUnknownCommandMessage(args));
 }
 
@@ -254,6 +329,18 @@ export async function runCli(
     await doctorCommand(io);
     return;
   }
+  if (command.command === "project-create") {
+    await projectCreateCommand({ ...command, configDir: options.configDir });
+    return;
+  }
+  if (command.command === "project-list") {
+    await projectListCommand({ configDir: options.configDir, stdout: io.stdout });
+    return;
+  }
+  if (command.command === "project-use") {
+    await projectUseCommand({ ...command, configDir: options.configDir });
+    return;
+  }
   if (command.command === "agent-list") {
     await agentListCommand(io);
     return;
@@ -272,6 +359,14 @@ export async function runCli(
   }
   if (command.command === "agent-update") {
     await updateCommand({ ...command, configDir: options.configDir, stdout: io.stdout });
+    return;
+  }
+  if (command.command === "project") {
+    await projectCommand(io);
+    return;
+  }
+  if (command.command === "project-set") {
+    await projectSetCommand({ ...command, ...io });
     return;
   }
 

@@ -59,7 +59,7 @@ describe("GitHub OAuth", () => {
     expect(human?.githubLogin).toBe("hskksk");
   });
 
-  it("rejects a second GitHub user", async () => {
+  it("creates a second human for a different GitHub user", async () => {
     const board = app();
     const { owner } = await seedOwnerAgentProject(db);
     await db
@@ -86,7 +86,11 @@ describe("GitHub OAuth", () => {
     const res = await otherApp.request(
       `/v1/auth/github/callback?code=other-code&state=${state}`,
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toContain("/login/callback?token=");
+    const humans = await db.select().from(participants);
+    expect(humans.filter((row) => row.kind === "human")).toHaveLength(2);
   });
 
   it("rejects invalid oauth state", async () => {

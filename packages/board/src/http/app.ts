@@ -1,10 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z, ZodError } from "zod";
-import type { TickType } from "@comitia/shared";
+import { PROJECT_ID_HEADER, type TickType } from "@comitia/shared";
 import { agentConnections, agentCredentials, sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { addTokenUsage } from "../domain/activity.js";
+import { registerHuman } from "../domain/accounts.js";
 import { bootstrapBoard, registerAgent } from "../domain/bootstrap.js";
 import {
   DomainError,
@@ -12,6 +13,7 @@ import {
   PermissionDenied,
 } from "../domain/errors.js";
 import { getProject } from "../domain/helpers.js";
+import { resolveHumanProjectId } from "../domain/memberships.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
 import type { GitHubClient } from "../github/types.js";
 import { maybeSendEndWarning } from "../gateway/health.js";
@@ -20,7 +22,8 @@ import {
   type BoardEnv,
   requireAgent,
   requireAuth,
-  requireOwner,
+  requireHuman,
+  requireProjectMember,
 } from "./auth.js";
 import { registerGithubAuthRoutes } from "./github-auth-routes.js";
 import { registerGithubRoutes } from "./github-routes.js";
@@ -52,7 +55,8 @@ export function createBoardApp(input: {
   const { db } = input;
   const app = new Hono<BoardEnv>();
   const auth = requireAuth(db);
-  const owner = requireOwner();
+  const human = requireHuman();
+  const member = requireProjectMember(db);
   const agent = requireAgent();
 
   registerGithubRoutes(app, {
@@ -103,19 +107,41 @@ export function createBoardApp(input: {
     );
   });
 
-  app.post("/v1/agents", auth, owner, async (c) => {
+  app.post("/v1/register", async (c) => {
+    const body = z
+      .object({ displayName: z.string().min(1) })
+      .parse(await c.req.json());
+    const result = await registerHuman(db, { displayName: body.displayName });
+    return c.json(
+      {
+        participantId: result.human.id,
+        token: result.token,
+      },
+      201,
+    );
+  });
+
+  app.post("/v1/agents", auth, human, async (c) => {
     const body = z
       .object({
         displayName: z.string().min(1),
         engine: z.string(),
+        projectId: z.string().uuid().optional(),
         role: z
           .enum(["facilitator", "proposer", "reviewer", "recorder", "executor"])
           .optional(),
       })
       .parse(await c.req.json());
     const participant = c.get("participant");
+    const projectId = await resolveHumanProjectId(db, {
+      participantId: participant.id,
+      credentialProjectId: c.get("credentialProjectId"),
+      headerProjectId: c.req.header(PROJECT_ID_HEADER) ?? null,
+      explicitProjectId: body.projectId ?? null,
+    });
     const result = await registerAgent(db, {
       ownerParticipantId: participant.id,
+      projectId,
       displayName: body.displayName,
       engine: body.engine,
       role: body.role,
@@ -163,7 +189,7 @@ export function createBoardApp(input: {
     return c.json(runtime.parseJsonContent(result));
   });
 
-  app.get("/v1/agents/:id/connection", auth, owner, async (c) => {
+  app.get("/v1/agents/:id/connection", auth, human, member, async (c) => {
     const agentId = c.req.param("id");
     const projectId = c.get("projectId");
     const [cred] = await db
@@ -220,7 +246,7 @@ export function createBoardApp(input: {
     });
   });
 
-  app.post("/v1/agents/:id/request-session", auth, owner, async (c) => {
+  app.post("/v1/agents/:id/request-session", auth, human, member, async (c) => {
     const agentId = c.req.param("id");
     const projectId = c.get("projectId");
     const [cred] = await db

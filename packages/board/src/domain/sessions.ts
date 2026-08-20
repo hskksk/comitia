@@ -472,3 +472,20 @@ export async function wasLatestPreviousSessionInterrupted(
   );
   return latest?.endedReason === "interrupted";
 }
+
+/** 指定時刻以降に開始されたセッションを持つ参加者の ID 一覧（終了していても含む）。 */
+export async function listParticipantsWithSessionSince(
+  db: Db,
+  input: { projectId: string; since: Date },
+): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ participantId: sessions.participantId })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.projectId, input.projectId),
+        sql`${sessions.startedAt} >= ${input.since}`,
+      ),
+    );
+  return rows.map((row) => row.participantId);
+}

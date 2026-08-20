@@ -10,6 +10,7 @@ import {
   findUndigestedSession,
   interruptStaleSessions,
 } from "../domain/sessions.js";
+import { evaluateTimedConsensus } from "../domain/timed-consensus.js";
 import { expireStaleConnections, touchConnection } from "../gateway/health.js";
 import { createRelay, type Relay } from "../gateway/relay.js";
 import { resendUndigested } from "../gateway/resend.js";
@@ -76,6 +77,7 @@ async function runLoopTick(
     if (now.getUTCSeconds() < 15) {
       await runScheduler(input.db, input.send, { now });
     }
+    await evaluateTimedConsensus(input.db, { now });
   } catch (error) {
     console.error(error);
   }
@@ -135,7 +137,7 @@ export async function startBoardServer(input: {
         .from(agentCredentials)
         .where(eq(agentCredentials.participantId, agentId))
         .limit(1);
-      if (!cred) {
+      if (!cred?.projectId) {
         return;
       }
       await db

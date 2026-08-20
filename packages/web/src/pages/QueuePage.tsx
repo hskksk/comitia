@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { boardClient, type QueueItem } from "../api.js";
 import { ThreadBadges } from "../components/Badges.js";
 import { SynthesisCard } from "../components/SynthesisCard.js";
 import { judgmentNeedLabel } from "../labels.js";
+import { projectPath } from "../projectContext.js";
 
 export function QueuePage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -17,7 +19,7 @@ export function QueuePage() {
       .queue()
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     if (!items || items.length === 0) {
@@ -46,20 +48,23 @@ export function QueuePage() {
       } else if (event.key === "Enter") {
         event.preventDefault();
         const item = items![selectedIndex];
-        if (item) {
-          navigate(`/threads/${item.threadId}`);
+        if (item && projectId) {
+          navigate(projectPath(projectId, `threads/${item.threadId}`));
         }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [items, selectedIndex, navigate]);
+  }, [items, selectedIndex, navigate, projectId]);
 
   useEffect(() => {
     const el = cardRefs.current[selectedIndex];
     el?.focus({ preventScroll: false });
   }, [selectedIndex, items]);
 
+  if (!projectId) {
+    return null;
+  }
   if (error) {
     return <p className="status status-error">{error}</p>;
   }
@@ -72,7 +77,9 @@ export function QueuePage() {
         <h1>判断キュー</h1>
         <p className="status status-empty">判断待ちはありません</p>
         <p>
-          <Link to="/threads/new">提案する / 作業する</Link>
+          <Link to={projectPath(projectId, "threads/new")}>
+            提案する / 作業する
+          </Link>
         </p>
       </section>
     );
@@ -84,7 +91,7 @@ export function QueuePage() {
       {items.map((item, index) => (
         <Link
           key={item.threadId}
-          to={`/threads/${item.threadId}`}
+          to={projectPath(projectId, `threads/${item.threadId}`)}
           className={`card${index === selectedIndex ? " is-selected" : ""}`}
           ref={(el) => {
             cardRefs.current[index] = el;

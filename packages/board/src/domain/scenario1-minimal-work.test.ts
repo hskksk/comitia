@@ -2,12 +2,13 @@ import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
-import { agreements, events, proposals } from "../db/schema.js";
+import { agreements, events, proposals, workClaims } from "../db/schema.js";
 import { declare } from "./declare.js";
 import { registerParticipant } from "./participants.js";
 import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
+import { claimWork } from "./work-claims.js";
 
 describe("シナリオ1: 最小作業", () => {
   it("implementation + owner_decision → decided → completed", async () => {
@@ -61,6 +62,13 @@ describe("シナリオ1: 最小作業", () => {
     });
     expect(decided.thread.state).toBe("decided");
 
+    const claimed = await claimWork(db, {
+      threadId: thread.id,
+      participantId: sou.id,
+      paths: ["docs/README.md"],
+    });
+    expect(claimed.claim.active).toBe(true);
+
     const completed = await declare(db, {
       threadId: thread.id,
       actorId: sou.id,
@@ -82,6 +90,13 @@ describe("シナリオ1: 最小作業", () => {
       .where(eq(proposals.threadId, thread.id));
     expect(proposal?.outcome).toBe("adopted");
 
+    const [claimRow] = await db
+      .select()
+      .from(workClaims)
+      .where(eq(workClaims.threadId, thread.id));
+    expect(claimRow).toBeTruthy();
+    expect(claimRow?.active).toBe(false);
+
     const eventKinds = (
       await db.select().from(events).where(eq(events.projectId, project.id))
     ).map((e) => e.kind);
@@ -92,5 +107,6 @@ describe("シナリオ1: 最小作業", () => {
     expect(eventKinds).toContain("thread_declaration");
     expect(eventKinds).toContain("state_changed");
     expect(eventKinds).toContain("agreement_recorded");
+    expect(eventKinds).toContain("work_claimed");
   });
 });

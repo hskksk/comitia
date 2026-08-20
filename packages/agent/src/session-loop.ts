@@ -12,6 +12,10 @@ import {
   buildWindDownPrompt,
   INITIAL_PROMPT,
 } from "./prompts.js";
+import {
+  buildEnvironmentPrompt,
+  type AgentIdentity,
+} from "./environment-prompt.js";
 
 export interface SessionLoopOptions {
   plugin: EnginePlugin;
@@ -62,23 +66,32 @@ async function resolveWorkDir(): Promise<{ path: string; persistent: boolean }> 
   return { path, persistent: false };
 }
 
-async function fetchProjectRepo(
+async function fetchIdentity(
   boardUrl: string,
   agentToken: string,
-): Promise<{ repoUrl: string | null } | null> {
+): Promise<AgentIdentity | null> {
   try {
-    const response = await fetch(
-      `${boardUrl.replace(/\/$/, "")}/v1/me/project`,
-      { headers: { authorization: `Bearer ${agentToken}` } },
-    );
+    const response = await fetch(`${boardUrl.replace(/\/$/, "")}/v1/me`, {
+      headers: { authorization: `Bearer ${agentToken}` },
+    });
     if (!response.ok) {
-      console.error(`[work-dir] GET /v1/me/project failed: ${response.status}`);
+      console.error(`[identity] GET /v1/me failed: ${response.status}`);
       return null;
     }
-    return (await response.json()) as { repoUrl: string | null };
+    const body = (await response.json()) as {
+      label?: string;
+      participant?: { displayName?: string };
+      owner?: { displayName: string } | null;
+      project?: { name: string; repoUrl: string | null } | null;
+    };
+    return {
+      label: body.label ?? body.participant?.displayName ?? "エージェント",
+      owner: body.owner ?? null,
+      project: body.project ?? null,
+    };
   } catch (error) {
     console.error(
-      `[work-dir] GET /v1/me/project unreachable: ${error instanceof Error ? error.message : String(error)}`,
+      `[identity] GET /v1/me unreachable: ${error instanceof Error ? error.message : String(error)}`,
     );
     return null;
   }
@@ -127,9 +140,10 @@ export async function runSessionLoop(
   let runIndex = 0;
 
   try {
-    const project = await fetchProjectRepo(boardUrl, agentToken);
-    if (project?.repoUrl) {
-      const checkout = ensureRepoCheckout(workDir, project.repoUrl);
+    const identity = await fetchIdentity(boardUrl, agentToken);
+    const repoUrl = identity?.project?.repoUrl ?? null;
+    if (repoUrl) {
+      const checkout = ensureRepoCheckout(workDir, repoUrl);
       if (!checkout.ok) {
         const note = `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。作業ディレクトリの中身無しで続行する。`;
         console.error(note);
@@ -141,6 +155,13 @@ export async function runSessionLoop(
       sessionId,
       workDir,
       workDirPersistent: keepWorkDir,
+      environmentPrompt: buildEnvironmentPrompt(
+        identity ?? {
+          label: "エージェント",
+          owner: null,
+          project: null,
+        },
+      ),
       mcp: {
         command: process.execPath,
         args: [],

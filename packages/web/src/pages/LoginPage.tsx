@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { boardClient } from "../api.js";
 import { clearToken, setToken } from "../auth.js";
+import { resolvePostLoginPath } from "../projectContext.js";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -21,11 +22,11 @@ export function LoginPage() {
     setError(null);
     setToken(token.trim());
     try {
-      await boardClient.me();
-      navigate("/", { replace: true });
+      const me = await boardClient.me();
+      navigate(resolvePostLoginPath(me), { replace: true });
     } catch {
       clearToken();
-      setError("トークンが無効です。comitia init の ownerToken を貼ってください。");
+      setError("トークンが無効です。comitia init のトークンを貼ってください。");
     }
   }
 
@@ -41,10 +42,10 @@ export function LoginPage() {
       ) : null}
       <details>
         <summary>トークンで入る</summary>
-        <p className="muted">プロジェクトオーナーのトークンで入る</p>
+        <p className="muted">人間またはオーナーのトークンで入る</p>
         <form onSubmit={onSubmit}>
           <label>
-            オーナートークン
+            トークン
             <input
               type="text"
               value={token}

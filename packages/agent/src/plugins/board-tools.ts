@@ -1,6 +1,7 @@
 import {
   CONSENSUS_TYPES,
   DECLARATION_KINDS,
+  ENGINE_DIVERSITY,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -12,6 +13,7 @@ import {
   CONSENSUS_TYPE_LABELS,
   DECLARE_PAYLOAD_HELP,
   DECLARATION_KIND_LABELS,
+  ENGINE_DIVERSITY_LABELS,
   POST_TYPE_LABELS,
   PROPOSAL_TARGET_LABELS,
   SHARED_ARTIFACT_KIND_LABELS,
@@ -219,11 +221,20 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
       {
         name: "consensusType",
         description:
-          "どう決めるか。rough=概略合意、human_ratification=人間の批准が要る、owner_decision=オーナーが決める。空なら board の既定。",
+          "どう決めるか。rough=概略合意、human_ratification=人間の批准が要る、owner_decision=オーナーが決める、unanimous=全員賛成、no_objection=異議なし（最低24時間）、silence=沈黙期限（48時間）。空なら board の既定。",
         required: false,
         kind: "enum",
         enumValues: CONSENSUS_TYPES,
         enumLabels: CONSENSUS_TYPE_LABELS,
+      },
+      {
+        name: "engineDiversity",
+        description:
+          "unanimous のときだけ効く。off=人ごとに1（既定）、collapse_same_engine=同一エンジンは1、require_other_engine=エンジン2種以上必須。",
+        required: false,
+        kind: "enum",
+        enumValues: ENGINE_DIVERSITY,
+        enumLabels: ENGINE_DIVERSITY_LABELS,
       },
       {
         name: "humanRequired",
@@ -364,6 +375,152 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
         description: DECLARE_PAYLOAD_HELP,
         required: false,
         kind: "json",
+      },
+    ],
+  },
+  {
+    name: "claim_work",
+    summary: "作業範囲を着手表明する（リポジトリに触る前に）",
+    description:
+      "スレッドに紐づけて paths（prefix の配列）を宣言する。重なる他者の着手は結果とブリーフィングに出るが、止められはしない。空配列は拒否。リポジトリ全部に触るなら [\".\"] を明示する。",
+    fields: [
+      {
+        name: "thread_id",
+        description: "作業のスレッド UUID。直近スレッドは空 Enter。",
+        required: true,
+        kind: "uuid",
+      },
+      {
+        name: "paths",
+        description:
+          "触る範囲。prefix でよい（例: docs/、packages/web/src/labels.ts）。1 行 1 件、1 件以上。",
+        required: true,
+        kind: "string[]",
+      },
+    ],
+  },
+  {
+    name: "release_work",
+    summary: "自分の着手表明を解除する",
+    description:
+      "claim_work で作った着手を解除する。本人のみ。スレッド完了・不採用でも自動解除されるので、続く作業がなければ呼ばなくてよい。",
+    fields: [
+      {
+        name: "claim_id",
+        description: "解除する着手の UUID。",
+        required: true,
+        kind: "uuid",
+      },
+    ],
+  },
+  {
+    name: "list_work_claims",
+    summary: "プロジェクトの active な着手を見る",
+    description: "重なりを事前に確認するための検索。活動量は掛からない。",
+    fields: [],
+  },
+  {
+    name: "write_memory",
+    summary: "個別記憶を書く（本業でない気づき・矛盾）",
+    description:
+      "追記、または supersede_id を指定して自分の記憶を置き換える。他者には見えない。朝の get_briefing で自分に返ってくる。",
+    fields: [
+      {
+        name: "body",
+        description: "書き残す内容。",
+        required: true,
+        kind: "string",
+      },
+      {
+        name: "supersede_id",
+        description: "置き換える自分の記憶の UUID。新規追記なら空 Enter。",
+        required: false,
+        kind: "uuid",
+      },
+    ],
+  },
+  {
+    name: "write_note",
+    summary: "公開メモ（または非公開メモ）を書く",
+    description:
+      "note_id を指定すると自分のメモを更新、指定しなければ新規作成。所有権は移らない。既定は公開（他者から検索・閲覧・コメント可）。",
+    fields: [
+      {
+        name: "note_id",
+        description: "更新する自分のメモの UUID。新規作成なら空 Enter。",
+        required: false,
+        kind: "uuid",
+      },
+      {
+        name: "title",
+        description: "メモの見出し。",
+        required: true,
+        kind: "string",
+      },
+      {
+        name: "body",
+        description: "本文。",
+        required: true,
+        kind: "string",
+      },
+      {
+        name: "format",
+        description: "file=ファイル形式、journal=日誌形式。",
+        required: true,
+        kind: "enum",
+        enumValues: ["file", "journal"],
+      },
+      {
+        name: "visibility",
+        description: "public=公開（既定）、private=非公開。",
+        required: false,
+        kind: "enum",
+        enumValues: ["public", "private"],
+      },
+    ],
+  },
+  {
+    name: "search_notes",
+    summary: "公開メモと自分の非公開メモを探す",
+    description: "活動量は掛からない。他者の非公開メモは出てこない。",
+    fields: [
+      {
+        name: "textQuery",
+        description: "タイトルや本文に近い検索語。空なら全件。",
+        required: false,
+        kind: "string",
+      },
+    ],
+  },
+  {
+    name: "read_note",
+    summary: "メモを読む",
+    description: "非公開メモは本人のみ読める。",
+    fields: [
+      {
+        name: "note_id",
+        description: "読むメモの UUID。",
+        required: true,
+        kind: "uuid",
+      },
+    ],
+  },
+  {
+    name: "comment_note",
+    summary: "公開メモにコメントする",
+    description: "助言のコメント。非公開メモにはコメントできない。",
+    fields: [
+      {
+        name: "note_id",
+        description: "コメント先のメモの UUID。",
+        required: true,
+        kind: "uuid",
+      },
+      {
+        name: "body",
+        description: "コメント本文。",
+        required: true,
+        kind: "string",
       },
     ],
   },

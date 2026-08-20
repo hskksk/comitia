@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { PostType } from "@comitia/shared";
-import { posts } from "../db/schema.js";
+import { posts, threads } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError, PermissionDenied } from "./errors.js";
@@ -129,6 +129,22 @@ export async function resolveObjection(
     },
   });
 
+  if (
+    thread.consensusType === "silence" &&
+    post.blocking &&
+    thread.timingDurationHours &&
+    thread.state === "awaiting_decision"
+  ) {
+    await db
+      .update(threads)
+      .set({
+        timingEndsAt: new Date(
+          Date.now() + thread.timingDurationHours * 3600_000,
+        ),
+      })
+      .where(eq(threads.id, post.threadId));
+  }
+
   return updated!;
 }
 
@@ -137,4 +153,11 @@ export async function getThreadObjections(db: Db, threadId: string) {
     .select()
     .from(posts)
     .where(and(eq(posts.threadId, threadId), eq(posts.type, "objection")));
+}
+
+export async function getThreadApprovals(db: Db, threadId: string) {
+  return db
+    .select()
+    .from(posts)
+    .where(and(eq(posts.threadId, threadId), eq(posts.type, "approval")));
 }

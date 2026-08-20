@@ -1,4 +1,5 @@
 import { declare } from "../domain/declare.js";
+import { addMembership } from "../domain/memberships.js";
 import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { registerParticipant } from "../domain/participants.js";
@@ -20,6 +21,11 @@ export async function seedOwnerAgentProject(db: Db) {
   const project = await createProject(db, {
     name: "comitia",
     ownerParticipantId: owner.id,
+  });
+  await addMembership(db, {
+    projectId: project.id,
+    participantId: agent.id,
+    actorId: owner.id,
   });
   return { owner, agent, project };
 }

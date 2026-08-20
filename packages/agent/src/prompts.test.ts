@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildRedrivePrompt, INITIAL_PROMPT } from "./prompts.js";
+import { buildRedrivePrompt, buildWindDownPrompt, INITIAL_PROMPT } from "./prompts.js";
 
 async function collectFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -23,6 +23,8 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).not.toContain("typo");
     expect(INITIAL_PROMPT).toContain("get_briefing");
     expect(INITIAL_PROMPT).toContain("set_goals");
+    expect(INITIAL_PROMPT).not.toContain("コンセンサスを作る場");
+    expect(INITIAL_PROMPT).not.toContain("タスクキューではない");
   });
 
   it("leaves no docs/sample.md example in shippable source (poc/ and test fixtures excluded)", async () => {
@@ -69,5 +71,14 @@ describe("buildRedrivePrompt", () => {
       goalsEverSet: true,
     });
     expect(prompt).toContain("（なし）");
+  });
+});
+
+describe("buildWindDownPrompt", () => {
+  it("mentions updating memory but names no example file", () => {
+    const prompt = buildWindDownPrompt({ remainingBudget: 12, reason: "予算不足" });
+    expect(prompt).toContain("個別記憶を更新してよい");
+    expect(prompt).toContain("end_session");
+    expect(prompt).not.toContain("sample.md");
   });
 });
