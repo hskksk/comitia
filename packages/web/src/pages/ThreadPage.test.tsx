@@ -42,6 +42,7 @@ const threadView = {
   proposals: [],
   pullRequests: [],
   workClaims: [],
+  decisionView: null,
 };
 
 const declareMock = vi.fn().mockResolvedValue({ thread: { state: "decided" } });
@@ -386,5 +387,23 @@ describe("ThreadPage", () => {
 
     await user.click(releaseButtons[0]!);
     expect(releaseWorkMock).toHaveBeenCalledWith("t1", "claim-1");
+  });
+
+  it("shows the decision block when decisionView is present", async () => {
+    threadMock.mockResolvedValue({
+      ...threadView,
+      thread: { ...threadView.thread, state: "decided" },
+      decisionView: {
+        diff: "- 旧文\n+ 新文",
+        previousAgreement: null,
+        activitySpent: 42,
+      },
+    });
+    renderThread();
+    await screen.findByText("ルール改正");
+
+    expect(screen.getByText("決まったこと")).toBeInTheDocument();
+    expect(screen.getByText(/活動量 42/)).toBeInTheDocument();
+    expect(screen.getByText(/旧文/)).toBeInTheDocument();
   });
 });

@@ -92,6 +92,7 @@ export type HumanThreadView = {
   posts: HumanThreadPost[];
   pullRequests: PullRequestRow[];
   workClaims: ThreadWorkClaim[];
+  decisionView: DecisionView | null;
 };
 
 async function latestSynthesis(db: Db, threadId: string) {
@@ -364,6 +365,7 @@ export async function getHumanThreadView(
     })),
     pullRequests: await listThreadPullRequests(db, threadId),
     workClaims: await listActiveThreadClaims(db, threadId),
+    decisionView: await getDecisionView(db, threadId),
   };
 }
 

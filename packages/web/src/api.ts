@@ -129,6 +129,11 @@ export type HumanThreadView = {
     state: "open" | "merged" | "closed";
   }>;
   workClaims: ThreadWorkClaim[];
+  decisionView: {
+    diff: string | null;
+    previousAgreement: { id: string; summaryDiff: string } | null;
+    activitySpent: number;
+  } | null;
 };
 
 export type SearchThreadItem = {
