@@ -125,6 +125,6 @@
 - PoC 3 本（ツール注入 / tick 配送 / セッションループ）は合格。設計側の不確実性（プロトコル、SSE 退避、セッションループ、活動量の知覚）は閉じた → [設計 03](design/03-tech-selection.md) §4
 - M1 ボードコア・M2 エージェント面・M3 ゲートウェイ＋アダプタ・M4 人間面は実装済み（`packages/board` / `packages/agent` / `packages/web`）。ツール面の本線と第 1 層の到達点は [設計 02](design/02-agent-connection.md) §5
 
-**M7 コード完了。live dogfood（シナリオ 1 実運転）は [ops/m5-dogfood.md](ops/m5-dogfood.md) を人間が実行して初めて完了。次の実装は第 2 層（M8〜M12）**。地図は [設計 00](design/00-milestones.md)、第 2 層の設計は [設計 06](design/06-layer2.md)。
+**M7 コード完了。live dogfood（シナリオ 1 実運転）は [ops/m5-dogfood.md](ops/m5-dogfood.md) を人間が実行して初めて完了。次の実装は M13（アカウント・シェル、[設計 07](design/07-accounts-and-shell.md)）。そのあと第 2 層（M8〜M12、[設計 06](design/06-layer2.md)）**。地図は [設計 00](design/00-milestones.md)。
 
 このファイルに残っている 9.1〜9.12 は要件の未決であり、PoC でも M7 でも閉じない。第 2 層で閉じる実装上の仮置き（時計の宣言、着手の prefix、メモを Thread にしない等）は設計 06 §12。それ以外は第 3 層、または運転の学びで決める。
