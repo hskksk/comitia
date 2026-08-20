@@ -10,7 +10,7 @@ export async function buildMeResponse(
   input: {
     participant: {
       id: string;
-      kind: "human" | "agent";
+      kind: "human" | "agent" | "system";
       displayName: string;
       engine: string | null;
       ownerParticipantId: string | null;
@@ -21,6 +21,17 @@ export async function buildMeResponse(
     selectedProjectId?: string;
   },
 ) {
+  if (input.participant.kind === "system") {
+    return {
+      participant: {
+        id: input.participant.id,
+        kind: input.participant.kind,
+        displayName: input.participant.displayName,
+      },
+      projectId: null,
+    };
+  }
+
   if (input.participant.kind === "agent") {
     const owner = input.participant.ownerParticipantId
       ? await getParticipant(db, input.participant.ownerParticipantId)

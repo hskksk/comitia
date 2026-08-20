@@ -25,7 +25,7 @@ type ProjectSummary = {
   repoUrl: string | null;
   githubOwner: string | null;
   githubRepo: string | null;
-  githubInstallationId: boolean;
+  githubInstallationId: string | null;
 };
 
 async function requireOwnerHeaders(options: ProjectCommandOptions) {

@@ -63,10 +63,6 @@ export async function getProjectSummary(db: Db, projectId: string) {
     threadCounts,
     queueCount: queue.length,
     inboxCount: inbox.length,
-    repoUrl: project.repoUrl,
-    githubOwner: project.githubOwner,
-    githubRepo: project.githubRepo,
-    githubInstallationId: project.githubInstallationId !== null,
     queuePreview: queue.slice(0, 3).map((item) => ({
       threadId: item.threadId,
       title: item.title,

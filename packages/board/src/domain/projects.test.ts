@@ -5,35 +5,35 @@ import { GateViolation } from "./errors.js";
 import { registerParticipant } from "./participants.js";
 import {
   createProject,
-  parseProjectRepoUrl,
-  updateProjectRepo,
+  parseGithubRepoUrl,
+  updateProject,
 } from "./projects.js";
 
-describe("parseProjectRepoUrl", () => {
+describe("parseGithubRepoUrl", () => {
   it("parses a plain github URL", () => {
-    expect(parseProjectRepoUrl("https://github.com/hskksk/comitia")).toEqual({
+    expect(parseGithubRepoUrl("https://github.com/hskksk/comitia")).toEqual({
       owner: "hskksk",
       repo: "comitia",
     });
   });
 
   it("accepts a trailing slash and .git suffix", () => {
-    expect(
-      parseProjectRepoUrl("https://github.com/hskksk/comitia.git"),
-    ).toEqual({ owner: "hskksk", repo: "comitia" });
-    expect(
-      parseProjectRepoUrl("https://github.com/hskksk/comitia/"),
-    ).toEqual({ owner: "hskksk", repo: "comitia" });
+    expect(parseGithubRepoUrl("https://github.com/hskksk/comitia.git")).toEqual({
+      owner: "hskksk",
+      repo: "comitia",
+    });
+    expect(parseGithubRepoUrl("https://github.com/hskksk/comitia/")).toEqual({
+      owner: "hskksk",
+      repo: "comitia",
+    });
   });
 
-  it("rejects a non-github URL", () => {
-    expect(() => parseProjectRepoUrl("https://example.com/a/b")).toThrow(
-      GateViolation,
-    );
+  it("returns null for a non-github URL", () => {
+    expect(parseGithubRepoUrl("https://example.com/a/b")).toBeNull();
   });
 });
 
-describe("updateProjectRepo", () => {
+describe("updateProject", () => {
   it("sets repoUrl/githubOwner/githubRepo without touching installation id", async () => {
     const owner = await registerParticipant(db, {
       kind: "human",
@@ -44,8 +44,9 @@ describe("updateProjectRepo", () => {
       ownerParticipantId: owner.id,
     });
 
-    const updated = await updateProjectRepo(db, {
+    const updated = await updateProject(db, {
       projectId: project.id,
+      actorId: owner.id,
       repoUrl: "https://github.com/hskksk/comitia",
     });
     expect(updated.repoUrl).toBe("https://github.com/hskksk/comitia");
@@ -64,17 +65,38 @@ describe("updateProjectRepo", () => {
       ownerParticipantId: owner.id,
       repoUrl: "https://github.com/hskksk/comitia",
     });
-    await updateProjectRepo(db, {
+    await updateProject(db, {
       projectId: project.id,
+      actorId: owner.id,
       repoUrl: "https://github.com/hskksk/comitia",
     });
 
-    const cleared = await updateProjectRepo(db, {
+    const cleared = await updateProject(db, {
       projectId: project.id,
+      actorId: owner.id,
       repoUrl: null,
     });
     expect(cleared.repoUrl).toBeNull();
     expect(cleared.githubOwner).toBeNull();
     expect(cleared.githubRepo).toBeNull();
+  });
+
+  it("rejects invalid repo URLs", async () => {
+    const owner = await registerParticipant(db, {
+      kind: "human",
+      displayName: "ハル",
+    });
+    const project = await createProject(db, {
+      name: "comitia",
+      ownerParticipantId: owner.id,
+    });
+
+    await expect(
+      updateProject(db, {
+        projectId: project.id,
+        actorId: owner.id,
+        repoUrl: "https://example.com/a/b",
+      }),
+    ).rejects.toBeInstanceOf(GateViolation);
   });
 });

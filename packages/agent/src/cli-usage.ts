@@ -13,10 +13,9 @@ const TOP_LEVEL_COMMANDS = [
   "doctor",
   "project",
   "agent",
-  "project",
 ] as const;
 
-const PROJECT_SUBCOMMANDS = ["create", "list", "use"] as const;
+const PROJECT_SUBCOMMANDS = ["create", "list", "use", "set"] as const;
 
 const AGENT_SUBCOMMANDS = [
   "list",
@@ -26,8 +25,6 @@ const AGENT_SUBCOMMANDS = [
   "update",
   "logs",
 ] as const;
-
-const PROJECT_SUBCOMMANDS = ["set"] as const;
 
 function levenshtein(a: string, b: string): number {
   const rows = a.length + 1;

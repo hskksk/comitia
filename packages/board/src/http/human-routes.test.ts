@@ -13,6 +13,7 @@ import { createThread } from "../domain/threads.js";
 import { addProposal } from "../domain/proposals.js";
 import { openOrGetSession } from "../domain/sessions.js";
 import { registerParticipant } from "../domain/participants.js";
+import { addMembership } from "../domain/memberships.js";
 import { eq } from "drizzle-orm";
 
 async function ownerAuthHeader(ownerId: string, projectId: string) {
@@ -387,6 +388,11 @@ describe("human REST", () => {
       kind: "human",
       displayName: "別の人",
     });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: other.id,
+      actorId: owner.id,
+    });
     const otherHeaders = await ownerAuthHeader(other.id, project.id);
 
     const released = await app.request(
@@ -594,6 +600,19 @@ describe("human ops REST", () => {
       ownerParticipantId: owner.id,
       engine: "claude-code",
     });
+
+    for (const agent of [
+      queuedAgent,
+      undigestedAgent,
+      idleAgent,
+      digestedAgent,
+    ]) {
+      await addMembership(db, {
+        projectId: project.id,
+        participantId: agent.id,
+        actorId: owner.id,
+      });
+    }
 
     await db.insert(ticks).values({
       id: crypto.randomUUID(),
