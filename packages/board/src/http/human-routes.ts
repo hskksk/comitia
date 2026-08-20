@@ -1,6 +1,7 @@
 import {
   AGREEMENT_STATES,
   declarationPayloadSchema,
+  engineDiversitySchema,
   roleSchema,
   threadTypeSchema,
   consensusTypeSchema,
@@ -111,6 +112,7 @@ export function registerHumanRoutes(
         sharedArtifactKind: sharedArtifactKindSchema.optional(),
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
+        engineDiversity: engineDiversitySchema.optional(),
       })
       .parse(await c.req.json());
     const thread = await createThread(db, {
@@ -187,6 +189,9 @@ export function registerHumanRoutes(
       blocking: body.blocking,
       proposalVersionId: body.proposalVersionId,
     });
+    if (body.type === "approval") {
+      await maybeFinalizeUnanimous(db, { threadId });
+    }
     return c.json(
       {
         id: post.id,

@@ -32,6 +32,10 @@ export async function bootstrapBoard(
       kind: "human",
       displayName: input.ownerDisplayName,
     });
+    await registerParticipant(tx, {
+      kind: "system",
+      displayName: "Comitia",
+    });
     const project = await createProject(tx, {
       name: input.projectName,
       ownerParticipantId: owner.id,

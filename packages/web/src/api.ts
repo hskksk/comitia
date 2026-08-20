@@ -102,7 +102,10 @@ export type HumanThreadView = {
     humanRequired: boolean;
     ownerParticipantId: string;
     projectId: string;
+    awaitingEnteredAt: string | null;
+    timingEndsAt: string | null;
   };
+  consensusReasons: string[];
   synthesis: { id: string; body: string; createdAt: string } | null;
   candidateProposal: {
     id: string;
@@ -196,6 +199,7 @@ export type CreateThreadInput = {
   target?: string;
   sharedArtifactKind?: string;
   conflictCitationsChecked?: boolean;
+  engineDiversity?: string;
 };
 
 export class ApiError extends Error {

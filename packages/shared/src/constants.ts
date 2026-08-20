@@ -32,13 +32,24 @@ export const POST_TYPES = [
 ] as const;
 export type PostType = (typeof POST_TYPES)[number];
 
-/** 合意種類（M1 実装分） */
+/** 合意種類 */
 export const CONSENSUS_TYPES = [
   "rough",
   "human_ratification",
   "owner_decision",
+  "unanimous",
+  "no_objection",
+  "silence",
 ] as const;
 export type ConsensusType = (typeof CONSENSUS_TYPES)[number];
+
+/** エンジン多様性（unanimous のみ有効。他種類は no-op） */
+export const ENGINE_DIVERSITY = [
+  "off",
+  "collapse_same_engine",
+  "require_other_engine",
+] as const;
+export type EngineDiversity = (typeof ENGINE_DIVERSITY)[number];
 
 /** 提案スレッドの対象 */
 export const PROPOSAL_TARGETS = ["repo_artifact", "shared_artifact"] as const;
@@ -63,6 +74,9 @@ export const DECLARATION_KINDS = [
   "reject_thread",
   "complete_thread",
   "resolve_objection",
+  "extend_window",
+  "shorten_window",
+  "clock_satisfy",
 ] as const;
 export type DeclarationKind = (typeof DECLARATION_KINDS)[number];
 
@@ -106,7 +120,7 @@ export const ROLES = [
 export type Role = (typeof ROLES)[number];
 
 /** 参加者の種類 */
-export const PARTICIPANT_KINDS = ["human", "agent"] as const;
+export const PARTICIPANT_KINDS = ["human", "agent", "system"] as const;
 export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
 
 /** Engines the board will register. `fake` is a human-driven walkthrough, not a coding CLI. */

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CONSENSUS_TYPES,
+  ENGINE_DIVERSITY,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -172,6 +173,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
         sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
+        engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
       },
     },
     async (args) =>

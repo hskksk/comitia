@@ -72,6 +72,15 @@ export const CONSENSUS_TYPE_LABELS: Record<string, string> = {
   rough: "概略合意",
   human_ratification: "人間による批准",
   owner_decision: "オーナー決定",
+  unanimous: "全員賛成（票が揃うまで）",
+  no_objection: "異議なし（最低24時間）",
+  silence: "沈黙期限（48時間）",
+};
+
+export const ENGINE_DIVERSITY_LABELS: Record<string, string> = {
+  off: "off（人ごとに1）",
+  collapse_same_engine: "同一エンジンは1と数える",
+  require_other_engine: "エンジン2種以上必須",
 };
 
 export const PROPOSAL_TARGET_LABELS: Record<string, string> = {
@@ -90,11 +99,14 @@ export const DECLARATION_KIND_LABELS: Record<string, string> = {
   declare_rough: "概略合意を宣言する",
   owner_decide: "オーナーが決定する",
   request_ratification: "人間の批准を依頼する",
-  ratify: "人間オーナーが批准する",
+  ratify: "人間オーナーが批准する（候補版の著者本人は不可）",
   send_back: "判断待ちから議論へ差し戻す",
   reject_thread: "スレッドを不採用にする",
   complete_thread: "スレッドを完了にする",
   resolve_objection: "異議の解消。このツールでは不可",
+  extend_window: "窓・期限を延長する（スレッドオーナー）",
+  shorten_window: "窓・期限を短縮する（プロジェクトオーナー）",
+  clock_satisfy: "時計による成立宣言。システム参加者のみ",
 };
 
 export const DECLARE_PAYLOAD_HELP = `宣言種ごとの JSON。空 Enter で省略（その宣言にペイロードが要らないとき）。
@@ -102,4 +114,5 @@ export const DECLARE_PAYLOAD_HELP = `宣言種ごとの JSON。空 Enter で省�
   declare_rough / owner_decide / ratify → 人間待ちでなければ {"binding":true,"summary":"決めたこと"}
   send_back → {"reason":"差し戻し理由"}
   reject_thread → 任意 {"summary":"不採用理由"}。合意物に残すなら {"recordAsAgreement":true,"binding":false,"summary":"..."}
-  その他は空でよいことが多い。resolve_objection はこのツールからは呼べない`;
+  extend_window / shorten_window → {"hours":<新しい窓・期限の長さ>}
+  その他は空でよいことが多い。resolve_objection と clock_satisfy はこのツールからは呼べない`;

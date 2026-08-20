@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CONSENSUS_TYPES,
+  ENGINE_DIVERSITY,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -33,6 +34,7 @@ import {
   setGoals,
 } from "../domain/sessions.js";
 import { createThread, searchThreads } from "../domain/threads.js";
+import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
 import { linkPullRequest } from "../domain/pull-requests.js";
 import {
   claimWork,
@@ -232,6 +234,7 @@ export function createBoardToolRuntime(input: {
             sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
             conflictCitationsChecked: z.boolean().optional(),
             parentThreadId: z.string().uuid().optional(),
+            engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
           })
           .parse(args);
         const thread = await createThread(db, {
@@ -247,6 +250,7 @@ export function createBoardToolRuntime(input: {
           sharedArtifactKind: parsed.sharedArtifactKind,
           conflictCitationsChecked: parsed.conflictCitationsChecked,
           parentThreadId: parsed.parentThreadId,
+          engineDiversity: parsed.engineDiversity,
         });
         return { thread_id: thread.id, state: thread.state };
       }),
@@ -301,6 +305,9 @@ export function createBoardToolRuntime(input: {
             blocking: parsed.blocking,
             proposalVersionId: parsed.proposal_version_id,
           });
+          if (parsed.type === "approval") {
+            await maybeFinalizeUnanimous(db, { threadId: parsed.thread_id });
+          }
           return { post_id: post.id, type: post.type };
         },
         { threadId },
@@ -632,6 +639,7 @@ export function createBoardMcpServer(input: {
         sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
+        engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
       },
     },
     async (args) =>

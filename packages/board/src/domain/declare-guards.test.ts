@@ -2,9 +2,10 @@ import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
-import { agreements, events, posts } from "../db/schema.js";
+import { agreements, events, posts, threads } from "../db/schema.js";
 import { declare } from "./declare.js";
 import { InvalidTransition, PermissionDenied } from "./errors.js";
+import { getMainParticipantIds, getMainParticipants } from "./helpers.js";
 import { registerParticipant } from "./participants.js";
 import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
@@ -246,5 +247,112 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
         payload: { binding: true, summary: "自分で決める" },
       }),
     ).rejects.toThrow(PermissionDenied);
+  });
+
+  it("getMainParticipantIds/getMainParticipants はロール割当を持たないプロジェクトオーナーを含む", async () => {
+    const owner = await registerParticipant(db, {
+      kind: "human",
+      displayName: "ハル",
+    });
+    const agent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "ソウ",
+      ownerParticipantId: owner.id,
+      engine: "claude",
+    });
+    const project = await createProject(db, {
+      name: `mains-${Date.now()}-${Math.random()}`,
+      ownerParticipantId: owner.id,
+    });
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "implementation",
+      title: "主な参加者テスト",
+      trigger: "テスト",
+      duplicateSearchQuery: "主な参加者",
+      consensusType: "owner_decision",
+    });
+
+    const ids = await getMainParticipantIds(db, thread.id);
+    expect(ids).toContain(owner.id);
+    expect(ids).toContain(agent.id);
+
+    const mains = await getMainParticipants(db, thread.id);
+    expect(mains.map((m) => m.id).sort()).toEqual([owner.id, agent.id].sort());
+    expect(mains.find((m) => m.id === owner.id)?.kind).toBe("human");
+  });
+
+  it("extend_window はスレッドオーナーが期限を延長できる", async () => {
+    const { agent, thread, version } = await setup("owner_decision");
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+    await db
+      .update(threads)
+      .set({
+        awaitingEnteredAt: new Date("2026-08-01T00:00:00Z"),
+        timingDurationHours: 24,
+        timingEndsAt: new Date("2026-08-02T00:00:00Z"),
+      })
+      .where(eq(threads.id, thread.id));
+
+    const result = await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "extend_window",
+      payload: { hours: 48 },
+    });
+    expect(result.thread.timingDurationHours).toBe(48);
+    expect(result.thread.timingEndsAt?.toISOString()).toBe(
+      new Date("2026-08-03T00:00:00Z").toISOString(),
+    );
+  });
+
+  it("shorten_window はプロジェクトオーナーのみでき、現在の期限より手前にする必要がある", async () => {
+    const { agent, outsider, owner, thread, version } = await setup("owner_decision");
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+    await db
+      .update(threads)
+      .set({
+        awaitingEnteredAt: new Date("2026-08-01T00:00:00Z"),
+        timingDurationHours: 48,
+        timingEndsAt: new Date("2026-08-03T00:00:00Z"),
+      })
+      .where(eq(threads.id, thread.id));
+
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: outsider.id,
+        kind: "shorten_window",
+        payload: { hours: 12 },
+      }),
+    ).rejects.toThrow(PermissionDenied);
+
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: owner.id,
+        kind: "shorten_window",
+        payload: { hours: 72 },
+      }),
+    ).rejects.toThrow(InvalidTransition);
+
+    const result = await declare(db, {
+      threadId: thread.id,
+      actorId: owner.id,
+      kind: "shorten_window",
+      payload: { hours: 12 },
+    });
+    expect(result.thread.timingDurationHours).toBe(12);
   });
 });

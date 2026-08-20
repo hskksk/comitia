@@ -1,6 +1,7 @@
 import {
   CONSENSUS_TYPES,
   DECLARATION_KINDS,
+  ENGINE_DIVERSITY,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -12,6 +13,7 @@ import {
   CONSENSUS_TYPE_LABELS,
   DECLARE_PAYLOAD_HELP,
   DECLARATION_KIND_LABELS,
+  ENGINE_DIVERSITY_LABELS,
   POST_TYPE_LABELS,
   PROPOSAL_TARGET_LABELS,
   SHARED_ARTIFACT_KIND_LABELS,
@@ -219,11 +221,20 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
       {
         name: "consensusType",
         description:
-          "どう決めるか。rough=概略合意、human_ratification=人間の批准が要る、owner_decision=オーナーが決める。空なら board の既定。",
+          "どう決めるか。rough=概略合意、human_ratification=人間の批准が要る、owner_decision=オーナーが決める、unanimous=全員賛成、no_objection=異議なし（最低24時間）、silence=沈黙期限（48時間）。空なら board の既定。",
         required: false,
         kind: "enum",
         enumValues: CONSENSUS_TYPES,
         enumLabels: CONSENSUS_TYPE_LABELS,
+      },
+      {
+        name: "engineDiversity",
+        description:
+          "unanimous のときだけ効く。off=人ごとに1（既定）、collapse_same_engine=同一エンジンは1、require_other_engine=エンジン2種以上必須。",
+        required: false,
+        kind: "enum",
+        enumValues: ENGINE_DIVERSITY,
+        enumLabels: ENGINE_DIVERSITY_LABELS,
       },
       {
         name: "humanRequired",

@@ -16,7 +16,7 @@ export const participants = pgTable(
   "participants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    kind: text("kind", { enum: ["human", "agent"] }).notNull(),
+    kind: text("kind", { enum: ["human", "agent", "system"] }).notNull(),
     displayName: text("display_name").notNull(),
     ownerParticipantId: uuid("owner_participant_id"),
     engine: text("engine"),
@@ -107,7 +107,14 @@ export const threads = pgTable("threads", {
     .notNull()
     .references(() => participants.id),
   consensusType: text("consensus_type", {
-    enum: ["rough", "human_ratification", "owner_decision"],
+    enum: [
+      "rough",
+      "human_ratification",
+      "owner_decision",
+      "unanimous",
+      "no_objection",
+      "silence",
+    ],
   }),
   humanRequired: boolean("human_required").notNull().default(false),
   target: text("target", { enum: ["repo_artifact", "shared_artifact"] }),
@@ -119,6 +126,14 @@ export const threads = pgTable("threads", {
   duplicateSearchQuery: text("duplicate_search_query").notNull(),
   candidateProposalVersionId: uuid("candidate_proposal_version_id"),
   parentThreadId: uuid("parent_thread_id"),
+  awaitingEnteredAt: timestamp("awaiting_entered_at", { withTimezone: true }),
+  timingDurationHours: integer("timing_duration_hours"),
+  timingEndsAt: timestamp("timing_ends_at", { withTimezone: true }),
+  engineDiversity: text("engine_diversity", {
+    enum: ["off", "collapse_same_engine", "require_other_engine"],
+  })
+    .notNull()
+    .default("off"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -334,6 +349,9 @@ export const posts = pgTable("posts", {
       "reject_thread",
       "complete_thread",
       "resolve_objection",
+      "extend_window",
+      "shorten_window",
+      "clock_satisfy",
     ],
   }),
   declarationPayload: jsonb("declaration_payload"),

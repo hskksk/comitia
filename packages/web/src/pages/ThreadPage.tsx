@@ -472,6 +472,26 @@ export function ThreadPage() {
           </div>
         </form>
       ) : null}
+      {awaiting && (view.thread.timingEndsAt || view.consensusReasons.length > 0) ? (
+        <div className="card">
+          <h2>時間の合意</h2>
+          {view.thread.timingEndsAt ? (
+            <p className="muted">
+              期限:{" "}
+              <time dateTime={view.thread.timingEndsAt}>
+                {new Date(view.thread.timingEndsAt).toLocaleString("ja-JP")}
+              </time>
+            </p>
+          ) : null}
+          {view.consensusReasons.length > 0 ? (
+            <ul>
+              {view.consensusReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       {awaiting ? (
         <form className="decision-panel" onSubmit={onRatify}>
           <label>

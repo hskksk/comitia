@@ -14,7 +14,10 @@ const threadView = {
     humanRequired: false,
     ownerParticipantId: "p1",
     projectId: "proj",
+    awaitingEnteredAt: null,
+    timingEndsAt: null,
   },
+  consensusReasons: [],
   synthesis: {
     id: "s1",
     body: "争点は遡及",
