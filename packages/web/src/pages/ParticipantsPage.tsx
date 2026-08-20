@@ -14,6 +14,16 @@ function connectionLabel(status: "connected" | "disconnected" | "never"): string
   return "未接続";
 }
 
+function wakeLabel(wake: "undigested" | "queued" | "idle"): string {
+  if (wake === "undigested") {
+    return "起床待ち（未消化）";
+  }
+  if (wake === "queued") {
+    return "起床待ち（未接続）";
+  }
+  return "休眠";
+}
+
 export function ParticipantsPage() {
   const [items, setItems] = useState<ParticipantItem[] | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -81,6 +91,13 @@ export function ParticipantsPage() {
               {item.openSession.firstGoal
                 ? ` · ${item.openSession.firstGoal}`
                 : ""}
+            </p>
+          ) : null}
+          {item.wake ? (
+            <p>
+              <span className={`wake-badge is-${item.wake}`}>
+                {wakeLabel(item.wake)}
+              </span>
             </p>
           ) : null}
           {item.kind === "agent" || item.id === me?.participant.id ? (

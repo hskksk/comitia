@@ -1,8 +1,19 @@
+import { eq } from "drizzle-orm";
 import { projects } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
-import { PermissionDenied } from "./errors.js";
-import { getParticipant } from "./helpers.js";
+import { GateViolation, PermissionDenied } from "./errors.js";
+import { getParticipant, getProject } from "./helpers.js";
+
+const PROJECT_REPO_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/;
+
+export function parseProjectRepoUrl(url: string): { owner: string; repo: string } {
+  const match = PROJECT_REPO_URL.exec(url.trim());
+  if (!match) {
+    throw new GateViolation("リポジトリ URL が不正です");
+  }
+  return { owner: match[1]!, repo: match[2]! };
+}
 
 export async function createProject(
   db: Db,
@@ -38,4 +49,29 @@ export async function createProject(
   });
 
   return project!;
+}
+
+export async function updateProjectRepo(
+  db: Db,
+  input: { projectId: string; repoUrl: string | null },
+) {
+  await getProject(db, input.projectId);
+
+  if (!input.repoUrl || !input.repoUrl.trim()) {
+    const [updated] = await db
+      .update(projects)
+      .set({ repoUrl: null, githubOwner: null, githubRepo: null })
+      .where(eq(projects.id, input.projectId))
+      .returning();
+    return updated!;
+  }
+
+  const { owner, repo } = parseProjectRepoUrl(input.repoUrl);
+  const [updated] = await db
+    .update(projects)
+    .set({ repoUrl: input.repoUrl, githubOwner: owner, githubRepo: repo })
+    .where(eq(projects.id, input.projectId))
+    .returning();
+
+  return updated!;
 }

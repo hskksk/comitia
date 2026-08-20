@@ -301,6 +301,21 @@ export function registerHumanRoutes(
     return c.json(summary);
   });
 
+  app.patch("/v1/project", auth, owner, async (c) => {
+    const body = z
+      .object({ repoUrl: z.string().nullable() })
+      .parse(await c.req.json());
+    const updated = await updateProjectRepo(db, {
+      projectId: c.get("projectId"),
+      repoUrl: body.repoUrl,
+    });
+    return c.json({
+      repoUrl: updated.repoUrl,
+      githubOwner: updated.githubOwner,
+      githubRepo: updated.githubRepo,
+    });
+  });
+
   app.get("/v1/participants", auth, owner, async (c) => {
     const items = await listProjectParticipants(db, c.get("projectId"));
     return c.json({ items });

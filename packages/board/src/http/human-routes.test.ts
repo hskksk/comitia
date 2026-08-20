@@ -567,6 +567,67 @@ describe("human ops REST", () => {
     expect(eventBody.items.length).toBeGreaterThan(0);
   });
 
+  it("derives wake status: queued tick, undigested session, idle, and digested (null)", async () => {
+    const app = createBoardApp({ db });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const queuedAgent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "キュー",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+    const undigestedAgent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "未消化",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+    const idleAgent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "休眠",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+    const digestedAgent = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "消化済み",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+
+    await db.insert(ticks).values({
+      id: crypto.randomUUID(),
+      participantId: queuedAgent.id,
+      type: "session.start",
+      status: "queued",
+      sequence: 1,
+    });
+    await openOrGetSession(db, {
+      participantId: undigestedAgent.id,
+      projectId: project.id,
+    });
+    const digestedSession = await openOrGetSession(db, {
+      participantId: digestedAgent.id,
+      projectId: project.id,
+    });
+    await db
+      .update(sessions)
+      .set({ briefingAt: new Date() })
+      .where(eq(sessions.id, digestedSession.id));
+
+    const headers = await ownerAuthHeader(owner.id, project.id);
+    const people = await app.request("/v1/participants", { headers });
+    const listed = (await people.json()) as {
+      items: Array<{ displayName: string; wake: string | null }>;
+    };
+    const wakeOf = (name: string) =>
+      listed.items.find((item) => item.displayName === name)?.wake;
+    expect(wakeOf("キュー")).toBe("queued");
+    expect(wakeOf("未消化")).toBe("undigested");
+    expect(wakeOf("休眠")).toBe("idle");
+    expect(wakeOf("消化済み")).toBeNull();
+  });
+
   it("lets the registering owner read chat logs and forbids others", async () => {
     const app = createBoardApp({ db });
     const { owner, agent, project } = await seedOwnerAgentProject(db);
@@ -660,6 +721,68 @@ describe("human ops REST", () => {
 
     const res = await app.request(`/v1/sessions/${session.id}/chat-log`, {
       headers: { authorization: `Bearer ${agentToken}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("sets and clears the project repo binding via PATCH /v1/project", async () => {
+    const app = createBoardApp({ db });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const set = await app.request("/v1/project", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ repoUrl: "https://github.com/hskksk/comitia" }),
+    });
+    expect(set.status).toBe(200);
+    const setBody = (await set.json()) as { githubOwner: string; githubRepo: string };
+    expect(setBody.githubOwner).toBe("hskksk");
+    expect(setBody.githubRepo).toBe("comitia");
+
+    const summary = await app.request("/v1/project", { headers });
+    expect((await summary.json()) as { repoUrl: string }).toMatchObject({
+      repoUrl: "https://github.com/hskksk/comitia",
+    });
+
+    const cleared = await app.request("/v1/project", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ repoUrl: null }),
+    });
+    expect((await cleared.json()) as { repoUrl: string | null }).toMatchObject({
+      repoUrl: null,
+    });
+  });
+
+  it("forbids agent tokens from PATCHing the project", async () => {
+    const app = createBoardApp({ db });
+    const init = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ownerDisplayName: "ハル", projectName: "comitia" }),
+    });
+    const { ownerToken } = (await init.json()) as { ownerToken: string };
+    const reg = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({ displayName: "ミカ", engine: "claude-code" }),
+    });
+    const { agentToken } = (await reg.json()) as { agentToken: string };
+
+    const res = await app.request("/v1/project", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentToken}`,
+      },
+      body: JSON.stringify({ repoUrl: "https://github.com/a/b" }),
     });
     expect(res.status).toBe(403);
   });

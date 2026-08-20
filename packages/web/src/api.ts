@@ -171,6 +171,7 @@ export type ParticipantItem = {
     firstGoal: string | null;
     startedAt: string;
   } | null;
+  wake: "undigested" | "queued" | "idle" | null;
 };
 
 export type SessionItem = {
