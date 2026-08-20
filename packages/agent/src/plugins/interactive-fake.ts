@@ -201,6 +201,10 @@ export function createInteractiveFakeEnginePlugin(
       write("");
       write("fake エンジン — 人間がエージェントの一日を操作します。");
       write(`セッション: ${session.sessionId}`);
+      if (session.environmentPrompt) {
+        write(session.environmentPrompt.trim());
+        write("");
+      }
       write("エージェントと同じプロンプトとボードツールが出ます。");
       write("番号かツール名で呼び出し、done でこの run を終えます。Esc でひとつ戻る。Ctrl-C で切断。");
       write("help で一日の流れと一覧。help post のように名前や番号を付けると個別の説明。");

@@ -3,3 +3,6 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .mise.toml
+.env
+.env.*
+!.env.example

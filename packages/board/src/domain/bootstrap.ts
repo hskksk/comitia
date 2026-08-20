@@ -1,18 +1,21 @@
 import { eq } from "drizzle-orm";
-import { ENGINES, isSupportedEngine } from "@comitia/shared";
+import { ENGINES, agentNameContainsSeparator, isSupportedEngine } from "@comitia/shared";
 import {
   agentConnections,
   agentCredentials,
   participants,
-  projects,
+  roleAssignments,
 } from "../db/schema.js";
 import type { DbClient } from "../db/types.js";
 import { assignSessionStartMinute } from "./connections.js";
 import { hashToken, issueToken } from "./credentials.js";
 import { GateViolation } from "./errors.js";
+import { recordEvent } from "./events.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
-import { assignRole, type ProjectRole } from "./roles.js";
+import type { ProjectRole } from "./roles.js";
+import { addMembership, isProjectMember, resolveUniqueMembershipProjectId } from "./memberships.js";
+import { getProject } from "./helpers.js";
 
 export async function bootstrapBoard(
   db: DbClient,
@@ -44,7 +47,7 @@ export async function bootstrapBoard(
     const ownerToken = issueToken();
     await tx.insert(agentCredentials).values({
       participantId: owner.id,
-      projectId: project.id,
+      projectId: null,
       tokenHash: hashToken(ownerToken),
     });
 
@@ -59,20 +62,34 @@ export async function registerAgent(
     displayName: string;
     engine: string;
     role?: ProjectRole;
+    projectId?: string;
   },
 ) {
   if (!isSupportedEngine(input.engine)) {
     throw new GateViolation(`engine must be one of: ${ENGINES.join(", ")}`);
   }
+  if (agentNameContainsSeparator(input.displayName)) {
+    throw new GateViolation("エージェント名に @ は使えません");
+  }
 
   return db.transaction(async (tx) => {
-    const [project] = await tx
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.ownerParticipantId, input.ownerParticipantId))
-      .limit(1);
-    if (!project) {
-      throw new GateViolation("owner project not found");
+    let projectId = input.projectId;
+    if (!projectId) {
+      projectId =
+        (await resolveUniqueMembershipProjectId(tx, input.ownerParticipantId)) ??
+        undefined;
+    }
+    if (!projectId) {
+      throw new GateViolation("project required");
+    }
+    await getProject(tx, projectId);
+    const member = await isProjectMember(
+      tx,
+      projectId,
+      input.ownerParticipantId,
+    );
+    if (!member) {
+      throw new GateViolation("このプロジェクトのメンバーではありません");
     }
 
     const existingConnections = await tx
@@ -87,22 +104,39 @@ export async function registerAgent(
     const agentToken = issueToken();
     await tx.insert(agentCredentials).values({
       participantId: agent.id,
-      projectId: project.id,
+      projectId,
       tokenHash: hashToken(agentToken),
     });
     await tx.insert(agentConnections).values({
       participantId: agent.id,
       sessionStartMinute: assignSessionStartMinute(existingConnections.length),
     });
+    await addMembership(tx, {
+      projectId,
+      participantId: agent.id,
+      actorId: input.ownerParticipantId,
+    });
     if (input.role) {
-      await assignRole(tx, {
-        projectId: project.id,
-        participantId: agent.id,
-        role: input.role,
-        actorId: input.ownerParticipantId,
+      const [assignment] = await tx
+        .insert(roleAssignments)
+        .values({
+          projectId,
+          participantId: agent.id,
+          role: input.role,
+        })
+        .returning();
+      await recordEvent(tx, {
+        projectId,
+        actorParticipantId: input.ownerParticipantId,
+        kind: "role_assigned",
+        payload: {
+          roleAssignmentId: assignment!.id,
+          participantId: agent.id,
+          role: input.role,
+        },
       });
     }
 
-    return { agent, projectId: project.id, agentToken };
+    return { agent, projectId, agentToken };
   });
 }

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type ChatLogResponse } from "../api.js";
+import { projectPath } from "../projectContext.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 
 export function SessionLogPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const { id } = useParams<{ id: string }>();
   const [log, setLog] = useState<ChatLogResponse | null>(null);
   const [fromStart, setFromStart] = useState(false);
@@ -24,6 +26,9 @@ export function SessionLogPage() {
   }, [load]);
   useFocusPoll(load, log?.endedAt ? 30_000 : 8_000);
 
+  if (!projectId) {
+    return null;
+  }
   if (error && !log) {
     return <p className="status status-error">{error}</p>;
   }
@@ -33,7 +38,7 @@ export function SessionLogPage() {
 
   return (
     <article>
-      <Link to="/participants" className="back-link">
+      <Link to={projectPath(projectId, "participants")} className="back-link">
         参加者へ
       </Link>
       <h1>チャットログ</h1>

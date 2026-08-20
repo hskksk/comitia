@@ -1,4 +1,4 @@
-import { loadConfig } from "../config.js";
+import { loadConfig, saveConfig } from "../config.js";
 import { formatHttpError } from "../http-error.js";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
@@ -12,6 +12,12 @@ export interface ProjectCommandOptions {
 export interface ProjectSetCommandOptions extends ProjectCommandOptions {
   repoUrl?: string;
   clearRepo: boolean;
+}
+
+export interface ProjectCreateCommandOptions {
+  name: string;
+  repoUrl?: string;
+  configDir?: string;
 }
 
 type ProjectSummary = {
@@ -92,4 +98,71 @@ export async function projectSetCommand(
       ? `repoUrl を更新しました: ${updated.repoUrl}\n`
       : "repoUrl を空にしました\n",
   );
+}
+
+export async function projectCreateCommand(
+  options: ProjectCreateCommandOptions,
+): Promise<void> {
+  const config = await loadConfig(options.configDir);
+  if (!config.boardUrl || !config.ownerToken) {
+    throw new Error("Run `comitia init` or log in before creating a project");
+  }
+  const response = await fetch(new URL("/v1/projects", config.boardUrl), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${config.ownerToken}`,
+    },
+    body: JSON.stringify({
+      name: options.name,
+      ...(options.repoUrl ? { repoUrl: options.repoUrl } : {}),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Project create failed: ${response.status} ${await response.text()}`,
+    );
+  }
+  const result = (await response.json()) as { id: string; name: string };
+  await saveConfig(options.configDir, {
+    ...config,
+    projectId: result.id,
+  });
+}
+
+export async function projectListCommand(options: {
+  configDir?: string;
+  stdout?: NodeJS.WritableStream;
+}): Promise<void> {
+  const config = await loadConfig(options.configDir);
+  if (!config.boardUrl || !config.ownerToken) {
+    throw new Error("Run `comitia init` before listing projects");
+  }
+  const response = await fetch(new URL("/v1/projects", config.boardUrl), {
+    headers: { authorization: `Bearer ${config.ownerToken}` },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Project list failed: ${response.status} ${await response.text()}`,
+    );
+  }
+  const body = (await response.json()) as {
+    items: Array<{ id: string; name: string }>;
+  };
+  const out = options.stdout ?? process.stdout;
+  for (const item of body.items) {
+    const mark = item.id === config.projectId ? "*" : " ";
+    out.write(`${mark} ${item.id}  ${item.name}\n`);
+  }
+}
+
+export async function projectUseCommand(options: {
+  projectId: string;
+  configDir?: string;
+}): Promise<void> {
+  const config = await loadConfig(options.configDir);
+  await saveConfig(options.configDir, {
+    ...config,
+    projectId: options.projectId,
+  });
 }

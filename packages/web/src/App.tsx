@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { UNAUTHORIZED_EVENT } from "./api.js";
 import { getToken } from "./auth.js";
 import { Layout } from "./components/Layout.js";
@@ -15,6 +15,12 @@ import { ParticipantsPage } from "./pages/ParticipantsPage.js";
 import { NotesPage } from "./pages/NotesPage.js";
 import { AgentSessionsPage } from "./pages/AgentSessionsPage.js";
 import { SessionLogPage } from "./pages/SessionLogPage.js";
+import { DashboardPage } from "./pages/DashboardPage.js";
+import { SettingsPage } from "./pages/SettingsPage.js";
+import { ProjectSettingsPage } from "./pages/ProjectSettingsPage.js";
+import { ProjectsPage } from "./pages/ProjectsPage.js";
+import { boardClient } from "./api.js";
+import { pickProjectId, projectPath } from "./projectContext.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!getToken()) {
@@ -35,6 +41,44 @@ function UnauthorizedRedirect() {
   return null;
 }
 
+function LegacyProjectRedirect({ suffix }: { suffix: string }) {
+  const [target, setTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    boardClient
+      .me()
+      .then((me) => {
+        const projectId = pickProjectId(me);
+        if (!projectId) {
+          setTarget("/projects");
+          return;
+        }
+        setTarget(projectPath(projectId, suffix));
+      })
+      .catch(() => setTarget("/login"));
+  }, [suffix]);
+
+  if (!target) {
+    return <p className="status status-loading">読み込み中…</p>;
+  }
+  return <Navigate to={target} replace />;
+}
+
+function LegacyThreadRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <LegacyProjectRedirect suffix={`threads/${id ?? ""}`} />;
+}
+
+function LegacyParticipantRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <LegacyProjectRedirect suffix={`participants/${id ?? ""}`} />;
+}
+
+function LegacySessionRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <LegacyProjectRedirect suffix={`sessions/${id ?? ""}`} />;
+}
+
 export function App() {
   return (
     <>
@@ -49,16 +93,53 @@ export function App() {
             </RequireAuth>
           }
         >
-          <Route path="/" element={<QueuePage />} />
-          <Route path="/inbox" element={<InboxPage />} />
-          <Route path="/threads" element={<ThreadsPage />} />
-          <Route path="/threads/new" element={<NewThreadPage />} />
-          <Route path="/threads/:id" element={<ThreadPage />} />
-          <Route path="/agreements" element={<AgreementsPage />} />
-          <Route path="/participants" element={<ParticipantsPage />} />
-          <Route path="/participants/:id" element={<AgentSessionsPage />} />
-          <Route path="/notes" element={<NotesPage />} />
-          <Route path="/sessions/:id" element={<SessionLogPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/p/:projectId" element={<DashboardPage />} />
+          <Route path="/p/:projectId/queue" element={<QueuePage />} />
+          <Route path="/p/:projectId/inbox" element={<InboxPage />} />
+          <Route path="/p/:projectId/threads" element={<ThreadsPage />} />
+          <Route path="/p/:projectId/threads/new" element={<NewThreadPage />} />
+          <Route path="/p/:projectId/threads/:id" element={<ThreadPage />} />
+          <Route path="/p/:projectId/agreements" element={<AgreementsPage />} />
+          <Route path="/p/:projectId/participants" element={<ParticipantsPage />} />
+          <Route
+            path="/p/:projectId/participants/:id"
+            element={<AgentSessionsPage />}
+          />
+          <Route path="/p/:projectId/notes" element={<NotesPage />} />
+          <Route path="/p/:projectId/sessions/:id" element={<SessionLogPage />} />
+          <Route path="/p/:projectId/settings" element={<ProjectSettingsPage />} />
+
+          <Route path="/" element={<LegacyProjectRedirect suffix="" />} />
+          <Route path="/queue" element={<LegacyProjectRedirect suffix="queue" />} />
+          <Route path="/inbox" element={<LegacyProjectRedirect suffix="inbox" />} />
+          <Route path="/threads" element={<LegacyProjectRedirect suffix="threads" />} />
+          <Route
+            path="/threads/new"
+            element={<LegacyProjectRedirect suffix="threads/new" />}
+          />
+          <Route
+            path="/threads/:id"
+            element={<LegacyThreadRedirect />}
+          />
+          <Route
+            path="/agreements"
+            element={<LegacyProjectRedirect suffix="agreements" />}
+          />
+          <Route
+            path="/participants"
+            element={<LegacyProjectRedirect suffix="participants" />}
+          />
+          <Route
+            path="/participants/:id"
+            element={<LegacyParticipantRedirect />}
+          />
+          <Route path="/notes" element={<LegacyProjectRedirect suffix="notes" />} />
+          <Route
+            path="/sessions/:id"
+            element={<LegacySessionRedirect />}
+          />
         </Route>
       </Routes>
     </>

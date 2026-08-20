@@ -11,9 +11,12 @@ const TOP_LEVEL_COMMANDS = [
   "token",
   "status",
   "doctor",
+  "project",
   "agent",
   "project",
 ] as const;
+
+const PROJECT_SUBCOMMANDS = ["create", "list", "use"] as const;
 
 const AGENT_SUBCOMMANDS = [
   "list",
@@ -76,11 +79,13 @@ export function formatUnknownCommandMessage(args: string[]): string {
       : undefined);
   const lines = [`不明なコマンド: ${args.join(" ")}`, "", USAGE_TEXT];
   if (suggestion) {
-    lines.splice(
-      2,
-      0,
-      `もしかして: ${top === "agent" || top === "project" ? `${top} ${suggestion}` : suggestion}`,
-    );
+    const prefixed =
+      top === "agent"
+        ? `agent ${suggestion}`
+        : top === "project"
+          ? `project ${suggestion}`
+          : suggestion;
+    lines.splice(2, 0, `もしかして: ${prefixed}`);
   }
   return lines.join("\n");
 }
@@ -92,12 +97,15 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
 
 コマンド:
   help              この一覧を表示
-  init              プロジェクトを初期化
+  init              空のボードを初期化
   token             オーナートークンを表示
   status            ボードとエージェントの状態
   doctor            設定と環境を診断
+  project create    プロジェクトを作成（--name、任意 --repo-url）
+  project list      所属プロジェクト一覧
+  project use       いまのプロジェクトを切替
   agent list        登録済みエージェント一覧
-  agent register    エージェントを登録（--engine claude-code | fake、--role は任意）
+  agent register    エージェントを登録（--engine claude-code | fake、任意 --project --role）
   agent connect     エージェントを接続（claude-code / fake）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
@@ -107,8 +115,10 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
 
 例:
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
+  comitia project create --name 実験場
+  comitia project use <projectId>
   comitia agent register --engine claude-code --name mika
-  comitia agent register --engine fake --name walker
+  comitia agent register --engine fake --name walker --project <projectId>
   comitia agent register --engine claude-code --name walker --role proposer
   comitia agent connect walker
   comitia status`;

@@ -22,6 +22,7 @@
   --font-size-body: 1rem;
   --line-height-body: 1.6;
   --layout-max: 52rem;
+  --sidebar-width: 14rem;
   --tap-min: 44px;
   --radius: 6px;
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -67,6 +68,206 @@ textarea {
   max-width: var(--layout-max);
   margin: 0 auto;
   padding: 1.25rem;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 20;
+  min-height: var(--tap-min);
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-card);
+  cursor: pointer;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  padding: 1rem 0.85rem;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-card);
+  min-height: 100vh;
+}
+
+.sidebar-top,
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  margin: 1rem 0;
+}
+
+.sidebar a,
+.sidebar button.sidebar-link,
+.sidebar button.sidebar-logout {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding: 0.35rem 0.5rem;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-ink);
+  text-align: left;
+  width: 100%;
+}
+
+.sidebar a[aria-current="page"] {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.sidebar-link-action {
+  font-size: 0.9rem;
+  color: var(--color-accent);
+}
+
+.project-switcher {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.main-column {
+  flex: 1;
+  min-width: 0;
+  max-width: calc(var(--layout-max) + 2.5rem);
+  padding: 1.25rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.85rem;
+  margin: 1.25rem 0;
+}
+
+.dashboard-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border-thin);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.dashboard-card.is-primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.dashboard-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.dashboard-stat {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.dashboard-preview,
+.dashboard-stats-list,
+.event-list,
+.project-list,
+.member-list,
+.agent-settings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-preview li,
+.event-item,
+.member-item,
+.agent-settings-item,
+.project-list li {
+  margin: 0.35rem 0;
+}
+
+.event-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--color-border-thin);
+}
+
+.token-reveal {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-paper);
+}
+
+.token-reveal code {
+  display: block;
+  margin-top: 0.5rem;
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.danger-zone {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border-thin);
+}
+
+.project-list-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  min-height: var(--tap-min);
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-border-thin);
+  border-radius: var(--radius);
+  background: var(--color-card);
+  cursor: pointer;
+}
+
+@media (max-width: 48rem) {
+  .sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 15;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 0 9999px color-mix(in srgb, #000 0%, transparent);
+  }
+
+  .app-shell.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .main-column {
+    padding-top: calc(var(--tap-min) + 0.75rem);
+  }
 }
 
 .nav {

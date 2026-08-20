@@ -84,10 +84,10 @@ async function getAgentCredential(db: Db, participantId: string) {
     .from(agentCredentials)
     .where(eq(agentCredentials.participantId, participantId))
     .limit(1);
-  if (!cred) {
+  if (!cred || !cred.projectId) {
     throw new NotFoundError("エージェント資格情報が見つかりません");
   }
-  return cred;
+  return cred as typeof cred & { projectId: string };
 }
 
 async function deliverTick(

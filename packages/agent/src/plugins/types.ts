@@ -5,6 +5,7 @@ export interface EnginePlugin {
     /** True when workDir is owned by the caller (e.g. COMITIA_WORK_DIR) and must survive stop(). */
     workDirPersistent: boolean;
     mcp: { command: string; args: string[]; env: Record<string, string> };
+    environmentPrompt?: string;
   }): Promise<void>;
   run(prompt: string): Promise<{
     transcript: string;

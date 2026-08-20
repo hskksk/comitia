@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ParticipantsPage } from "./ParticipantsPage.js";
 
@@ -10,6 +10,7 @@ const participantsMock = vi.fn().mockResolvedValue({
       id: "owner-1",
       kind: "human",
       displayName: "ハル",
+      label: "ハル",
       engine: null,
       ownerParticipantId: null,
       roles: [],
@@ -21,6 +22,7 @@ const participantsMock = vi.fn().mockResolvedValue({
       id: "agent-1",
       kind: "agent",
       displayName: "ミカ",
+      label: "ミカ@ハル",
       engine: "claude-code",
       ownerParticipantId: "owner-1",
       roles: ["facilitator"],
@@ -50,16 +52,18 @@ describe("ParticipantsPage", () => {
   it("shows connection status and wakes an agent", async () => {
     const user = userEvent.setup();
     render(
-      <MemoryRouter>
-        <ParticipantsPage />
+      <MemoryRouter initialEntries={["/p/proj-1/participants"]}>
+        <Routes>
+          <Route path="/p/:projectId/participants" element={<ParticipantsPage />} />
+        </Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByText("ミカ")).toBeInTheDocument();
+    expect(await screen.findByText("ミカ@ハル")).toBeInTheDocument();
     expect(screen.getByText(/claude-code/)).toBeInTheDocument();
     expect(screen.getByText("切断")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "ログ" })).toHaveAttribute(
       "href",
-      "/participants/agent-1",
+      "/p/proj-1/participants/agent-1",
     );
     await user.click(screen.getByRole("button", { name: "起こす" }));
     expect(wakeMock).toHaveBeenCalledWith("agent-1");
@@ -93,8 +97,10 @@ describe("ParticipantsPage", () => {
       ],
     });
     render(
-      <MemoryRouter>
-        <ParticipantsPage />
+      <MemoryRouter initialEntries={["/p/proj/participants"]}>
+        <Routes>
+          <Route path="/p/:projectId/participants" element={<ParticipantsPage />} />
+        </Routes>
       </MemoryRouter>,
     );
     await screen.findByText("ミカ");
@@ -105,13 +111,15 @@ describe("ParticipantsPage", () => {
 
   it("shows a notes link only on the current user's own card", async () => {
     render(
-      <MemoryRouter>
-        <ParticipantsPage />
+      <MemoryRouter initialEntries={["/p/proj/participants"]}>
+        <Routes>
+          <Route path="/p/:projectId/participants" element={<ParticipantsPage />} />
+        </Routes>
       </MemoryRouter>,
     );
-    await screen.findByText("ミカ");
+    await screen.findByText("ミカ@ハル");
     const links = await screen.findAllByRole("link", { name: "自分のメモ" });
     expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute("href", "/notes");
+    expect(links[0]).toHaveAttribute("href", "/p/proj/notes");
   });
 });

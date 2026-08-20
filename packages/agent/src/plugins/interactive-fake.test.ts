@@ -94,6 +94,8 @@ describe("interactive fake engine", () => {
       sessionId: "sess-walk",
       workDir: "/tmp/walk",
       workDirPersistent: false,
+      environmentPrompt:
+        "あなたは ウォーカー@ハル である。Comitia に接続された自律的な参加者だ。",
       mcp: { command: "node", args: [], env: {} },
     });
 
@@ -124,6 +126,8 @@ describe("interactive fake engine", () => {
     expect(windDown.toolLog.map((entry) => entry.tool)).toEqual(["end_session"]);
 
     const output = scripted.output();
+    expect(output).toContain("ウォーカー@ハル");
+    expect(output).toContain("Comitia に接続された自律的な参加者");
     expect(output).toContain("人間がエージェントの一日を操作します");
     expect(output).toContain("終了作業です");
     expect(output).toContain("ツール > ");

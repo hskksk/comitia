@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { formatParticipantLabel } from "@comitia/shared";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { ConsensusType, PullRequestState, ThreadType } from "@comitia/shared";
 import {
   events,
@@ -9,6 +10,7 @@ import {
   threads,
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
+import { NotFoundError } from "./errors.js";
 import { evaluateConsensus } from "./consensus.js";
 import { getDecisionView, type DecisionView } from "./decision-view.js";
 import { getMainParticipants, getThreadRow } from "./helpers.js";
@@ -181,6 +183,7 @@ export async function listJudgmentQueue(
       and(
         eq(threads.projectId, input.projectId),
         eq(threads.state, "awaiting_decision"),
+        isNull(threads.archivedAt),
       ),
     );
 
@@ -225,6 +228,7 @@ export async function listNonblockingInbox(
         eq(threads.projectId, input.projectId),
         eq(threads.state, "decided"),
         inArray(threads.type, ["implementation", "review"]),
+        isNull(threads.archivedAt),
       ),
     )
     .orderBy(asc(threads.decidedAt));
@@ -322,6 +326,9 @@ export async function getHumanThreadView(
   threadId: string,
 ): Promise<HumanThreadView> {
   const thread = await getThreadRow(db, threadId);
+  if (thread.archivedAt) {
+    throw new NotFoundError("スレッドが見つかりません");
+  }
   const threadPosts = await db
     .select({
       id: posts.id,
@@ -330,12 +337,30 @@ export async function getHumanThreadView(
       rationale: posts.rationale,
       authorParticipantId: posts.authorParticipantId,
       authorDisplayName: participants.displayName,
+      authorKind: participants.kind,
+      authorOwnerParticipantId: participants.ownerParticipantId,
       createdAt: posts.createdAt,
     })
     .from(posts)
     .innerJoin(participants, eq(posts.authorParticipantId, participants.id))
     .where(eq(posts.threadId, threadId))
     .orderBy(asc(posts.createdAt));
+
+  const ownerIds = [
+    ...new Set(
+      threadPosts
+        .filter((post) => post.authorKind === "agent" && post.authorOwnerParticipantId)
+        .map((post) => post.authorOwnerParticipantId!),
+    ),
+  ];
+  const ownerRows =
+    ownerIds.length === 0
+      ? []
+      : await db
+          .select({ id: participants.id, displayName: participants.displayName })
+          .from(participants)
+          .where(inArray(participants.id, ownerIds));
+  const ownerNameById = new Map(ownerRows.map((row) => [row.id, row.displayName]));
 
   return {
     thread: {
@@ -360,7 +385,13 @@ export async function getHumanThreadView(
       body: post.body,
       rationale: post.rationale,
       authorParticipantId: post.authorParticipantId,
-      authorDisplayName: post.authorDisplayName,
+      authorDisplayName: formatParticipantLabel({
+        kind: post.authorKind,
+        displayName: post.authorDisplayName,
+        ownerDisplayName: post.authorOwnerParticipantId
+          ? ownerNameById.get(post.authorOwnerParticipantId)
+          : undefined,
+      }),
       createdAt: post.createdAt.toISOString(),
     })),
     pullRequests: await listThreadPullRequests(db, threadId),
@@ -376,7 +407,7 @@ async function listThreadProposals(
   const rows = await db
     .select()
     .from(proposals)
-    .where(eq(proposals.threadId, threadId))
+    .where(and(eq(proposals.threadId, threadId), isNull(proposals.archivedAt)))
     .orderBy(asc(proposals.number));
   return Promise.all(
     rows.map(async (proposal) => {
@@ -412,6 +443,8 @@ export async function listProjectThreads(
       createdAt: threads.createdAt,
     })
     .from(threads)
-    .where(eq(threads.projectId, input.projectId))
+    .where(
+      and(eq(threads.projectId, input.projectId), isNull(threads.archivedAt)),
+    )
     .orderBy(desc(threads.createdAt));
 }

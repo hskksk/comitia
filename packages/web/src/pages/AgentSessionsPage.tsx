@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type SessionItem } from "../api.js";
+import { projectPath } from "../projectContext.js";
 
 export function AgentSessionsPage() {
-  const { id } = useParams<{ id: string }>();
+  const { projectId, id } = useParams<{ projectId: string; id: string }>();
   const [items, setItems] = useState<SessionItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,8 +16,11 @@ export function AgentSessionsPage() {
       .agentSessions(id)
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }, [id]);
+  }, [id, projectId]);
 
+  if (!projectId) {
+    return null;
+  }
   if (error) {
     return <p className="status status-error">{error}</p>;
   }
@@ -26,7 +30,7 @@ export function AgentSessionsPage() {
 
   return (
     <section>
-      <Link to="/participants" className="back-link">
+      <Link to={projectPath(projectId, "participants")} className="back-link">
         参加者へ
       </Link>
       <h1>セッション</h1>
@@ -36,7 +40,9 @@ export function AgentSessionsPage() {
         items.map((item) => (
           <article key={item.id} className="card">
             <h2>
-              <Link to={`/sessions/${item.id}`}>ログを読む</Link>
+              <Link to={projectPath(projectId, `sessions/${item.id}`)}>
+                ログを読む
+              </Link>
             </h2>
             <p className="muted">
               {item.endedAt ? "終了" : "開いている"} · 残量 {item.remainingBudget}

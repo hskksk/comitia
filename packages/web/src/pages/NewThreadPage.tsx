@@ -1,8 +1,10 @@
 import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { boardClient, type AgreementItem, type SearchThreadItem } from "../api.js";
+import { projectPath } from "../projectContext.js";
 
 export function NewThreadPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [type, setType] = useState<"proposal" | "implementation">("proposal");
   const [title, setTitle] = useState("");
@@ -20,6 +22,10 @@ export function NewThreadPage() {
   const [decisions, setDecisions] = useState<AgreementItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  if (!projectId) {
+    return null;
+  }
 
   async function onSearch(event: FormEvent) {
     event.preventDefault();
@@ -63,7 +69,7 @@ export function NewThreadPage() {
             }
           : {}),
       });
-      navigate(`/threads/${created.id}`);
+      navigate(projectPath(projectId!, `threads/${created.id}`));
     } catch (err) {
       setError(err instanceof Error ? err.message : "作成に失敗しました");
     } finally {
@@ -73,7 +79,7 @@ export function NewThreadPage() {
 
   return (
     <article>
-      <Link to="/threads" className="back-link">
+      <Link to={projectPath(projectId, "threads")} className="back-link">
         スレッド一覧へ
       </Link>
       <h1>{type === "proposal" ? "提案する" : "作業する"}</h1>
@@ -118,7 +124,9 @@ export function NewThreadPage() {
             <ul>
               {duplicates.map((item) => (
                 <li key={item.id}>
-                  <Link to={`/threads/${item.id}`}>{item.title}</Link>
+                  <Link to={projectPath(projectId, `threads/${item.id}`)}>
+                    {item.title}
+                  </Link>
                 </li>
               ))}
             </ul>

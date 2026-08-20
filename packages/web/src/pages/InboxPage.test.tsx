@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InboxPage } from "./InboxPage.js";
 
@@ -40,8 +40,10 @@ describe("InboxPage", () => {
   it("completes a merge-wait item", async () => {
     const user = userEvent.setup();
     render(
-      <MemoryRouter>
-        <InboxPage />
+      <MemoryRouter initialEntries={["/p/proj-1/inbox"]}>
+        <Routes>
+          <Route path="/p/:projectId/inbox" element={<InboxPage />} />
+        </Routes>
       </MemoryRouter>,
     );
     expect(await screen.findByText("typo 修正")).toBeInTheDocument();
@@ -57,8 +59,10 @@ describe("InboxPage", () => {
     const user = userEvent.setup();
     declareMock.mockImplementationOnce(() => new Promise(() => undefined));
     render(
-      <MemoryRouter>
-        <InboxPage />
+      <MemoryRouter initialEntries={["/p/proj-1/inbox"]}>
+        <Routes>
+          <Route path="/p/:projectId/inbox" element={<InboxPage />} />
+        </Routes>
       </MemoryRouter>,
     );
 

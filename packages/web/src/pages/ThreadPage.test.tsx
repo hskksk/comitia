@@ -67,6 +67,14 @@ const claimWorkMock = vi.fn().mockResolvedValue({
 });
 const releaseWorkMock = vi.fn().mockResolvedValue({ id: "claim-1", active: false });
 
+const getProjectMock = vi.fn().mockResolvedValue({
+  id: "proj",
+  ownerParticipantId: "p1",
+});
+const agreementsMock = vi.fn().mockResolvedValue({ items: [] });
+const archiveThreadMock = vi.fn().mockResolvedValue(undefined);
+const archiveProposalMock = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("../api.js", () => ({
   boardClient: {
     thread: (...args: unknown[]) => threadMock(...args),
@@ -76,15 +84,19 @@ vi.mock("../api.js", () => ({
     addProposal: (...args: unknown[]) => addProposalMock(...args),
     claimWork: (...args: unknown[]) => claimWorkMock(...args),
     releaseWork: (...args: unknown[]) => releaseWorkMock(...args),
+    getProject: (...args: unknown[]) => getProjectMock(...args),
+    agreements: (...args: unknown[]) => agreementsMock(...args),
+    archiveThread: (...args: unknown[]) => archiveThreadMock(...args),
+    archiveProposal: (...args: unknown[]) => archiveProposalMock(...args),
   },
 }));
 
 function renderThread() {
   return render(
-    <MemoryRouter initialEntries={["/threads/t1"]}>
+    <MemoryRouter initialEntries={["/p/proj/threads/t1"]}>
       <Routes>
-        <Route path="/threads/:id" element={<ThreadPage />} />
-        <Route path="/" element={<p>queue-home</p>} />
+        <Route path="/p/:projectId/threads/:id" element={<ThreadPage />} />
+        <Route path="/p/:projectId/queue" element={<p>queue-home</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -114,6 +126,15 @@ describe("ThreadPage", () => {
     });
     releaseWorkMock.mockClear();
     releaseWorkMock.mockResolvedValue({ id: "claim-1", active: false });
+    archiveThreadMock.mockClear();
+    archiveProposalMock.mockClear();
+    agreementsMock.mockReset();
+    agreementsMock.mockResolvedValue({ items: [] });
+    getProjectMock.mockReset();
+    getProjectMock.mockResolvedValue({
+      id: "proj",
+      ownerParticipantId: "p1",
+    });
   });
 
   it("ratifies with summary", async () => {
@@ -152,7 +173,7 @@ describe("ThreadPage", () => {
     expect(screen.queryByText("queue-home")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "判断キューへ" })).toHaveAttribute(
       "href",
-      "/",
+      "/p/proj/queue",
     );
     expect(
       screen.queryByRole("button", { name: "批准する" }),
@@ -338,7 +359,6 @@ describe("ThreadPage", () => {
       proposalVersionId: "v1",
     });
   });
-
   it("submits a work claim with one path per line", async () => {
     const user = userEvent.setup();
     renderThread();
@@ -405,5 +425,60 @@ describe("ThreadPage", () => {
     expect(screen.getByText("決まったこと")).toBeInTheDocument();
     expect(screen.getByText(/活動量 42/)).toBeInTheDocument();
     expect(screen.getByText(/旧文/)).toBeInTheDocument();
+  });
+
+  it("lets the project owner delete a thread after confirmation", async () => {
+    const user = userEvent.setup();
+    renderThread();
+    await screen.findByText("ルール改正");
+    await user.click(screen.getByRole("button", { name: "スレッドを削除" }));
+    expect(archiveThreadMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "削除を確定" }));
+    expect(archiveThreadMock).toHaveBeenCalledWith("t1");
+    expect(await screen.findByText("このスレッドは削除されました")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "スレッド一覧へ" })).toHaveAttribute(
+      "href",
+      "/p/proj/threads",
+    );
+  });
+
+  it("disables thread delete when a binding agreement exists", async () => {
+    agreementsMock.mockResolvedValue({
+      items: [{ threadId: "t1", binding: true }],
+    });
+    renderThread();
+    expect(
+      await screen.findByText(
+        "拘束的な有効合意があるため、このスレッドは削除できません。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "スレッドを削除" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("tells the owner to unselect a candidate before deleting that proposal", async () => {
+    threadMock.mockResolvedValue({
+      ...threadView,
+      thread: { ...threadView.thread, state: "discussing" },
+      proposals: [
+        {
+          id: "prop-1",
+          number: 1,
+          latestVersionId: "v1",
+          versionNumber: 1,
+          content: "区分を導入する",
+        },
+      ],
+    });
+    renderThread();
+    expect(
+      await screen.findByText(
+        "候補中の提案です。削除するには先に候補を外してください。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "この案を削除" }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -19,6 +19,11 @@ import { wakeCommand } from "./commands/wake.js";
 import { agentLogsCommand } from "./commands/agent-logs.js";
 import { initCommand } from "./commands/init.js";
 import { registerCommand } from "./commands/register.js";
+import {
+  projectCreateCommand,
+  projectListCommand,
+  projectUseCommand,
+} from "./commands/project.js";
 
 const cleanups: Array<() => Promise<void>> = [];
 
@@ -57,11 +62,26 @@ describe("init and agent register commands", () => {
         "claude-code",
         "--name",
         "mika",
+        "--project",
+        "proj-1",
       ]),
     ).toEqual({
       command: "agent-register",
       engine: "claude-code",
       name: "mika",
+      project: "proj-1",
+    });
+    expect(
+      parseCliArgs(["project", "create", "--name", "実験場"]),
+    ).toEqual({
+      command: "project-create",
+      name: "実験場",
+      repoUrl: undefined,
+    });
+    expect(parseCliArgs(["project", "list"])).toEqual({ command: "project-list" });
+    expect(parseCliArgs(["project", "use", "proj-1"])).toEqual({
+      command: "project-use",
+      projectId: "proj-1",
     });
     expect(
       parseCliArgs([
@@ -194,6 +214,47 @@ describe("init and agent register commands", () => {
     const withFake = await loadConfig(configDir);
     expect(withFake.agents.walker?.engine).toBe("fake");
     expect(withFake.agents.walker?.agentId).toBeTruthy();
+  });
+
+  it("creates, lists, and switches projects", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+
+    const client = new PGlite();
+    cleanups.push(() => client.close());
+    const db = drizzle(client, { schema });
+    const here = dirname(fileURLToPath(import.meta.url));
+    await migrate(db, {
+      migrationsFolder: join(here, "../../board/drizzle"),
+    });
+    const server = await startBoardServer({
+      db: db as unknown as Parameters<typeof startBoardServer>[0]["db"],
+      port: 0,
+    });
+    cleanups.push(() => server.close());
+
+    await initCommand({
+      boardUrl: server.baseUrl,
+      name: "ハル",
+      project: "comitia",
+      configDir,
+    });
+    await projectCreateCommand({ name: "実験場", configDir });
+    const afterCreate = await loadConfig(configDir);
+    expect(afterCreate.projectId).toBeTruthy();
+
+    const chunks: string[] = [];
+    const stdout = new PassThrough();
+    stdout.on("data", (chunk: Buffer | string) => {
+      chunks.push(String(chunk));
+    });
+    await projectListCommand({ configDir, stdout });
+    expect(chunks.join("")).toContain("実験場");
+    expect(chunks.join("")).toContain("comitia");
+
+    const firstId = afterCreate.projectId!;
+    await projectUseCommand({ projectId: firstId, configDir });
+    expect((await loadConfig(configDir)).projectId).toBe(firstId);
   });
 
   it("assigns a role only when --role is given", async () => {

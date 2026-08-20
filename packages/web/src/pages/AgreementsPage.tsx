@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { boardClient, type AgreementItem } from "../api.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
+import { projectPath } from "../projectContext.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 
 export function AgreementsPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const [items, setItems] = useState<AgreementItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,9 +19,12 @@ export function AgreementsPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [projectId]);
   useFocusPoll(load, 20_000);
 
+  if (!projectId) {
+    return null;
+  }
   if (error) {
     return <p className="status status-error">{error}</p>;
   }
@@ -36,7 +41,7 @@ export function AgreementsPage() {
       {items.map((item) => (
         <article key={item.id} className="card">
           <h2>
-            <Link to={`/threads/${item.threadId}`}>
+            <Link to={projectPath(projectId, `threads/${item.threadId}`)}>
               {item.threadTitle ?? "スレッド"}
             </Link>
           </h2>

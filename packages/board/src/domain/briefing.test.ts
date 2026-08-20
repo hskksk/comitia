@@ -5,6 +5,7 @@ import { agreements } from "../db/schema.js";
 import { addProposal } from "./proposals.js";
 import { getBriefing } from "./briefing.js";
 import { writeMemory } from "./memory.js";
+import { addMembership } from "./memberships.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
@@ -27,6 +28,11 @@ async function setupParticipants() {
     name: "comitia-web",
     ownerParticipantId: owner.id,
     repoUrl: "https://github.com/hskksk/comitia",
+  });
+  await addMembership(db, {
+    projectId: project.id,
+    participantId: agent.id,
+    actorId: owner.id,
   });
   return { owner, agent, project };
 }
@@ -74,7 +80,7 @@ describe("getBriefing (M7-1 material)", () => {
     });
 
     expect(briefing.you).toEqual({
-      displayName: "ソウ",
+      displayName: "ソウ@ハル",
       roles: [],
       engine: "claude-code",
     });
@@ -87,7 +93,7 @@ describe("getBriefing (M7-1 material)", () => {
     expect(briefing.situation.threads).toEqual([]);
     expect(briefing.situation.open_threads).toEqual([]);
     expect(briefing.situation.participants.map((p) => p.displayName)).toEqual(
-      expect.arrayContaining(["ハル", "ソウ"]),
+      expect.arrayContaining(["ハル", "ソウ@ハル"]),
     );
   });
 

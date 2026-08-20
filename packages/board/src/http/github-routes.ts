@@ -10,7 +10,7 @@ import type { GitHubClient } from "../github/types.js";
 import { recordEvent } from "../domain/events.js";
 import { GateViolation } from "../domain/errors.js";
 import type { BoardEnv } from "./auth.js";
-import { requireAuth, requireOwner } from "./auth.js";
+import { requireAuth, requireHuman, requireProjectMember, requireProjectOwner } from "./auth.js";
 
 type GithubEventInput = {
   event: string;
@@ -201,7 +201,9 @@ export function registerGithubRoutes(
   },
 ) {
   const auth = requireAuth(input.db);
-  const owner = requireOwner();
+  const human = requireHuman();
+  const member = requireProjectMember(input.db);
+  const projectOwner = requireProjectOwner(input.db);
 
   app.post("/v1/github/webhook", async (c) => {
     if (!input.github || !input.webhookSecret) {
@@ -224,7 +226,7 @@ export function registerGithubRoutes(
     return c.body(null, 202);
   });
 
-  app.post("/v1/github/sync", auth, owner, async (c) => {
+  app.post("/v1/github/sync", auth, human, member, projectOwner, async (c) => {
     if (!input.github) {
       return c.json({ error: "GitHub is not configured" }, 503);
     }

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type {
   ConsensusType,
   EngineDiversity,
@@ -135,7 +135,10 @@ export async function searchThreads(
     textQuery?: string;
   },
 ) {
-  const conditions = [eq(threads.projectId, input.projectId)];
+  const conditions = [
+    eq(threads.projectId, input.projectId),
+    isNull(threads.archivedAt),
+  ];
   if (input.state) {
     conditions.push(eq(threads.state, input.state));
   }

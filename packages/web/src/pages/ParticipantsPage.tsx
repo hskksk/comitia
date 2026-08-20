@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { boardClient, type MeResponse, type ParticipantItem } from "../api.js";
 import { engineLabel } from "../labels.js";
+import { projectPath } from "../projectContext.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 
 function connectionLabel(status: "connected" | "disconnected" | "never"): string {
@@ -25,6 +26,7 @@ function wakeLabel(wake: "undigested" | "queued" | "idle"): string {
 }
 
 export function ParticipantsPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const [items, setItems] = useState<ParticipantItem[] | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function ParticipantsPage() {
       .me()
       .then((res) => setMe(res))
       .catch(() => undefined);
-  }, []);
+  }, [projectId]);
   useFocusPoll(load, 15_000);
 
   async function onWake(id: string) {
@@ -59,6 +61,9 @@ export function ParticipantsPage() {
     }
   }
 
+  if (!projectId) {
+    return null;
+  }
   if (error && !items) {
     return <p className="status status-error">{error}</p>;
   }
@@ -72,7 +77,7 @@ export function ParticipantsPage() {
       {error ? <p className="status status-error">{error}</p> : null}
       {items.map((item) => (
         <article key={item.id} className="card">
-          <h2>{item.displayName}</h2>
+          <h2>{item.label ?? item.displayName}</h2>
           <p className="muted">
             {item.kind === "agent" ? "エージェント" : "人間"}
             {item.engine ? ` · ${engineLabel(item.engine)}` : ""}
@@ -104,7 +109,10 @@ export function ParticipantsPage() {
             <div className="actions">
               {item.kind === "agent" ? (
                 <>
-                  <Link to={`/participants/${item.id}`} className="btn-secondary">
+                  <Link
+                    to={projectPath(projectId, `participants/${item.id}`)}
+                    className="btn-secondary"
+                  >
                     ログ
                   </Link>
                   <button
@@ -118,7 +126,7 @@ export function ParticipantsPage() {
                 </>
               ) : null}
               {item.id === me?.participant.id ? (
-                <Link to="/notes" className="btn-secondary">
+                <Link to={projectPath(projectId, "notes")} className="btn-secondary">
                   自分のメモ
                 </Link>
               ) : null}

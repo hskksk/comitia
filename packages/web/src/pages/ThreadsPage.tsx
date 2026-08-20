@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { boardClient, type ThreadListItem } from "../api.js";
 import { ThreadBadges } from "../components/Badges.js";
+import { projectPath } from "../projectContext.js";
 
 type Filter = "all" | "mine" | "proposal" | "implementation";
 
 export function ThreadsPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const [items, setItems] = useState<ThreadListItem[] | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -18,8 +20,11 @@ export function ThreadsPage() {
         setMeId(me.participant.id);
       })
       .catch((err: Error) => setError(err.message));
-  }, []);
+  }, [projectId]);
 
+  if (!projectId) {
+    return null;
+  }
   if (error) {
     return <p className="status status-error">{error}</p>;
   }
@@ -42,7 +47,7 @@ export function ThreadsPage() {
       <div className="page-toolbar">
         <h1>スレッド</h1>
         <div className="actions">
-          <Link to="/threads/new" className="btn-primary">
+          <Link to={projectPath(projectId, "threads/new")} className="btn-primary">
             提案する / 作業する
           </Link>
         </div>
@@ -69,13 +74,17 @@ export function ThreadsPage() {
       {visible.length === 0 ? (
         <p className="status status-empty">
           スレッドはまだありません。
-          <Link to="/threads/new">提案する / 作業する</Link>
+          <Link to={projectPath(projectId, "threads/new")}>
+            提案する / 作業する
+          </Link>
         </p>
       ) : (
         visible.map((item) => (
           <article key={item.id} className="card">
             <h2>
-              <Link to={`/threads/${item.id}`}>{item.title}</Link>
+              <Link to={projectPath(projectId, `threads/${item.id}`)}>
+                {item.title}
+              </Link>
             </h2>
             <ThreadBadges
               type={item.type}

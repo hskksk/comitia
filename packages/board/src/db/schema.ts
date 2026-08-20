@@ -47,6 +47,38 @@ export const projects = pgTable("projects", {
     .defaultNow(),
 });
 
+export const projectMemberships = pgTable(
+  "project_memberships",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [unique().on(table.projectId, table.participantId)],
+);
+
+export const projectInvites = pgTable("project_invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdByParticipantId: uuid("created_by_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
 export const githubOauthStates = pgTable("github_oauth_states", {
   state: text("state").primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -139,6 +171,7 @@ export const threads = pgTable("threads", {
     .defaultNow(),
   decidedAt: timestamp("decided_at", { withTimezone: true }),
   closedAt: timestamp("closed_at", { withTimezone: true }),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 export const threadPullRequests = pgTable(
@@ -263,6 +296,7 @@ export const proposals = pgTable("proposals", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 export const proposalVersions = pgTable("proposal_versions", {
@@ -431,9 +465,7 @@ export const agentCredentials = pgTable("agent_credentials", {
     .notNull()
     .references(() => participants.id)
     .unique(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id),
+  projectId: uuid("project_id").references(() => projects.id),
   tokenHash: text("token_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -592,6 +624,8 @@ export const ticksRelations = relations(ticks, ({ one }) => ({
 export const schema = {
   participants,
   projects,
+  projectMemberships,
+  projectInvites,
   roleAssignments,
   threads,
   threadPullRequests,

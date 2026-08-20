@@ -1,10 +1,76 @@
 import { clearToken, getToken } from "./auth.js";
 
 export const UNAUTHORIZED_EVENT = "comitia:unauthorized";
+const PROJECT_ID_HEADER = "x-comitia-project-id";
+
+export type ProjectListItem = {
+  id: string;
+  name: string;
+  repoUrl: string | null;
+  ownerParticipantId: string;
+};
 
 export type MeResponse = {
-  participant: { id: string; kind: "human" | "agent"; displayName: string };
-  projectId: string;
+  participant: {
+    id: string;
+    kind: "human" | "agent";
+    displayName: string;
+    engine?: string | null;
+    githubLogin?: string | null;
+    githubUserId?: string | null;
+  };
+  projectId: string | null;
+  projects?: ProjectListItem[];
+  label?: string;
+  owner?: { id: string; displayName: string } | null;
+  project?: { id: string; name: string; repoUrl: string | null } | null;
+  roles?: string[];
+};
+
+export type ProjectSummary = {
+  id: string;
+  name: string;
+  repoUrl: string | null;
+  githubOwner: string | null;
+  githubRepo: string | null;
+  githubInstallationId: string | null;
+  ownerParticipantId: string;
+  threadCounts: {
+    discussing: number;
+    awaiting_decision: number;
+    decided: number;
+    rejected: number;
+    completed: number;
+  };
+  queueCount: number;
+  inboxCount: number;
+  queuePreview: Array<{
+    threadId: string;
+    title: string;
+    consensusType: string | null;
+    enteredAt: string;
+  }>;
+  participantStats?: {
+    humans: number;
+    agentsConnected: number;
+    agentsDisconnected: number;
+  };
+};
+
+export type EventItem = {
+  id: string;
+  kind: string;
+  threadId: string | null;
+  actorParticipantId: string | null;
+  payload: unknown;
+  createdAt: string;
+};
+
+export type OwnedAgent = {
+  id: string;
+  displayName: string;
+  engine: string;
+  ownerParticipantId: string;
 };
 
 export type QueueItem = {
@@ -158,6 +224,7 @@ export type ParticipantItem = {
   id: string;
   kind: "human" | "agent";
   displayName: string;
+  label?: string;
   engine: string | null;
   ownerParticipantId: string | null;
   roles: string[];
@@ -217,6 +284,32 @@ export class ApiError extends Error {
   }
 }
 
+let currentProjectId: string | null = null;
+
+export function setCurrentProjectId(projectId: string | null): void {
+  currentProjectId = projectId;
+}
+
+export function getCurrentProjectId(): string | null {
+  return currentProjectId;
+}
+
+function needsProjectHeader(path: string): boolean {
+  if (!path.startsWith("/v1/")) {
+    return false;
+  }
+  if (path === "/v1/me" || path.startsWith("/v1/me/")) {
+    return false;
+  }
+  if (path === "/v1/projects" || path === "/v1/join" || path === "/v1/init") {
+    return false;
+  }
+  if (path.startsWith("/v1/auth")) {
+    return false;
+  }
+  return true;
+}
+
 export class BoardClient {
   async authConfig(): Promise<{ githubOAuth: boolean }> {
     return this.request("/v1/auth/config");
@@ -224,6 +317,124 @@ export class BoardClient {
 
   async me(): Promise<MeResponse> {
     return this.request("/v1/me");
+  }
+
+  async patchMe(input: { displayName: string }): Promise<{
+    participant: { id: string; kind: "human"; displayName: string };
+  }> {
+    return this.request("/v1/me", {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async listProjects(): Promise<{ items: ProjectListItem[] }> {
+    return this.request("/v1/projects");
+  }
+
+  async createProject(input: {
+    name: string;
+    repoUrl?: string;
+  }): Promise<ProjectListItem> {
+    return this.request("/v1/projects", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async getProject(id: string): Promise<ProjectSummary> {
+    return this.request(`/v1/projects/${id}`);
+  }
+
+  async patchProject(
+    id: string,
+    input: { name?: string; repoUrl?: string | null },
+  ): Promise<{
+    id: string;
+    name: string;
+    repoUrl: string | null;
+    githubOwner: string | null;
+    githubRepo: string | null;
+  }> {
+    return this.request(`/v1/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async createInvite(
+    projectId: string,
+  ): Promise<{ token: string; projectId: string }> {
+    return this.request(`/v1/projects/${projectId}/invites`, {
+      method: "POST",
+      body: "{}",
+    });
+  }
+
+  async join(token: string): Promise<{
+    id: string;
+    name: string;
+    ownerParticipantId: string;
+  }> {
+    return this.request("/v1/join", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async listMembers(projectId: string): Promise<{ items: ParticipantItem[] }> {
+    return this.request(`/v1/projects/${projectId}/members`);
+  }
+
+  async removeMember(projectId: string, participantId: string): Promise<void> {
+    await this.request(`/v1/projects/${projectId}/members/${participantId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async listOwnedAgents(): Promise<{ items: OwnedAgent[] }> {
+    return this.request("/v1/me/agents");
+  }
+
+  async createAgent(input: {
+    displayName: string;
+    engine: string;
+    projectId: string;
+    role?: string;
+  }): Promise<{ agentId: string; projectId: string; agentToken: string }> {
+    return this.request("/v1/agents", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateOwnedAgent(
+    agentId: string,
+    input: { displayName?: string; engine?: string },
+  ): Promise<{ id: string; displayName: string; engine: string }> {
+    return this.request(`/v1/me/agents/${agentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async archiveOwnedAgent(agentId: string): Promise<void> {
+    await this.request(`/v1/me/agents/${agentId}`, { method: "DELETE" });
+  }
+
+  async archiveThread(threadId: string): Promise<void> {
+    await this.request(`/v1/threads/${threadId}`, { method: "DELETE" });
+  }
+
+  async archiveProposal(threadId: string, proposalId: string): Promise<void> {
+    await this.request(`/v1/threads/${threadId}/proposals/${proposalId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async events(limit = 10): Promise<{ items: EventItem[] }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return this.request(`/v1/events?${params.toString()}`);
   }
 
   async queue(): Promise<{ items: QueueItem[] }> {
@@ -397,6 +608,9 @@ export class BoardClient {
     if (init.body && !headers.has("content-type")) {
       headers.set("content-type", "application/json");
     }
+    if (currentProjectId && needsProjectHeader(path)) {
+      headers.set(PROJECT_ID_HEADER, currentProjectId);
+    }
     const res = await fetch(path, {
       ...init,
       headers: Object.fromEntries(headers),
@@ -405,6 +619,9 @@ export class BoardClient {
       clearToken();
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
       throw new ApiError(401, "unauthorized");
+    }
+    if (res.status === 204) {
+      return undefined as T;
     }
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };

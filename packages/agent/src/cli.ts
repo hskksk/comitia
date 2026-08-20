@@ -6,7 +6,13 @@ import { agentListCommand } from "./commands/agent-list.js";
 import { connectCommand } from "./commands/connect.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { initCommand } from "./commands/init.js";
-import { projectCommand, projectSetCommand } from "./commands/project.js";
+import {
+  projectCreateCommand,
+  projectListCommand,
+  projectUseCommand,
+  projectCommand,
+  projectSetCommand,
+} from "./commands/project.js";
 import { registerCommand } from "./commands/register.js";
 import { statusCommand } from "./commands/status.js";
 import { tokenCommand } from "./commands/token.js";
@@ -44,10 +50,18 @@ type ParsedCommand =
       command: "agent-list";
     }
   | {
+      command: "project-create";
+      name: string;
+      repoUrl?: string;
+    }
+  | { command: "project-list" }
+  | { command: "project-use"; projectId: string }
+  | {
       command: "agent-register";
       name: string;
       engine: string;
       role?: string;
+      project?: string;
     }
   | {
       command: "agent-connect";
@@ -142,6 +156,26 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
     return { command: "doctor" };
   }
+  if (args[0] === "project" && args[1] === "create") {
+    const options = parseOptions(args.slice(2));
+    return {
+      command: "project-create",
+      name: requireOption(options, "name"),
+      repoUrl: options.get("repo-url"),
+    };
+  }
+  if (args[0] === "project" && args[1] === "list") {
+    if (args.length !== 2) {
+      throw new UsageError("Usage: comitia project list");
+    }
+    return { command: "project-list" };
+  }
+  if (args[0] === "project" && args[1] === "use") {
+    if (!args[2] || args.length !== 3) {
+      throw new UsageError("Usage: comitia project use <projectId>");
+    }
+    return { command: "project-use", projectId: args[2] };
+  }
   if (args[0] === "agent" && args[1] === "list") {
     if (args.length !== 2) {
       throw new UsageError("Usage: comitia agent list");
@@ -155,6 +189,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       engine: requireOption(options, "engine"),
       name: requireOption(options, "name"),
       role: options.get("role"),
+      project: options.get("project"),
     };
   }
   if (args[0] === "agent" && args[1] === "connect") {
@@ -292,6 +327,18 @@ export async function runCli(
   }
   if (command.command === "doctor") {
     await doctorCommand(io);
+    return;
+  }
+  if (command.command === "project-create") {
+    await projectCreateCommand({ ...command, configDir: options.configDir });
+    return;
+  }
+  if (command.command === "project-list") {
+    await projectListCommand({ configDir: options.configDir, stdout: io.stdout });
+    return;
+  }
+  if (command.command === "project-use") {
+    await projectUseCommand({ ...command, configDir: options.configDir });
     return;
   }
   if (command.command === "agent-list") {

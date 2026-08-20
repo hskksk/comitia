@@ -25,7 +25,7 @@ describe("LoginPage", () => {
     );
 
     await user.click(screen.getByText("トークンで入る"));
-    await user.type(screen.getByLabelText("オーナートークン"), "bad-token");
+    await user.type(screen.getByLabelText("トークン"), "bad-token");
     await user.click(screen.getByRole("button", { name: "入る" }));
 
     await screen.findByText(/トークンが無効です/);

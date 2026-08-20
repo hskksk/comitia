@@ -234,7 +234,7 @@ describe("getHumanThreadView", () => {
     expect(view.thread.state).toBe("awaiting_decision");
     expect(view.synthesis?.body).toBe("争点は遡及の扱い");
     expect(view.candidateProposal?.content).toBe("区分を導入する");
-    expect(view.posts.some((post) => post.authorDisplayName === "ミカ")).toBe(
+    expect(view.posts.some((post) => post.authorDisplayName === "ミカ@ハル")).toBe(
       true,
     );
   });

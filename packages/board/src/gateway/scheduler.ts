@@ -38,6 +38,9 @@ export async function runScheduler(
       continue;
     }
 
+    if (!agent.projectId) {
+      continue;
+    }
     const open = await findOpenSession(db, {
       participantId: agent.participantId,
       projectId: agent.projectId,

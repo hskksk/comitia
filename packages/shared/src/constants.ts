@@ -200,5 +200,13 @@ export const EVENT_KINDS = [
   "github_owner_bound",
   "work_claimed",
   "work_released",
+  "project_membership_added",
+  "project_membership_removed",
+  "project_invite_created",
+  "project_updated",
+  "thread_archived",
+  "proposal_archived",
+  "agent_updated",
+  "agent_archived",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];

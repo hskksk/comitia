@@ -137,7 +137,7 @@ export async function startBoardServer(input: {
         .from(agentCredentials)
         .where(eq(agentCredentials.participantId, agentId))
         .limit(1);
-      if (!cred) {
+      if (!cred?.projectId) {
         return;
       }
       await db

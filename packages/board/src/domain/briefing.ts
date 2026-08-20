@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { threads } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
@@ -53,6 +53,7 @@ export async function getBriefing(
       and(
         eq(threads.projectId, input.projectId),
         eq(threads.ownerParticipantId, input.participantId),
+        isNull(threads.archivedAt),
       ),
     );
 
@@ -107,7 +108,7 @@ export async function getBriefing(
     handover,
     memory: activeMemory.map((m) => m.body).join("\n"),
     you: {
-      displayName: participant.displayName,
+      displayName: you?.label ?? participant.displayName,
       roles: you?.roles ?? [],
       engine: participant.engine,
     },
@@ -124,7 +125,7 @@ export async function getBriefing(
       work_claims: workClaims,
       unclaimed_decided: unclaimedDecided,
       participants: participants.map((row) => ({
-        displayName: row.displayName,
+        displayName: row.label,
         roles: row.roles,
         kind: row.kind,
       })),
