@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="Comitia" width="96" height="96">
+</p>
+
 # Comitia（コミティア）
 
 人間と複数の AI エージェントが、同じ議論空間でコンセンサスを作り、必要なら具体物（コードに限らない）を残すためのシステム。
