@@ -9,6 +9,7 @@ import {
   roleAssignments,
   sessions,
   threads,
+  ticks,
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
@@ -55,6 +56,10 @@ export async function getProjectSummary(db: Db, projectId: string) {
     threadCounts,
     queueCount: queue.length,
     inboxCount: inbox.length,
+    repoUrl: project.repoUrl,
+    githubOwner: project.githubOwner,
+    githubRepo: project.githubRepo,
+    githubInstallationId: project.githubInstallationId !== null,
   };
 }
 
@@ -113,6 +118,21 @@ export async function listProjectParticipants(db: Db, projectId: string) {
     .from(sessions)
     .where(and(eq(sessions.projectId, projectId), isNull(sessions.endedAt)));
 
+  const queuedStartTicks =
+    agentIds.length === 0
+      ? []
+      : await db
+          .select({ participantId: ticks.participantId })
+          .from(ticks)
+          .where(
+            and(
+              inArray(ticks.participantId, agentIds),
+              eq(ticks.status, "queued"),
+              eq(ticks.type, "session.start"),
+            ),
+          );
+  const queuedSet = new Set(queuedStartTicks.map((row) => row.participantId));
+
   const rolesByParticipant = new Map<string, string[]>();
   for (const row of roleRows) {
     const list = rolesByParticipant.get(row.participantId) ?? [];
@@ -144,6 +164,17 @@ export async function listProjectParticipants(db: Db, projectId: string) {
             }
           : { status: "never", lastSeenAt: null };
       }
+      let wake: "undigested" | "queued" | "idle" | null = null;
+      if (person.kind === "agent") {
+        if (open && open.briefingAt === null) {
+          wake = "undigested";
+        } else if (queuedSet.has(person.id)) {
+          wake = "queued";
+        } else if (!open) {
+          wake = "idle";
+        }
+      }
+
       return {
         id: person.id,
         kind: person.kind,
@@ -160,6 +191,7 @@ export async function listProjectParticipants(db: Db, projectId: string) {
               startedAt: open.startedAt.toISOString(),
             }
           : null,
+        wake,
       };
     }),
   );

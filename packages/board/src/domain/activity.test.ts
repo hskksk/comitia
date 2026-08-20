@@ -3,7 +3,7 @@ import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
-import { sessions } from "../db/schema.js";
+import { events, sessions } from "../db/schema.js";
 import {
   computeRemaining,
   getRemainingBudget,
@@ -12,6 +12,7 @@ import {
 import { openOrGetSession } from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
+import { createThread } from "./threads.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 
 describe("activity budget", () => {
@@ -79,5 +80,72 @@ describe("activity budget", () => {
     expect(endResult.isError).toBeUndefined();
     const payload = parseJsonContent(endResult);
     expect(payload.ok).toBe(true);
+  });
+
+  it("spend tags the budget_spent event with the given threadId", async () => {
+    const { agent, project, session } = await setupAgentSession();
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "consultation",
+      title: "検討",
+      trigger: "確認",
+      duplicateSearchQuery: "検討",
+    });
+
+    await spend(db, session.id, "post", thread.id);
+
+    const rows = await db
+      .select()
+      .from(events)
+      .where(eq(events.kind, "budget_spent"));
+    const tagged = rows.find((row) => row.threadId === thread.id);
+    expect(tagged).toBeTruthy();
+  });
+
+  it("tags budget_spent from read_thread with the real thread id via MCP", async () => {
+    const { agent, project } = await setupAgentSession();
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "consultation",
+      title: "検討",
+      trigger: "確認",
+      duplicateSearchQuery: "検討",
+    });
+
+    const { callTool } = createBoardMcpServer({
+      db,
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    await callTool("read_thread", { thread_id: thread.id });
+
+    const rows = await db
+      .select()
+      .from(events)
+      .where(eq(events.kind, "budget_spent"));
+    const tagged = rows.find(
+      (row) =>
+        row.threadId === thread.id &&
+        (row.payload as { toolName?: string }).toolName === "read_thread",
+    );
+    expect(tagged).toBeTruthy();
+  });
+
+  it("read_thread with a well-formed but nonexistent thread id still returns a clean error", async () => {
+    const { agent, project } = await setupAgentSession();
+
+    const { callTool } = createBoardMcpServer({
+      db,
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    const result = await callTool("read_thread", {
+      thread_id: "00000000-0000-4000-8000-000000000099",
+    });
+    expect(result.isError).toBe(true);
   });
 });

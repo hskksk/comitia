@@ -56,6 +56,42 @@ export type HumanProposal = {
   content: string;
 };
 
+export type ThreadWorkClaim = {
+  id: string;
+  participantId: string;
+  displayName: string;
+  paths: string[];
+  createdAt: string;
+};
+
+export type MemoryItem = {
+  id: string;
+  participantId: string;
+  body: string;
+  createdAt: string;
+  supersededAt: string | null;
+};
+
+export type NoteItem = {
+  id: string;
+  authorParticipantId: string;
+  projectId: string;
+  title: string;
+  body: string;
+  format: "file" | "journal";
+  visibility: "public" | "private";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NoteCommentItem = {
+  id: string;
+  noteId: string;
+  authorParticipantId: string;
+  body: string;
+  createdAt: string;
+};
+
 export type HumanThreadView = {
   thread: {
     id: string;
@@ -66,7 +102,10 @@ export type HumanThreadView = {
     humanRequired: boolean;
     ownerParticipantId: string;
     projectId: string;
+    awaitingEnteredAt: string | null;
+    timingEndsAt: string | null;
   };
+  consensusReasons: string[];
   synthesis: { id: string; body: string; createdAt: string } | null;
   candidateProposal: {
     id: string;
@@ -89,6 +128,12 @@ export type HumanThreadView = {
     title: string;
     state: "open" | "merged" | "closed";
   }>;
+  workClaims: ThreadWorkClaim[];
+  decisionView: {
+    diff: string | null;
+    previousAgreement: { id: string; summaryDiff: string } | null;
+    activitySpent: number;
+  } | null;
 };
 
 export type SearchThreadItem = {
@@ -126,6 +171,7 @@ export type ParticipantItem = {
     firstGoal: string | null;
     startedAt: string;
   } | null;
+  wake: "undigested" | "queued" | "idle" | null;
 };
 
 export type SessionItem = {
@@ -159,6 +205,7 @@ export type CreateThreadInput = {
   target?: string;
   sharedArtifactKind?: string;
   conflictCitationsChecked?: boolean;
+  engineDiversity?: string;
 };
 
 export class ApiError extends Error {
@@ -247,6 +294,59 @@ export class BoardClient {
     return this.request(`/v1/threads/${threadId}/declare`, {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  }
+
+  async claimWork(
+    threadId: string,
+    paths: string[],
+  ): Promise<{ id: string; threadId: string; paths: string[]; overlaps: unknown[] }> {
+    return this.request(`/v1/threads/${threadId}/work-claims`, {
+      method: "POST",
+      body: JSON.stringify({ paths }),
+    });
+  }
+
+  async releaseWork(
+    threadId: string,
+    claimId: string,
+  ): Promise<{ id: string; active: boolean }> {
+    return this.request(`/v1/threads/${threadId}/work-claims/${claimId}/release`, {
+      method: "POST",
+      body: "{}",
+    });
+  }
+
+  async memory(): Promise<{ items: MemoryItem[] }> {
+    return this.request("/v1/memory");
+  }
+
+  async notes(q?: string): Promise<{ items: NoteItem[] }> {
+    const params = q ? `?${new URLSearchParams({ q }).toString()}` : "";
+    return this.request(`/v1/notes${params}`);
+  }
+
+  async writeNote(input: {
+    noteId?: string;
+    title: string;
+    body: string;
+    format: "file" | "journal";
+    visibility?: "public" | "private";
+  }): Promise<NoteItem> {
+    return this.request("/v1/notes", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async note(id: string): Promise<NoteItem> {
+    return this.request(`/v1/notes/${id}`);
+  }
+
+  async commentNote(id: string, body: string): Promise<NoteCommentItem> {
+    return this.request(`/v1/notes/${id}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
     });
   }
 

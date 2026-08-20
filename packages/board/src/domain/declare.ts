@@ -10,6 +10,7 @@ import {
   PermissionDenied,
 } from "./errors.js";
 import {
+  assertProjectOwner,
   assertThreadOwner,
   assertThreadOwnerOrProjectOwner,
   getMainParticipantIds,
@@ -20,6 +21,7 @@ import {
   isProjectOwner,
 } from "./helpers.js";
 import { getThreadObjections } from "./posts.js";
+import { deactivateThreadClaims } from "./work-claims.js";
 
 type DeclarePayload = Record<string, unknown>;
 
@@ -239,8 +241,15 @@ async function declareInTx(
   switch (input.kind) {
     case "select_candidate": {
       await assertThreadOwnerOrProjectOwner(db, input.threadId, input.actorId);
-      if (thread.state !== "discussing") {
-        throw new InvalidTransition("候補の選定は議論中のみ可能です");
+      const isTimedType =
+        thread.consensusType === "unanimous" ||
+        thread.consensusType === "no_objection" ||
+        thread.consensusType === "silence";
+      const alreadyAwaiting = isTimedType && thread.state === "awaiting_decision";
+      if (thread.state !== "discussing" && !alreadyAwaiting) {
+        throw new InvalidTransition(
+          "候補の選定は議論中、またはこの合意種類の合意待ち中のみ可能です",
+        );
       }
       const proposalVersionId = input.payload.proposalVersionId as string;
       if (!proposalVersionId) {
@@ -248,9 +257,29 @@ async function declareInTx(
       }
       await getProposalVersion(db, proposalVersionId);
 
+      const now = new Date();
+      const durationHours =
+        thread.consensusType === "silence"
+          ? 48
+          : thread.consensusType === "no_objection"
+            ? 24
+            : null;
+
       const [updated] = await db
         .update(threads)
-        .set({ candidateProposalVersionId: proposalVersionId })
+        .set({
+          candidateProposalVersionId: proposalVersionId,
+          ...(isTimedType
+            ? {
+                state: "awaiting_decision" as const,
+                awaitingEnteredAt: now,
+                timingDurationHours: durationHours,
+                timingEndsAt: durationHours
+                  ? new Date(now.getTime() + durationHours * 3600_000)
+                  : null,
+              }
+            : {}),
+        })
         .where(eq(threads.id, input.threadId))
         .returning();
 
@@ -261,6 +290,17 @@ async function declareInTx(
         kind: "candidate_selected",
         payload: { proposalVersionId },
       });
+
+      if (isTimedType && !alreadyAwaiting) {
+        await recordStateChange(db, {
+          projectId: thread.projectId,
+          threadId: input.threadId,
+          actorId: input.actorId,
+          from: thread.state,
+          to: "awaiting_decision",
+          reason: "候補選定により合意待ちへ",
+        });
+      }
 
       return { thread: updated!, post: declarationPost };
     }
@@ -425,6 +465,15 @@ async function declareInTx(
       if (!thread.candidateProposalVersionId) {
         throw new InvalidTransition("候補提案版が選定されていません");
       }
+      const { proposal } = await getProposalVersion(
+        db,
+        thread.candidateProposalVersionId,
+      );
+      if (proposal.authorParticipantId === input.actorId) {
+        throw new PermissionDenied(
+          "候補提案版の著者は自分の版を批准できません",
+        );
+      }
 
       const { binding, summary } = requireDecisionPayload(input.payload);
       const result = await finalizeDecided(db, {
@@ -505,6 +554,11 @@ async function declareInTx(
         reason: (input.payload.summary as string) ?? "不採用",
       });
 
+      await deactivateThreadClaims(db, {
+        threadId: input.threadId,
+        actorId: input.actorId,
+      });
+
       let agreement;
       if (input.payload.recordAsAgreement) {
         if (!thread.candidateProposalVersionId) {
@@ -554,7 +608,70 @@ async function declareInTx(
         reason: "スレッド完了",
       });
 
+      await deactivateThreadClaims(db, {
+        threadId: input.threadId,
+        actorId: input.actorId,
+      });
+
       return { thread: updated!, post: declarationPost };
+    }
+
+    case "extend_window": {
+      await assertThreadOwner(db, input.threadId, input.actorId);
+      if (!thread.awaitingEnteredAt) {
+        throw new InvalidTransition("合意待ちではありません");
+      }
+      const hours = input.payload.hours as number;
+      if (typeof hours !== "number" || !(hours > 0)) {
+        throw new InvalidTransition("hours は正の数が必須です");
+      }
+      const newEndsAt = new Date(
+        thread.awaitingEnteredAt.getTime() + hours * 3600_000,
+      );
+      const [updated] = await db
+        .update(threads)
+        .set({ timingDurationHours: hours, timingEndsAt: newEndsAt })
+        .where(eq(threads.id, input.threadId))
+        .returning();
+      return { thread: updated!, post: declarationPost };
+    }
+
+    case "shorten_window": {
+      await assertProjectOwner(db, thread.projectId, input.actorId);
+      if (!thread.awaitingEnteredAt) {
+        throw new InvalidTransition("合意待ちではありません");
+      }
+      const hours = input.payload.hours as number;
+      if (typeof hours !== "number" || !(hours > 0)) {
+        throw new InvalidTransition("hours は正の数が必須です");
+      }
+      const newEndsAt = new Date(
+        thread.awaitingEnteredAt.getTime() + hours * 3600_000,
+      );
+      if (thread.timingEndsAt && newEndsAt.getTime() >= thread.timingEndsAt.getTime()) {
+        throw new InvalidTransition("短縮は現在の期限より手前にしてください");
+      }
+      const [updated] = await db
+        .update(threads)
+        .set({ timingDurationHours: hours, timingEndsAt: newEndsAt })
+        .where(eq(threads.id, input.threadId))
+        .returning();
+      return { thread: updated!, post: declarationPost };
+    }
+
+    case "clock_satisfy": {
+      const actor = await getParticipant(db, input.actorId);
+      if (actor.kind !== "system") {
+        throw new PermissionDenied("clock_satisfy はシステム参加者のみ実行できます");
+      }
+      const { binding, summary } = requireDecisionPayload(input.payload);
+      const result = await finalizeDecided(db, {
+        threadId: input.threadId,
+        actorId: input.actorId,
+        binding,
+        summary,
+      });
+      return { ...result, post: declarationPost };
     }
 
     default:

@@ -16,7 +16,7 @@ export const participants = pgTable(
   "participants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    kind: text("kind", { enum: ["human", "agent"] }).notNull(),
+    kind: text("kind", { enum: ["human", "agent", "system"] }).notNull(),
     displayName: text("display_name").notNull(),
     ownerParticipantId: uuid("owner_participant_id"),
     engine: text("engine"),
@@ -107,7 +107,14 @@ export const threads = pgTable("threads", {
     .notNull()
     .references(() => participants.id),
   consensusType: text("consensus_type", {
-    enum: ["rough", "human_ratification", "owner_decision"],
+    enum: [
+      "rough",
+      "human_ratification",
+      "owner_decision",
+      "unanimous",
+      "no_objection",
+      "silence",
+    ],
   }),
   humanRequired: boolean("human_required").notNull().default(false),
   target: text("target", { enum: ["repo_artifact", "shared_artifact"] }),
@@ -119,6 +126,14 @@ export const threads = pgTable("threads", {
   duplicateSearchQuery: text("duplicate_search_query").notNull(),
   candidateProposalVersionId: uuid("candidate_proposal_version_id"),
   parentThreadId: uuid("parent_thread_id"),
+  awaitingEnteredAt: timestamp("awaiting_entered_at", { withTimezone: true }),
+  timingDurationHours: integer("timing_duration_hours"),
+  timingEndsAt: timestamp("timing_ends_at", { withTimezone: true }),
+  engineDiversity: text("engine_diversity", {
+    enum: ["off", "collapse_same_engine", "require_other_engine"],
+  })
+    .notNull()
+    .default("off"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -144,6 +159,73 @@ export const threadPullRequests = pgTable(
   },
   (table) => [unique().on(table.projectId, table.number)],
 );
+
+export const workClaims = pgTable("work_claims", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => threads.id),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  participantId: uuid("participant_id")
+    .notNull()
+    .references(() => participants.id),
+  paths: jsonb("paths").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+});
+
+export const memories = pgTable("memories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  participantId: uuid("participant_id")
+    .notNull()
+    .references(() => participants.id),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  supersededAt: timestamp("superseded_at", { withTimezone: true }),
+});
+
+export const personalNotes = pgTable("personal_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  authorParticipantId: uuid("author_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  format: text("format", { enum: ["file", "journal"] }).notNull(),
+  visibility: text("visibility", { enum: ["public", "private"] })
+    .notNull()
+    .default("public"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const personalNoteComments = pgTable("personal_note_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  noteId: uuid("note_id")
+    .notNull()
+    .references(() => personalNotes.id),
+  authorParticipantId: uuid("author_participant_id")
+    .notNull()
+    .references(() => participants.id),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 export const githubIssueIntakes = pgTable(
   "github_issue_intakes",
@@ -267,6 +349,9 @@ export const posts = pgTable("posts", {
       "reject_thread",
       "complete_thread",
       "resolve_objection",
+      "extend_window",
+      "shorten_window",
+      "clock_satisfy",
     ],
   }),
   declarationPayload: jsonb("declaration_payload"),
@@ -405,6 +490,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   agentCredentials: many(agentCredentials),
   pullRequests: many(threadPullRequests),
   issueIntakes: many(githubIssueIntakes),
+  workClaims: many(workClaims),
 }));
 
 export const threadsRelations = relations(threads, ({ one, many }) => ({
@@ -419,6 +505,7 @@ export const threadsRelations = relations(threads, ({ one, many }) => ({
   proposals: many(proposals),
   posts: many(posts),
   pullRequests: many(threadPullRequests),
+  workClaims: many(workClaims),
 }));
 
 export const proposalsRelations = relations(proposals, ({ one, many }) => ({
@@ -508,6 +595,10 @@ export const schema = {
   roleAssignments,
   threads,
   threadPullRequests,
+  workClaims,
+  memories,
+  personalNotes,
+  personalNoteComments,
   githubIssueIntakes,
   githubOauthStates,
   proposals,

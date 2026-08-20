@@ -43,6 +43,27 @@
       "when": 1786843442871,
       "tag": "0005_woozy_the_captain",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787149474015,
+      "tag": "0006_busy_umar",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787181094179,
+      "tag": "0007_vengeful_zuras",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787182993195,
+      "tag": "0008_quiet_marten_broadcloak",
+      "breakpoints": true
     }
   ]
 }

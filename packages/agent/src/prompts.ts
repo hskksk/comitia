@@ -47,5 +47,6 @@ export function buildWindDownPrompt(input: {
   return `セッション終了作業。理由: ${input.reason}
 残量 ${budgetText}。
 
+終了作業で個別記憶を更新してよい。作業中のルール矛盾はメモリに残し、当日の本業にしない。
 end_session を申し送り付きで呼べ。`;
 }

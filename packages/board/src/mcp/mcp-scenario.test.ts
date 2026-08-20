@@ -1,12 +1,14 @@
 import "../test/helpers.js";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "../test/helpers.js";
+import { workClaims } from "../db/schema.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 import { registerParticipant } from "../domain/participants.js";
 import { createProject } from "../domain/projects.js";
 
 describe("MCP scenario 1 minimal path", () => {
-  it("get_briefing → set_goals → search_threads → create_thread → add_proposal → post → end_session", async () => {
+  it("get_briefing → set_goals → search_threads → create_thread → add_proposal → claim_work → post → end_session", async () => {
     const owner = await registerParticipant(db, {
       kind: "human",
       displayName: "ハル",
@@ -61,6 +63,21 @@ describe("MCP scenario 1 minimal path", () => {
       }),
     );
     expect(proposal.proposal_version_id).toBeTruthy();
+
+    const claimed = parseJsonContent(
+      await callTool("claim_work", {
+        thread_id: threadId,
+        paths: ["docs/README.md"],
+      }),
+    );
+    expect(claimed.claim_id).toBeTruthy();
+
+    const [claimRow] = await db
+      .select()
+      .from(workClaims)
+      .where(eq(workClaims.threadId, threadId));
+    expect(claimRow).toBeTruthy();
+    expect(claimRow?.active).toBe(true);
 
     const report = parseJsonContent(
       await callTool("post", {

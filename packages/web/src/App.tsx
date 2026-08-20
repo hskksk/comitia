@@ -12,6 +12,7 @@ import { ThreadsPage } from "./pages/ThreadsPage.js";
 import { NewThreadPage } from "./pages/NewThreadPage.js";
 import { AgreementsPage } from "./pages/AgreementsPage.js";
 import { ParticipantsPage } from "./pages/ParticipantsPage.js";
+import { NotesPage } from "./pages/NotesPage.js";
 import { AgentSessionsPage } from "./pages/AgentSessionsPage.js";
 import { SessionLogPage } from "./pages/SessionLogPage.js";
 
@@ -56,6 +57,7 @@ export function App() {
           <Route path="/agreements" element={<AgreementsPage />} />
           <Route path="/participants" element={<ParticipantsPage />} />
           <Route path="/participants/:id" element={<AgentSessionsPage />} />
+          <Route path="/notes" element={<NotesPage />} />
           <Route path="/sessions/:id" element={<SessionLogPage />} />
         </Route>
       </Routes>

@@ -1,6 +1,7 @@
 import {
   AGREEMENT_STATES,
   declarationPayloadSchema,
+  engineDiversitySchema,
   roleSchema,
   threadTypeSchema,
   consensusTypeSchema,
@@ -32,7 +33,12 @@ import {
 import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { createThread, searchThreads } from "../domain/threads.js";
+import { updateProjectRepo } from "../domain/projects.js";
 import { linkPullRequest, refreshStalePullRequests } from "../domain/pull-requests.js";
+import { listActiveMemory } from "../domain/memory.js";
+import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
+import { commentNote, readNote, searchNotes, writeNote } from "../domain/notes.js";
+import { claimWork, releaseWork } from "../domain/work-claims.js";
 import type { GitHubClient } from "../github/types.js";
 import { type BoardEnv, requireAuth, requireOwner } from "./auth.js";
 
@@ -106,6 +112,7 @@ export function registerHumanRoutes(
         sharedArtifactKind: sharedArtifactKindSchema.optional(),
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
+        engineDiversity: engineDiversitySchema.optional(),
       })
       .parse(await c.req.json());
     const thread = await createThread(db, {
@@ -182,6 +189,9 @@ export function registerHumanRoutes(
       blocking: body.blocking,
       proposalVersionId: body.proposalVersionId,
     });
+    if (body.type === "approval") {
+      await maybeFinalizeUnanimous(db, { threadId });
+    }
     return c.json(
       {
         id: post.id,
@@ -251,9 +261,59 @@ export function registerHumanRoutes(
     });
   });
 
+  app.post("/v1/threads/:id/work-claims", auth, owner, async (c) => {
+    const body = z
+      .object({ paths: z.array(z.string().min(1)).min(1) })
+      .parse(await c.req.json());
+    const threadId = c.req.param("id");
+    const view = await getHumanThreadView(db, threadId);
+    assertProject(view.thread.projectId, c.get("projectId"));
+    const result = await claimWork(db, {
+      threadId,
+      participantId: c.get("participant").id,
+      paths: body.paths,
+    });
+    return c.json(
+      {
+        id: result.claim.id,
+        threadId: result.claim.threadId,
+        paths: result.claim.paths,
+        overlaps: result.overlaps,
+      },
+      201,
+    );
+  });
+
+  app.post("/v1/threads/:id/work-claims/:claimId/release", auth, owner, async (c) => {
+    const threadId = c.req.param("id");
+    const view = await getHumanThreadView(db, threadId);
+    assertProject(view.thread.projectId, c.get("projectId"));
+    const claim = await releaseWork(db, {
+      claimId: c.req.param("claimId"),
+      actorId: c.get("participant").id,
+      threadId,
+    });
+    return c.json({ id: claim.id, active: claim.active });
+  });
+
   app.get("/v1/project", auth, owner, async (c) => {
     const summary = await getProjectSummary(db, c.get("projectId"));
     return c.json(summary);
+  });
+
+  app.patch("/v1/project", auth, owner, async (c) => {
+    const body = z
+      .object({ repoUrl: z.string().nullable() })
+      .parse(await c.req.json());
+    const updated = await updateProjectRepo(db, {
+      projectId: c.get("projectId"),
+      repoUrl: body.repoUrl,
+    });
+    return c.json({
+      repoUrl: updated.repoUrl,
+      githubOwner: updated.githubOwner,
+      githubRepo: updated.githubRepo,
+    });
   });
 
   app.get("/v1/participants", auth, owner, async (c) => {
@@ -360,5 +420,90 @@ export function registerHumanRoutes(
       limit,
     });
     return c.json({ items });
+  });
+
+  app.get("/v1/memory", auth, owner, async (c) => {
+    const items = await listActiveMemory(db, c.get("participant").id);
+    return c.json({ items });
+  });
+
+  app.get("/v1/notes", auth, owner, async (c) => {
+    const q = c.req.query("q");
+    const items = await searchNotes(db, {
+      callerId: c.get("participant").id,
+      projectId: c.get("projectId"),
+      textQuery: q,
+    });
+    return c.json({ items });
+  });
+
+  app.post("/v1/notes", auth, owner, async (c) => {
+    const body = z
+      .object({
+        noteId: z.string().uuid().optional(),
+        title: z.string().min(1),
+        body: z.string().min(1),
+        format: z.enum(["file", "journal"]),
+        visibility: z.enum(["public", "private"]).optional(),
+      })
+      .parse(await c.req.json());
+    try {
+      const note = await writeNote(db, {
+        authorParticipantId: c.get("participant").id,
+        projectId: c.get("projectId"),
+        noteId: body.noteId,
+        title: body.title,
+        body: body.body,
+        format: body.format,
+        visibility: body.visibility,
+      });
+      return c.json(note, 201);
+    } catch (error) {
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/v1/notes/:id", auth, owner, async (c) => {
+    try {
+      const note = await readNote(db, {
+        noteId: c.req.param("id"),
+        callerId: c.get("participant").id,
+      });
+      return c.json(note);
+    } catch (error) {
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/v1/notes/:id/comments", auth, owner, async (c) => {
+    const body = z.object({ body: z.string().min(1) }).parse(await c.req.json());
+    try {
+      const comment = await commentNote(db, {
+        noteId: c.req.param("id"),
+        authorParticipantId: c.get("participant").id,
+        body: body.body,
+      });
+      return c.json(comment, 201);
+    } catch (error) {
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
   });
 }

@@ -13,6 +13,11 @@ import {
   wasLatestPreviousSessionInterrupted,
 } from "./sessions.js";
 import { searchThreads } from "./threads.js";
+import { listActiveMemory } from "./memory.js";
+import {
+  listActiveProjectClaims,
+  listUnclaimedDecidedImplementations,
+} from "./work-claims.js";
 
 const OPEN_THREAD_STATES = new Set(["discussing", "awaiting_decision"]);
 
@@ -64,17 +69,28 @@ export async function getBriefing(
       status: goal.status,
     }));
 
-  const [project, participant, bindingAgreements, allThreads, participants] =
-    await Promise.all([
-      getProject(db, input.projectId),
-      getParticipant(db, input.participantId),
-      searchAgreements(db, {
-        projectId: input.projectId,
-        onlyActiveBinding: true,
-      }),
-      searchThreads(db, { projectId: input.projectId }),
-      listProjectParticipants(db, input.projectId),
-    ]);
+  const [
+    project,
+    participant,
+    bindingAgreements,
+    allThreads,
+    participants,
+    workClaims,
+    unclaimedDecided,
+    activeMemory,
+  ] = await Promise.all([
+    getProject(db, input.projectId),
+    getParticipant(db, input.participantId),
+    searchAgreements(db, {
+      projectId: input.projectId,
+      onlyActiveBinding: true,
+    }),
+    searchThreads(db, { projectId: input.projectId }),
+    listProjectParticipants(db, input.projectId),
+    listActiveProjectClaims(db, input.projectId),
+    listUnclaimedDecidedImplementations(db, input.projectId),
+    listActiveMemory(db, input.participantId),
+  ]);
 
   const you = participants.find((row) => row.id === input.participantId);
   const openThreads = allThreads
@@ -89,6 +105,7 @@ export async function getBriefing(
   return {
     sessionId: digestedSession.id,
     handover,
+    memory: activeMemory.map((m) => m.body).join("\n"),
     you: {
       displayName: participant.displayName,
       roles: you?.roles ?? [],
@@ -104,6 +121,8 @@ export async function getBriefing(
     situation: {
       threads: ownedThreads,
       open_threads: openThreads,
+      work_claims: workClaims,
+      unclaimed_decided: unclaimedDecided,
       participants: participants.map((row) => ({
         displayName: row.displayName,
         roles: row.roles,

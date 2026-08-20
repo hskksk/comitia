@@ -4,6 +4,7 @@ import {
   AGREEMENT_STATES,
   CONSENSUS_TYPES,
   DECLARATION_KINDS,
+  ENGINE_DIVERSITY,
   EVENT_KINDS,
   PARTICIPANT_KINDS,
   POST_TYPES,
@@ -27,6 +28,7 @@ export const agreementStateSchema = z.enum(AGREEMENT_STATES);
 export const proposalOutcomeSchema = z.enum(PROPOSAL_OUTCOMES);
 export const roleSchema = z.enum(ROLES);
 export const participantKindSchema = z.enum(PARTICIPANT_KINDS);
+export const engineDiversitySchema = z.enum(ENGINE_DIVERSITY);
 export const eventKindSchema = z.enum(EVENT_KINDS);
 
 export const selectCandidatePayloadSchema = z.object({
@@ -66,6 +68,19 @@ export const resolveObjectionPayloadSchema = z.object({
   note: z.string().min(1),
 });
 
+export const extendWindowPayloadSchema = z.object({
+  hours: z.number().positive(),
+});
+
+export const shortenWindowPayloadSchema = z.object({
+  hours: z.number().positive(),
+});
+
+export const clockSatisfyPayloadSchema = z.object({
+  binding: z.boolean(),
+  summary: z.string().min(1),
+});
+
 export const declarationPayloadSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("select_candidate"),
@@ -102,6 +117,18 @@ export const declarationPayloadSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("resolve_objection"),
     ...resolveObjectionPayloadSchema.shape,
+  }),
+  z.object({
+    kind: z.literal("extend_window"),
+    ...extendWindowPayloadSchema.shape,
+  }),
+  z.object({
+    kind: z.literal("shorten_window"),
+    ...shortenWindowPayloadSchema.shape,
+  }),
+  z.object({
+    kind: z.literal("clock_satisfy"),
+    ...clockSatisfyPayloadSchema.shape,
   }),
 ]);
 

@@ -64,6 +64,7 @@ export async function spend(
   db: Db,
   sessionId: string,
   toolName: string,
+  threadId?: string | null,
 ): Promise<number> {
   const session = await getSessionRow(db, sessionId);
   if (session.endedAt) {
@@ -98,6 +99,7 @@ export async function spend(
 
   await recordEvent(db, {
     projectId: session.projectId,
+    threadId: threadId ?? null,
     actorParticipantId: session.participantId,
     kind: "budget_spent",
     payload: {

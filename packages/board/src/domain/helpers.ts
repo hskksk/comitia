@@ -1,4 +1,4 @@
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import {
   agreements,
   participants,
@@ -100,6 +100,7 @@ export async function assertThreadOwner(db: Db, threadId: string, actorId: strin
 
 export async function getMainParticipantIds(db: Db, threadId: string) {
   const thread = await getThreadRow(db, threadId);
+  const project = await getProject(db, thread.projectId);
   const assignments = await db
     .select({ participantId: roleAssignments.participantId })
     .from(roleAssignments)
@@ -107,7 +108,36 @@ export async function getMainParticipantIds(db: Db, threadId: string) {
 
   const ids = new Set(assignments.map((a) => a.participantId));
   ids.add(thread.ownerParticipantId);
+  ids.add(project.ownerParticipantId);
   return [...ids];
+}
+
+export type MainParticipant = {
+  id: string;
+  kind: "human" | "agent" | "system";
+  engine: string | null;
+};
+
+/** 第2層の分母: ロールを持つ参加者 ∪ スレッドオーナー ∪ プロジェクトオーナー。system は除く。 */
+export async function getMainParticipants(
+  db: Db,
+  threadId: string,
+): Promise<MainParticipant[]> {
+  const ids = await getMainParticipantIds(db, threadId);
+  if (ids.length === 0) {
+    return [];
+  }
+  const rows = await db
+    .select({
+      id: participants.id,
+      kind: participants.kind,
+      engine: participants.engine,
+    })
+    .from(participants)
+    .where(inArray(participants.id, ids));
+  return rows
+    .filter((row) => row.kind !== "system")
+    .map((row) => ({ id: row.id, kind: row.kind as "human" | "agent", engine: row.engine }));
 }
 
 export async function getProposalVersion(
