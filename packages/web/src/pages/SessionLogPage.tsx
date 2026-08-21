@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type ChatLogResponse } from "../api.js";
 import { projectPath } from "../projectContext.js";
 import { useFocusPoll } from "../useFocusPoll.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 export function SessionLogPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -10,6 +11,11 @@ export function SessionLogPage() {
   const [log, setLog] = useState<ChatLogResponse | null>(null);
   const [fromStart, setFromStart] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const reset = useCallback(() => {
+    setLog(null);
+    setError(null);
+  }, []);
 
   const load = useCallback(() => {
     if (!id) {
@@ -21,9 +27,7 @@ export function SessionLogPage() {
       .catch((err: Error) => setError(err.message));
   }, [id, fromStart]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useRouteLoad(load, [id, fromStart], reset);
   useFocusPoll(load, log?.endedAt ? 30_000 : 8_000);
 
   if (!projectId) {

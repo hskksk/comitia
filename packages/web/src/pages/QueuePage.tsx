@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { boardClient, type QueueItem } from "../api.js";
 import { ThreadBadges } from "../components/Badges.js";
 import { SynthesisCard } from "../components/SynthesisCard.js";
 import { judgmentNeedLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
+import { useFocusPoll } from "../useFocusPoll.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 export function QueuePage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -14,12 +16,21 @@ export function QueuePage() {
   const cardRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const reset = useCallback(() => {
+    setItems(null);
+    setError(null);
+    setSelectedIndex(0);
+  }, []);
+
+  const load = useCallback(() => {
     boardClient
       .queue()
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }, [projectId]);
+  }, []);
+
+  useRouteLoad(load, [projectId], reset);
+  useFocusPoll(load, 15_000);
 
   useEffect(() => {
     if (!items || items.length === 0) {

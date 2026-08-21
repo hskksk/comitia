@@ -6,7 +6,12 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
-import { boardClient, setCurrentProjectId, type MeResponse } from "../api.js";
+import {
+  boardClient,
+  getCurrentProjectId,
+  setCurrentProjectId,
+  type MeResponse,
+} from "../api.js";
 import { clearToken } from "../auth.js";
 import {
   pickProjectId,
@@ -33,9 +38,12 @@ export function Layout() {
   const activeProjectId =
     routeProjectId ?? (me ? pickProjectId(me) : null) ?? null;
 
+  if (activeProjectId && getCurrentProjectId() !== activeProjectId) {
+    setCurrentProjectId(activeProjectId);
+  }
+
   useEffect(() => {
     if (activeProjectId) {
-      setCurrentProjectId(activeProjectId);
       saveLastProjectId(activeProjectId);
     }
   }, [activeProjectId]);
@@ -137,7 +145,7 @@ export function Layout() {
       </aside>
 
       <main className="main-column">
-        <Outlet />
+        <Outlet key={location.pathname} />
       </main>
     </div>
   );
