@@ -6,6 +6,7 @@ import { Layout } from "./Layout.js";
 
 vi.mock("../api.js", () => ({
   setCurrentProjectId: vi.fn(),
+  getCurrentProjectId: vi.fn().mockReturnValue(null),
   boardClient: {
     me: vi.fn().mockResolvedValue({
       participant: { id: "p1", kind: "human", displayName: "ハル" },

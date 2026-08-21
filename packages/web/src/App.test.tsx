@@ -13,6 +13,7 @@ const meMock = vi.fn().mockResolvedValue({
 vi.mock("./api.js", () => ({
   UNAUTHORIZED_EVENT: "comitia:unauthorized",
   setCurrentProjectId: vi.fn(),
+  getCurrentProjectId: vi.fn().mockReturnValue(null),
   boardClient: {
     me: (...args: unknown[]) => meMock(...args),
     queue: vi.fn().mockResolvedValue({ items: [] }),

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   boardClient,
@@ -15,6 +15,7 @@ import {
 import { pullRequestStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 const COMPOSER_TYPES = [
   ["comment", "コメント"],
@@ -55,7 +56,31 @@ export function ThreadPage() {
   const [ownerSummary, setOwnerSummary] = useState("");
   const [claimPathsText, setClaimPathsText] = useState("");
 
-  useEffect(() => {
+  const reset = useCallback(() => {
+    setView(null);
+    setMe(null);
+    setProjectOwnerId(null);
+    setHasBindingAgreement(false);
+    setThreadDeleted(false);
+    setThreadDeleteConfirm(false);
+    setProposalDeleteId(null);
+    setProposalDeleteConfirm(false);
+    setSummary("");
+    setReason("");
+    setError(null);
+    setRejectConfirmOpen(false);
+    setPostType("comment");
+    setPostBody("");
+    setRationale("");
+    setProposalContent("");
+    setProposalTemplateId("");
+    setSystemTemplates([]);
+    setTargetVersionId("");
+    setOwnerSummary("");
+    setClaimPathsText("");
+  }, []);
+
+  const load = useCallback(() => {
     if (!id || !projectId) {
       return;
     }
@@ -85,6 +110,8 @@ export function ThreadPage() {
       })
       .catch((err: Error) => setError(err.message));
   }, [id, projectId]);
+
+  useRouteLoad(load, [id, projectId], reset);
 
   async function reloadThread() {
     if (!id) {

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   boardClient,
@@ -7,6 +7,7 @@ import {
   type ProjectSummary,
 } from "../api.js";
 import { isProjectOwner } from "../projectContext.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 export function ProjectSettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -20,7 +21,16 @@ export function ProjectSettingsPage() {
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
 
-  function reload() {
+  const reset = useCallback(() => {
+    setMe(null);
+    setProject(null);
+    setMembers(null);
+    setError(null);
+    setInviteToken(null);
+    setRemoveConfirmId(null);
+  }, []);
+
+  const reload = useCallback(() => {
     if (!projectId) {
       return;
     }
@@ -37,11 +47,9 @@ export function ProjectSettingsPage() {
         setRepoUrl(summary.repoUrl ?? "");
       })
       .catch((err: Error) => setError(err.message));
-  }
-
-  useEffect(() => {
-    reload();
   }, [projectId]);
+
+  useRouteLoad(reload, [projectId], reset);
 
   if (!projectId) {
     return null;
@@ -64,19 +72,11 @@ export function ProjectSettingsPage() {
     setSaving(true);
     setError(null);
     try {
-      const updated = await boardClient.patchProject(projectId, {
+      await boardClient.patchProject(projectId, {
         name: name.trim(),
         repoUrl: repoUrl.trim() === "" ? "" : repoUrl.trim(),
       });
-      setProject((prev) =>
-        prev
-          ? {
-              ...prev,
-              name: updated.name,
-              repoUrl: updated.repoUrl,
-            }
-          : prev,
-      );
+      await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
     } finally {

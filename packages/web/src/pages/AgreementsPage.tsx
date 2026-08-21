@@ -1,25 +1,29 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type AgreementItem } from "../api.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
 import { projectPath } from "../projectContext.js";
 import { useFocusPoll } from "../useFocusPoll.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 export function AgreementsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [items, setItems] = useState<AgreementItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function load() {
+  const reset = useCallback(() => {
+    setItems(null);
+    setError(null);
+  }, []);
+
+  const load = useCallback(() => {
     boardClient
       .agreements()
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }
+  }, []);
 
-  useEffect(() => {
-    load();
-  }, [projectId]);
+  useRouteLoad(load, [projectId], reset);
   useFocusPoll(load, 20_000);
 
   if (!projectId) {
