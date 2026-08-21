@@ -60,14 +60,12 @@ describe("interactive fake engine", () => {
     const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
     const scripted = createScriptedIo([
       "1",
-      "2",
+      "3",
       "",
       "typo を直す",
       "",
       "done",
-      "end",
-      "",
-      "申し送り: 目標を宣言した",
+      'json end_session {"handover":"申し送り: 目標を宣言した"}',
     ]);
     const plugin = createInteractiveFakeEnginePlugin({
       io: scripted.io,
