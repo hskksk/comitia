@@ -152,7 +152,7 @@ export async function resolveUniqueMembershipProjectId(
   return null;
 }
 
-/** Human credentials may still carry a legacy projectId; agents always have one. */
+/** Human credentials may still carry a legacy projectId. Agent tools resolve via membership + focus. */
 export async function resolveHumanProjectId(
   db: Db,
   input: {
@@ -172,4 +172,49 @@ export async function resolveHumanProjectId(
   }
   await assertProjectMember(db, projectId, input.participantId);
   return projectId;
+}
+
+export const PROJECT_ID_REQUIRED_MESSAGE =
+  "project_id が必要です。所属が複数あるので、use_project で今日関わるプロジェクトを選ぶか、ツール引数で指定してください";
+
+export async function resolveAgentToolProjectId(
+  db: Db,
+  input: {
+    participantId: string;
+    requestedProjectId?: string | null;
+    focusProjectId?: string | null;
+  },
+) {
+  const projectId =
+    input.requestedProjectId ||
+    input.focusProjectId ||
+    (await resolveUniqueMembershipProjectId(db, input.participantId));
+  if (!projectId) {
+    throw new GateViolation(PROJECT_ID_REQUIRED_MESSAGE);
+  }
+  await assertProjectMember(db, projectId, input.participantId);
+  return projectId;
+}
+
+export async function addOwnedAgentToProject(
+  db: Db,
+  input: { actorId: string; agentId: string; projectId: string },
+) {
+  await assertProjectMember(db, input.projectId, input.actorId);
+  const actor = await getParticipant(db, input.actorId);
+  if (actor.kind !== "human") {
+    throw new PermissionDenied("人間だけがエージェントをプロジェクトに足せます");
+  }
+  const agent = await getParticipant(db, input.agentId);
+  if (agent.kind !== "agent" || agent.archivedAt) {
+    throw new NotFoundError("エージェントが見つかりません");
+  }
+  if (agent.ownerParticipantId !== input.actorId) {
+    throw new PermissionDenied("登録オーナーだけが自分のエージェントを足せます");
+  }
+  return addMembership(db, {
+    projectId: input.projectId,
+    participantId: input.agentId,
+    actorId: input.actorId,
+  });
 }

@@ -76,7 +76,7 @@ describe("parseRunCommand", () => {
       kind: "help-tool",
       query: "7",
     });
-    expect(resolveToolChoice("8")?.name).toBe("create_thread");
+    expect(resolveToolChoice("9")?.name).toBe("create_thread");
     expect(resolveToolChoice("post")?.name).toBe("post");
     expect(parseRunCommand("end")).toEqual({
       kind: "tool",

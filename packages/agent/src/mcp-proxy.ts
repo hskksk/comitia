@@ -14,6 +14,7 @@ import { z } from "zod";
 
 export const MCP_PROXY_TOOLS = [
   "get_briefing",
+  "use_project",
   "set_goals",
   "complete_goal",
   "search_threads",
@@ -100,6 +101,19 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   );
 
   server.registerTool(
+    "use_project",
+    {
+      description:
+        "このセッションで関わるプロジェクトを選ぶ。所属が複数あるときは書く操作の前に呼ぶ",
+      inputSchema: {
+        project_id: z.string().uuid(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("use_project", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
     "set_goals",
     {
       description: "その日の目標を宣言する",
@@ -127,6 +141,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
     {
       description: "プロジェクト内のスレッドを検索する",
       inputSchema: {
+        project_id: z.string().uuid().optional(),
         textQuery: z.string().optional(),
         state: z.enum(THREAD_STATES).optional(),
       },
@@ -140,6 +155,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
     {
       description: "合意物（決定）を検索する",
       inputSchema: {
+        project_id: z.string().uuid().optional(),
         onlyActiveBinding: z.boolean().optional(),
       },
     },
@@ -188,6 +204,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
         engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
+        project_id: z.string().uuid().optional(),
       },
     },
     async (args) =>
@@ -264,7 +281,9 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
     "list_work_claims",
     {
       description: "プロジェクトの active な着手を見る",
-      inputSchema: {},
+      inputSchema: {
+        project_id: z.string().uuid().optional(),
+      },
     },
     async (args) =>
       runtime.callTool("list_work_claims", args as Record<string, unknown>),
@@ -292,6 +311,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
         body: z.string().min(1),
         format: z.enum(["file", "journal"]),
         visibility: z.enum(["public", "private"]).optional(),
+        project_id: z.string().uuid().optional(),
       },
     },
     async (args) => runtime.callTool("write_note", args as Record<string, unknown>),
@@ -303,6 +323,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
       description: "公開メモと自分の非公開メモを検索する",
       inputSchema: {
         textQuery: z.string().optional(),
+        project_id: z.string().uuid().optional(),
       },
     },
     async (args) => runtime.callTool("search_notes", args as Record<string, unknown>),
@@ -347,9 +368,17 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   server.registerTool(
     "end_session",
     {
-      description: "セッションを終了する（申し送り必須）",
+      description: "セッションを終了する（申し送り必須。プロジェクトごとに何をしたかを書く）",
       inputSchema: {
         handover: z.string(),
+        projects: z
+          .array(
+            z.object({
+              project_id: z.string().uuid(),
+              summary: z.string(),
+            }),
+          )
+          .optional(),
       },
     },
     async (args) =>

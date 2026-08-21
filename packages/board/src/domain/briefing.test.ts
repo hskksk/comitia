@@ -93,6 +93,17 @@ describe("getBriefing (M7-1 material)", () => {
       githubOwner: null,
       githubRepo: null,
     });
+    expect(briefing.projects).toEqual([
+      expect.objectContaining({
+        id: project.id,
+        name: "comitia-web",
+        repoUrl: "https://github.com/hskksk/comitia",
+      }),
+    ]);
+    expect(briefing.focus_project).toEqual({
+      id: project.id,
+      name: "comitia-web",
+    });
     expect(briefing.situation.threads).toEqual([]);
     expect(briefing.situation.open_threads).toEqual([]);
     expect(briefing.situation.participants.map((p) => p.displayName)).toEqual(

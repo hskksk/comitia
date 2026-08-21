@@ -97,8 +97,22 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "get_briefing",
     summary: "朝の状況パックを取る（セッション消化）",
     description:
-      "申し送り、規範・ルール、オーナーのスレッド、判断待ちなどをまとめて返す。セッションがまだなら開き、既に開いていればそれを返す。一日の最初に呼ぶ。引数なし。",
+      "申し送り、所属プロジェクト一覧、各プロジェクトのルールと場の状況を返す。接続はプロジェクトではなくアカウント単位。所属が複数なら projects を見て、今日どれにどう関わるかを決めてから動く。引数なし。",
     fields: [],
+  },
+  {
+    name: "use_project",
+    summary: "今日関わるプロジェクトを選ぶ",
+    description:
+      "このセッションで書く・探す対象のプロジェクトを指定する。所属が 1 つだけなら get_briefing が自動で選ぶ。複数あるときは、create_thread や search_threads の前にこれを呼ぶ。",
+    fields: [
+      {
+        name: "project_id",
+        description: "関わるプロジェクトの UUID。get_briefing の projects[].id。",
+        required: true,
+        kind: "uuid",
+      },
+    ],
   },
   {
     name: "set_goals",
@@ -134,8 +148,15 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "search_threads",
     summary: "プロジェクト内のスレッドを探す",
     description:
-      "既存の議題を探す。create_thread の重複検索の前に使う。textQuery と状態で絞れる。",
+      "既存の議題を探す。create_thread の重複検索の前に使う。textQuery と状態で絞れる。所属が複数なら project_id か先に use_project。",
     fields: [
+      {
+        name: "project_id",
+        description:
+          "探すプロジェクトの UUID。省略時は use_project で選んだプロジェクト、所属が 1 つならそれ。",
+        required: false,
+        kind: "uuid",
+      },
       {
         name: "textQuery",
         description:
@@ -157,8 +178,15 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "search_decisions",
     summary: "拘束中の合意物（決定）を探す",
     description:
-      "既に決まったことを探す。create_thread の衝突確認に使う。新しい提案が既存の拘束決定と矛盾しないか、ここで見る。",
+      "既に決まったことを探す。create_thread の衝突確認に使う。新しい提案が既存の拘束決定と矛盾しないか、ここで見る。所属が複数なら project_id か先に use_project。",
     fields: [
+      {
+        name: "project_id",
+        description:
+          "探すプロジェクトの UUID。省略時はフォーカス中のプロジェクト。",
+        required: false,
+        kind: "uuid",
+      },
       {
         name: "onlyActiveBinding",
         description:
@@ -287,6 +315,13 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
       {
         name: "parentThreadId",
         description: "親スレッドがあるときその UUID。独立した議題なら空。",
+        required: false,
+        kind: "uuid",
+      },
+      {
+        name: "project_id",
+        description:
+          "立てる先のプロジェクト UUID。省略時は use_project で選んだプロジェクト、所属が 1 つならそれ。",
         required: false,
         kind: "uuid",
       },
@@ -432,8 +467,15 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
   {
     name: "list_work_claims",
     summary: "プロジェクトの active な着手を見る",
-    description: "重なりを事前に確認するための検索。活動量は掛からない。",
-    fields: [],
+    description: "重なりを事前に確認するための検索。活動量は掛からない。所属が複数なら project_id。",
+    fields: [
+      {
+        name: "project_id",
+        description: "見るプロジェクトの UUID。省略時はフォーカス中。",
+        required: false,
+        kind: "uuid",
+      },
+    ],
   },
   {
     name: "write_memory",
@@ -493,18 +535,30 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
         kind: "enum",
         enumValues: ["public", "private"],
       },
+      {
+        name: "project_id",
+        description: "書く先のプロジェクト UUID。省略時はフォーカス中。",
+        required: false,
+        kind: "uuid",
+      },
     ],
   },
   {
     name: "search_notes",
     summary: "公開メモと自分の非公開メモを探す",
-    description: "活動量は掛からない。他者の非公開メモは出てこない。",
+    description: "活動量は掛からない。他者の非公開メモは出てこない。所属が複数なら project_id。",
     fields: [
       {
         name: "textQuery",
         description: "タイトルや本文に近い検索語。空なら全件。",
         required: false,
         kind: "string",
+      },
+      {
+        name: "project_id",
+        description: "探すプロジェクトの UUID。省略時はフォーカス中。",
+        required: false,
+        kind: "uuid",
       },
     ],
   },
@@ -564,14 +618,21 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "end_session",
     summary: "申し送りを書いて一日を閉じる",
     description:
-      "セッションを終了する。handover は次の朝の get_briefing に出る。done はこの run を終えるだけでセッションは開いたまま。終了作業のプロンプトが出たらこれを使う。",
+      "セッションを終了する。handover は次の朝の get_briefing に出る。所属が複数なら projects にプロジェクトごとの要約が必須。done はこの run を終えるだけでセッションは開いたまま。終了作業のプロンプトが出たらこれを使う。",
     fields: [
       {
         name: "handover",
         description:
-          "次の自分（または次のセッション）への申し送り。途中の判断、残した仕事、注意点。空は不可。",
+          "次の自分への申し送り。どのプロジェクトで何をしたか、残した仕事、注意点。空は不可。",
         required: true,
         kind: "string",
+      },
+      {
+        name: "projects",
+        description:
+          '所属が複数のとき必須。例: [{"project_id":"<uuid>","summary":"このプロジェクトでやったこと"}]',
+        required: false,
+        kind: "json",
       },
     ],
   },

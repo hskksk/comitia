@@ -12,6 +12,7 @@ import {
 import { openOrGetSession } from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
+import { addMembership } from "./memberships.js";
 import { createThread } from "./threads.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 import { adoptDefaultFounding } from "./founding.js";
@@ -34,6 +35,11 @@ describe("activity budget", () => {
     await adoptDefaultFounding(db, {
       projectId: project.id,
       ownerId: owner.id,
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: agent.id,
+      actorId: owner.id,
     });
     const session = await openOrGetSession(db, {
       participantId: agent.id,

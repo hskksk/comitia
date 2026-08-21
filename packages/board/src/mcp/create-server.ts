@@ -21,7 +21,11 @@ import {
   NotFoundError,
   PermissionDenied,
 } from "../domain/errors.js";
-import { getThreadRow } from "../domain/helpers.js";
+import { getProject, getThreadRow } from "../domain/helpers.js";
+import {
+  resolveAgentToolProjectId,
+  assertProjectMember,
+} from "../domain/memberships.js";
 import { listActiveMemory, writeMemory } from "../domain/memory.js";
 import { commentNote, readNote, searchNotes, writeNote } from "../domain/notes.js";
 import { addPost } from "../domain/posts.js";
@@ -30,8 +34,11 @@ import { readThread } from "../domain/read-thread.js";
 import {
   completeGoal,
   endSession,
+  getSessionById,
   openOrGetSession,
+  recordSessionProjectEngagement,
   setGoals,
+  setSessionFocus,
 } from "../domain/sessions.js";
 import { createThread, searchThreads } from "../domain/threads.js";
 import { listSystemTemplates } from "../catalog/index.js";
@@ -82,19 +89,46 @@ function mapDomainError(error: unknown): ToolCallResult | null {
 export function createBoardToolRuntime(input: {
   db: Db;
   participantId: string;
-  projectId: string;
+  projectId?: string | null;
   github?: GitHubClient;
 }) {
-  const { db, participantId, projectId, github } = input;
+  const { db, participantId, github } = input;
   let sessionId: string | null = null;
 
   async function ensureSessionId(): Promise<string> {
     if (sessionId) {
       return sessionId;
     }
-    const session = await openOrGetSession(db, { participantId, projectId });
+    const session = await openOrGetSession(db, { participantId });
     sessionId = session.id;
     return session.id;
+  }
+
+  async function resolveScopedProjectId(raw?: unknown): Promise<string> {
+    const sid = await ensureSessionId();
+    const session = await getSessionById(db, sid);
+    const requested = typeof raw === "string" ? raw : undefined;
+    const projectId = await resolveAgentToolProjectId(db, {
+      participantId,
+      requestedProjectId: requested,
+      focusProjectId: session.focusProjectId,
+    });
+    await recordSessionProjectEngagement(db, {
+      sessionId: sid,
+      projectId,
+    });
+    return projectId;
+  }
+
+  async function assertThreadAccess(threadId: string) {
+    const thread = await getThreadRow(db, threadId);
+    await assertProjectMember(db, thread.projectId, participantId);
+    const sid = await ensureSessionId();
+    await recordSessionProjectEngagement(db, {
+      sessionId: sid,
+      projectId: thread.projectId,
+    });
+    return thread;
   }
 
   async function runTool(
@@ -135,7 +169,7 @@ export function createBoardToolRuntime(input: {
   const handlers: Record<string, ToolHandler> = {
     get_briefing: async () => {
       try {
-        const briefing = await getBriefing(db, { participantId, projectId });
+        const briefing = await getBriefing(db, { participantId });
         sessionId = briefing.sessionId;
         const remaining = await spend(db, briefing.sessionId, "get_briefing");
         const { sessionId: _sid, remaining_budget: _rb, ...pack } = briefing;
@@ -148,6 +182,26 @@ export function createBoardToolRuntime(input: {
         throw error;
       }
     },
+
+    use_project: async (args) =>
+      runTool("use_project", async () => {
+        const sid = await ensureSessionId();
+        const parsed = z.object({ project_id: z.string().uuid() }).parse(args);
+        await assertProjectMember(db, parsed.project_id, participantId);
+        const project = await getProject(db, parsed.project_id);
+        await setSessionFocus(db, {
+          sessionId: sid,
+          projectId: parsed.project_id,
+        });
+        return {
+          ok: true,
+          project: {
+            id: project.id,
+            name: project.name,
+            repoUrl: project.repoUrl,
+          },
+        };
+      }),
 
     set_goals: async (args) =>
       runTool("set_goals", async () => {
@@ -175,12 +229,14 @@ export function createBoardToolRuntime(input: {
       runTool("search_threads", async () => {
         const parsed = z
           .object({
+            project_id: z.string().uuid().optional(),
             textQuery: z.string().optional(),
             state: z.enum(THREAD_STATES).optional(),
           })
           .parse(args);
+        const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
         const rows = await searchThreads(db, {
-          projectId,
+          projectId: scopedProjectId,
           textQuery: parsed.textQuery,
           state: parsed.state,
         });
@@ -197,10 +253,14 @@ export function createBoardToolRuntime(input: {
     search_decisions: async (args) =>
       runTool("search_decisions", async () => {
         const parsed = z
-          .object({ onlyActiveBinding: z.boolean().optional() })
+          .object({
+            project_id: z.string().uuid().optional(),
+            onlyActiveBinding: z.boolean().optional(),
+          })
           .parse(args);
+        const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
         const rows = await searchAgreements(db, {
-          projectId,
+          projectId: scopedProjectId,
           onlyActiveBinding: parsed.onlyActiveBinding,
         });
         return { agreements: rows };
@@ -230,6 +290,7 @@ export function createBoardToolRuntime(input: {
         "read_thread",
         async () => {
           const parsed = z.object({ thread_id: z.string().uuid() }).parse(args);
+          await assertThreadAccess(parsed.thread_id);
           return (await readThread(db, parsed.thread_id)) as unknown as Record<
             string,
             unknown
@@ -254,10 +315,12 @@ export function createBoardToolRuntime(input: {
             conflictCitationsChecked: z.boolean().optional(),
             parentThreadId: z.string().uuid().optional(),
             engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
+            project_id: z.string().uuid().optional(),
           })
           .parse(args);
+        const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
         const thread = await createThread(db, {
-          projectId,
+          projectId: scopedProjectId,
           ownerId: participantId,
           type: parsed.type,
           title: parsed.title,
@@ -285,6 +348,7 @@ export function createBoardToolRuntime(input: {
               content: z.string().min(1),
             })
             .parse(args);
+          await assertThreadAccess(parsed.thread_id);
           const { proposal, version } = await addProposal(db, {
             threadId: parsed.thread_id,
             authorId: participantId,
@@ -315,6 +379,7 @@ export function createBoardToolRuntime(input: {
               proposal_version_id: z.string().uuid().optional(),
             })
             .parse(args);
+          await assertThreadAccess(parsed.thread_id);
           const post = await addPost(db, {
             threadId: parsed.thread_id,
             authorId: participantId,
@@ -345,6 +410,7 @@ export function createBoardToolRuntime(input: {
               payload: z.record(z.string(), z.unknown()).default({}),
             })
             .parse(args);
+          await assertThreadAccess(parsed.thread_id);
           const result = await declare(db as DbClient, {
             threadId: parsed.thread_id,
             actorId: participantId,
@@ -375,6 +441,7 @@ export function createBoardToolRuntime(input: {
               url: z.string().url(),
             })
             .parse(args);
+          await assertThreadAccess(parsed.thread_id);
           const row = await linkPullRequest(db, github, {
             threadId: parsed.thread_id,
             actorId: participantId,
@@ -403,6 +470,7 @@ export function createBoardToolRuntime(input: {
               paths: z.array(z.string().min(1)).min(1),
             })
             .parse(args);
+          await assertThreadAccess(parsed.thread_id);
           const result = await claimWork(db, {
             threadId: parsed.thread_id,
             participantId,
@@ -430,10 +498,16 @@ export function createBoardToolRuntime(input: {
         return { claim_id: claim.id, active: claim.active };
       }),
 
-    list_work_claims: async () =>
-      runTool("list_work_claims", async () => ({
-        claims: await listActiveProjectClaims(db, projectId),
-      })),
+    list_work_claims: async (args) =>
+      runTool("list_work_claims", async () => {
+        const parsed = z
+          .object({ project_id: z.string().uuid().optional() })
+          .parse(args);
+        const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
+        return {
+          claims: await listActiveProjectClaims(db, scopedProjectId),
+        };
+      }),
 
     write_memory: async (args) =>
       runTool("write_memory", async () => {
@@ -457,11 +531,13 @@ export function createBoardToolRuntime(input: {
             body: z.string().min(1),
             format: z.enum(["file", "journal"]),
             visibility: z.enum(["public", "private"]).optional(),
+            project_id: z.string().uuid().optional(),
           })
           .parse(args);
+        const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
         const note = await writeNote(db, {
           authorParticipantId: participantId,
-          projectId,
+          projectId: scopedProjectId,
           noteId: parsed.note_id,
           title: parsed.title,
           body: parsed.body,
@@ -477,10 +553,16 @@ export function createBoardToolRuntime(input: {
 
     search_notes: async (args) =>
       runTool("search_notes", async () => {
-        const parsed = z.object({ textQuery: z.string().optional() }).parse(args);
+        const parsed = z
+          .object({
+            textQuery: z.string().optional(),
+            project_id: z.string().uuid().optional(),
+          })
+          .parse(args);
+        const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
         const notes = await searchNotes(db, {
           callerId: participantId,
-          projectId,
+          projectId: scopedProjectId,
           textQuery: parsed.textQuery,
         });
         return {
@@ -522,12 +604,31 @@ export function createBoardToolRuntime(input: {
     end_session: async (args) => {
       try {
         const sid = await ensureSessionId();
-        const parsed = z.object({ handover: z.string() }).parse(args);
+        const parsed = z
+          .object({
+            handover: z.string(),
+            projects: z
+              .array(
+                z.object({
+                  project_id: z.string().uuid(),
+                  summary: z.string(),
+                }),
+              )
+              .optional(),
+          })
+          .parse(args);
         if (!parsed.handover.trim()) {
           return toolError("申し送り（handover）は必須です");
         }
         const remaining = await spend(db, sid, "end_session");
-        await endSession(db, { sessionId: sid, handover: parsed.handover });
+        await endSession(db, {
+          sessionId: sid,
+          handover: parsed.handover,
+          projects: parsed.projects?.map((row) => ({
+            projectId: row.project_id,
+            summary: row.summary,
+          })),
+        });
         sessionId = null;
         return jsonResult({ ok: true, remaining_budget: remaining });
       } catch (error) {
@@ -564,7 +665,7 @@ export type BoardToolRuntime = ReturnType<typeof createBoardToolRuntime>;
 export function createBoardMcpServer(input: {
   db: Db;
   participantId: string;
-  projectId: string;
+  projectId?: string | null;
   github?: GitHubClient;
 }) {
   const runtime = createBoardToolRuntime(input);
@@ -581,6 +682,19 @@ export function createBoardMcpServer(input: {
       inputSchema: {},
     },
     async () => runtime.callTool("get_briefing"),
+  );
+
+  server.registerTool(
+    "use_project",
+    {
+      description:
+        "このセッションで関わるプロジェクトを選ぶ。所属が複数あるときは書く操作の前に呼ぶ",
+      inputSchema: {
+        project_id: z.string().uuid(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("use_project", args as Record<string, unknown>),
   );
 
   server.registerTool(
@@ -611,6 +725,7 @@ export function createBoardMcpServer(input: {
     {
       description: "プロジェクト内のスレッドを検索する",
       inputSchema: {
+        project_id: z.string().uuid().optional(),
         textQuery: z.string().optional(),
         state: z.enum(THREAD_STATES).optional(),
       },
@@ -624,6 +739,7 @@ export function createBoardMcpServer(input: {
     {
       description: "合意物（決定）を検索する",
       inputSchema: {
+        project_id: z.string().uuid().optional(),
         onlyActiveBinding: z.boolean().optional(),
       },
     },
@@ -672,6 +788,7 @@ export function createBoardMcpServer(input: {
         conflictCitationsChecked: z.boolean().optional(),
         parentThreadId: z.string().uuid().optional(),
         engineDiversity: z.enum(ENGINE_DIVERSITY).optional(),
+        project_id: z.string().uuid().optional(),
       },
     },
     async (args) =>
@@ -761,7 +878,9 @@ export function createBoardMcpServer(input: {
     "list_work_claims",
     {
       description: "プロジェクトの active な着手を見る",
-      inputSchema: {},
+      inputSchema: {
+        project_id: z.string().uuid().optional(),
+      },
     },
     async (args) =>
       runtime.callTool("list_work_claims", args as Record<string, unknown>),
@@ -789,6 +908,7 @@ export function createBoardMcpServer(input: {
         body: z.string().min(1),
         format: z.enum(["file", "journal"]),
         visibility: z.enum(["public", "private"]).optional(),
+        project_id: z.string().uuid().optional(),
       },
     },
     async (args) => runtime.callTool("write_note", args as Record<string, unknown>),
@@ -800,6 +920,7 @@ export function createBoardMcpServer(input: {
       description: "公開メモと自分の非公開メモを検索する",
       inputSchema: {
         textQuery: z.string().optional(),
+        project_id: z.string().uuid().optional(),
       },
     },
     async (args) => runtime.callTool("search_notes", args as Record<string, unknown>),
@@ -831,9 +952,17 @@ export function createBoardMcpServer(input: {
   server.registerTool(
     "end_session",
     {
-      description: "セッションを終了する（申し送り必須）",
+      description: "セッションを終了する（申し送り必須。プロジェクトごとに何をしたかを書く）",
       inputSchema: {
         handover: z.string(),
+        projects: z
+          .array(
+            z.object({
+              project_id: z.string().uuid(),
+              summary: z.string(),
+            }),
+          )
+          .optional(),
       },
     },
     async (args) =>
