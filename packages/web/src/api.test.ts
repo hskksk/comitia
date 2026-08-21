@@ -61,6 +61,35 @@ describe("BoardClient", () => {
     expect(getCurrentProjectId()).toBe("proj-1");
   });
 
+  it("follows authenticated redirects for browser navigation", async () => {
+    setToken("comt_abc");
+    setCurrentProjectId("proj-1");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://github.com/apps/comitia-board/installations/new" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const location = await new BoardClient().beginAuthenticatedRedirect(
+      "/v1/github/install",
+    );
+    expect(location).toBe(
+      "https://github.com/apps/comitia-board/installations/new",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/v1/github/install",
+      expect.objectContaining({
+        redirect: "manual",
+        headers: expect.objectContaining({
+          authorization: "Bearer comt_abc",
+          "x-comitia-project-id": "proj-1",
+        }),
+      }),
+    );
+  });
+
   it("clears the stored token and throws on 401", async () => {
     setToken("bad");
     vi.stubGlobal(
