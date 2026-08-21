@@ -16,7 +16,9 @@
     "start": "node dist/http/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "seed": "tsx src/seed/main.ts",
+    "seed:reset": "tsx src/seed/main.ts --reset"
   },
   "dependencies": {
     "@a2a-js/sdk": "1.0.0",
