@@ -21,6 +21,8 @@ describe("seed populate", () => {
       projectRule: { templateId: "default" },
       threadTemplate: { templateId: "default" },
     });
+    expect(SEED_PROJECT_NAME).toBe("test_project");
+    expect(project.name).toBe("test_project");
     expect(await getProjectSetup(db, project.id)).toEqual({
       projectRule: true,
       threadTemplate: true,
