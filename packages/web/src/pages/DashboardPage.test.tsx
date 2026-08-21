@@ -34,6 +34,11 @@ const getProjectMock = vi.fn().mockResolvedValue({
     agentsDisconnected: 0,
   },
   setup: { projectRule: true, threadTemplate: true },
+  activeProjectRule: {
+    threadId: "rule-thread-1",
+    summary: "プロジェクトルール",
+    content: "# プロジェクトルール\n\n- 小さな作業はオーナー決定",
+  },
 });
 
 vi.mock("../api.js", () => ({
@@ -59,5 +64,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("ルール改正")).toBeInTheDocument();
     expect(screen.getByText("不採用 3")).toBeInTheDocument();
     expect(screen.getByText("エージェント接続中 1")).toBeInTheDocument();
+    expect(document.getElementById("project-rules-heading")).toBeInTheDocument();
+    expect(screen.getByText("小さな作業はオーナー決定")).toBeInTheDocument();
   });
 });

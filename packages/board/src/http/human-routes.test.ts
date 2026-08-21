@@ -852,6 +852,9 @@ describe("human ops REST", () => {
     expect(summary.status).toBe(200);
     expect(await summary.json()).toMatchObject({
       setup: { projectRule: true, threadTemplate: true },
+      activeProjectRule: {
+        content: expect.stringContaining("プロジェクトルール（軽量）"),
+      },
     });
   });
 });

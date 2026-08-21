@@ -59,6 +59,11 @@ export type ProjectSummary = {
     projectRule: boolean;
     threadTemplate: boolean;
   };
+  activeProjectRule: {
+    threadId: string;
+    summary: string;
+    content: string;
+  } | null;
 };
 
 export type EventItem = {

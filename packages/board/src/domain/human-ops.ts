@@ -13,7 +13,7 @@ import {
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
-import { getProjectSetup } from "./constitution.js";
+import { getActiveSharedArtifact, getProjectSetup } from "./constitution.js";
 import { PermissionDenied } from "./errors.js";
 import { getParticipant, getProject } from "./helpers.js";
 import { listNonblockingInbox, listJudgmentQueue } from "./human-views.js";
@@ -48,10 +48,11 @@ export async function getProjectSummary(db: Db, projectId: string) {
     threadCounts[row.state] += 1;
   }
 
-  const [queue, inbox, setup] = await Promise.all([
+  const [queue, inbox, setup, activeProjectRule] = await Promise.all([
     listJudgmentQueue(db, { projectId }),
     listNonblockingInbox(db, { projectId }),
     getProjectSetup(db, projectId),
+    getActiveSharedArtifact(db, projectId, "project_rule"),
   ]);
 
   return {
@@ -72,6 +73,7 @@ export async function getProjectSummary(db: Db, projectId: string) {
       enteredAt: item.enteredAt,
     })),
     setup,
+    activeProjectRule,
   };
 }
 

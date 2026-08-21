@@ -9,7 +9,7 @@ import { registerParticipant } from "./participants.js";
 import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
-import { getProjectSetup } from "./constitution.js";
+import { getProjectSetup, getActiveSharedArtifact } from "./constitution.js";
 
 describe("system templates", () => {
   it("lists project_rule and thread_template catalogs", () => {
@@ -233,5 +233,23 @@ describe("project setup gate", () => {
       projectRule: true,
       threadTemplate: true,
     });
+  });
+
+  it("returns active shared artifact content for the dashboard", async () => {
+    const owner = await registerParticipant(db, {
+      kind: "human",
+      displayName: "ハル",
+    });
+    const project = await createProject(db, {
+      name: "ready",
+      ownerParticipantId: owner.id,
+      projectRule: { templateId: "lightweight" },
+    });
+
+    const artifact = await getActiveSharedArtifact(db, project.id, "project_rule");
+    expect(artifact).not.toBeNull();
+    expect(artifact!.content).toContain("プロジェクトルール（軽量）");
+    expect(artifact!.summary).toBeTruthy();
+    expect(artifact!.threadId).toBeTruthy();
   });
 });

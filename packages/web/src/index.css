@@ -424,6 +424,50 @@ option:disabled {
   margin: 0.25rem 0 0;
 }
 
+.project-rules-hero {
+  margin: 0 0 1.5rem;
+  padding: 1.25rem 1.35rem;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-card);
+}
+
+.project-rules-hero-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.project-rules-hero-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--color-accent);
+}
+
+.project-rules-hero-link {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+.project-rules-hero-body {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.project-rules-hero-body h1 {
+  font-size: 1.5rem;
+}
+
+.project-rules-hero-body h2 {
+  font-size: 1.2rem;
+}
+
+.project-rules-hero-body h3 {
+  font-size: 1.05rem;
+}
+
 .hint {
   display: block;
   margin-top: 0.35rem;
