@@ -240,7 +240,7 @@ describe("interactive fake engine", () => {
     const scripted = createScriptedIo([
       "help",
       "help create_thread",
-      "help 9",
+      "help post",
       "help nope",
       "done",
     ]);

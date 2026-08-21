@@ -177,7 +177,6 @@ describe("シナリオ2: 対立する設計判断", () => {
         title: "矛盾するスレッド",
         trigger: "新しい提案",
         duplicateSearchQuery: "test",
-        conflictCitationsChecked: true,
       }),
     ).rejects.toThrow(GateViolation);
 
