@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type EventItem, type ProjectSummary } from "../api.js";
+import { CollapsibleMarkdown } from "../components/CollapsibleMarkdown.js";
 import { judgmentNeedLabel, threadStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
@@ -82,6 +83,27 @@ export function DashboardPage() {
             </Link>
           </p>
         </div>
+      ) : null}
+      {summary.activeProjectRule ? (
+        <section className="project-rules-hero" aria-labelledby="project-rules-heading">
+          <div className="project-rules-hero-header">
+            <h2 id="project-rules-heading">プロジェクトルール</h2>
+            <Link
+              to={projectPath(
+                projectId,
+                `threads/${summary.activeProjectRule.threadId}`,
+              )}
+              className="project-rules-hero-link muted"
+            >
+              スレッドへ
+            </Link>
+          </div>
+          <CollapsibleMarkdown
+            source={summary.activeProjectRule.content}
+            previewLines={5}
+            className="project-rules-hero-body"
+          />
+        </section>
       ) : null}
       <p className="muted">
         {summary.repoUrl ? (
