@@ -97,6 +97,20 @@ export function ProjectSettingsPage() {
     }
   }
 
+  async function onInstallGitHubApp() {
+    setError(null);
+    try {
+      const url = await boardClient.beginAuthenticatedRedirect("/v1/github/install");
+      window.location.assign(url);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "GitHub App のインストールに失敗しました",
+      );
+    }
+  }
+
   async function onRemoveMember(participantId: string) {
     if (!projectId) {
       return;
@@ -151,9 +165,13 @@ export function ProjectSettingsPage() {
         <section className="composer">
           <h2>GitHub App</h2>
           <p>
-            <a className="back-link" href="/v1/github/install">
+            <button
+              type="button"
+              className="back-link"
+              onClick={() => void onInstallGitHubApp()}
+            >
               GitHub App をインストール
-            </a>
+            </button>
           </p>
         </section>
       ) : null}
