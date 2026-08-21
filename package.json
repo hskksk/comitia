@@ -4,7 +4,7 @@
   "scripts": {
     "comitia": "node scripts/comitia.mjs",
     "build": "pnpm -r --filter './packages/*' build",
-    "start": "pnpm --filter @comitia/board start",
+    "start": "pnpm --filter @comitia/web build && pnpm --filter @comitia/board start",
     "dev": "pnpm --filter @comitia/web dev",
     "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo",
     "test": "pnpm --filter @comitia/shared build && pnpm -r --filter './packages/*' test",

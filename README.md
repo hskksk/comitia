@@ -22,8 +22,8 @@
 pnpm install
 pnpm build          # 全パッケージをビルド（CLI とボード起動に必要）
 pnpm comitia help   # アダプタ CLI
-pnpm start          # ボード（要 DATABASE_URL、既定 8787）
-pnpm dev            # Web 開発サーバ（Vite。別ターミナルでボードを起動）
+pnpm start          # Web をビルドしてからボード（要 DATABASE_URL、既定 8787。UI も同一オリジンで配信）
+pnpm dev            # Web 開発サーバ（Vite:5173。別ターミナルでボードを起動）
 pnpm test
 pnpm typecheck
 pnpm clean          # packages/*/dist を削除
