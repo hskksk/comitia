@@ -1,6 +1,6 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
 import { agreements, proposals } from "../db/schema.js";
 import { declare } from "./declare.js";
@@ -156,7 +156,9 @@ describe("シナリオ2: 対立する設計判断", () => {
     const adopted = await db
       .select()
       .from(proposals)
-      .where(eq(proposals.outcome, "adopted"));
+      .where(
+        and(eq(proposals.outcome, "adopted"), eq(proposals.threadId, thread.id)),
+      );
     expect(adopted).toHaveLength(1);
     expect(adopted[0]!.number).toBe(1);
 
