@@ -99,6 +99,7 @@ describe("agent project context", () => {
         title: "comitia の相談",
         trigger: "選んだプロジェクトで書く",
         duplicateSearchQuery: "comitia 相談",
+        conflictCitationsChecked: true,
       }),
     );
     expect(created.thread_id).toEqual(expect.any(String));

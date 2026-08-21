@@ -114,11 +114,7 @@ describe("session digest", () => {
       .select()
       .from(sessions)
       .where(
-        and(
-          eq(sessions.participantId, agent.id),
-          eq(sessions.projectId, project.id),
-          isNull(sessions.endedAt),
-        ),
+        and(eq(sessions.participantId, agent.id), isNull(sessions.endedAt)),
       );
     expect(rows).toHaveLength(1);
   });
@@ -148,8 +144,8 @@ describe("session digest", () => {
       .from(events)
       .where(
         and(
-          eq(events.projectId, project.id),
           eq(events.kind, "session_interrupted"),
+          sql`${events.payload}->>'sessionId' = ${session.id}`,
         ),
       );
     expect(recorded).toHaveLength(1);
@@ -171,8 +167,8 @@ describe("session digest", () => {
       .from(events)
       .where(
         and(
-          eq(events.projectId, project.id),
           eq(events.kind, "session_digested"),
+          sql`${events.payload}->>'sessionId' = ${session.id}`,
         ),
       );
     expect(recorded).toHaveLength(1);
