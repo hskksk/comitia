@@ -113,3 +113,25 @@ export async function spend(
 
   return computeRemaining(updated!);
 }
+
+/** Undo a charge when the tool failed before doing useful work (gate / auth / parse). */
+export async function refundSpend(
+  db: Db,
+  sessionId: string,
+  toolName: string,
+): Promise<number> {
+  const cost = getToolCost(toolName);
+  if (cost === 0) {
+    return getRemainingBudget(db, sessionId);
+  }
+
+  const session = await getSessionRow(db, sessionId);
+  const nextUsed = Math.max(0, session.budgetUsed - cost);
+  const [updated] = await db
+    .update(sessions)
+    .set({ budgetUsed: nextUsed })
+    .where(eq(sessions.id, sessionId))
+    .returning();
+
+  return computeRemaining(updated!);
+}

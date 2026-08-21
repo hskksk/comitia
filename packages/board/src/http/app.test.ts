@@ -106,6 +106,7 @@ describe("board HTTP", () => {
       label: "ミカ@ハル",
       owner: { displayName: "ハル" },
       project: { name: "comitia" },
+      projects: [expect.objectContaining({ name: "comitia" })],
     });
   });
 

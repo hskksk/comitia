@@ -21,6 +21,7 @@ describe("board tool catalog", () => {
   it("lists tools and the done / end shortcuts", () => {
     const menu = formatToolMenu();
     expect(menu).toContain("get_briefing");
+    expect(menu).toContain("use_project");
     expect(menu).toContain("end_session");
     expect(menu).toContain("done");
     expect(menu).toContain("Esc");
@@ -76,7 +77,9 @@ describe("parseRunCommand", () => {
       kind: "help-tool",
       query: "7",
     });
-    expect(resolveToolChoice("8")?.name).toBe("create_thread");
+    expect(resolveToolChoice("2")?.name).toBe("use_project");
+    expect(resolveToolChoice("3")?.name).toBe("set_goals");
+    expect(resolveToolChoice("9")?.name).toBe("create_thread");
     expect(resolveToolChoice("post")?.name).toBe("post");
     expect(parseRunCommand("end")).toEqual({
       kind: "tool",

@@ -36,8 +36,14 @@ export async function buildMeResponse(
     const owner = input.participant.ownerParticipantId
       ? await getParticipant(db, input.participant.ownerParticipantId)
       : null;
+    const memberships = await listMembershipsForParticipant(
+      db,
+      input.participant.id,
+    );
     const projectId =
-      input.selectedProjectId ?? input.credentialProjectId ?? null;
+      input.selectedProjectId ??
+      input.credentialProjectId ??
+      (memberships.length === 1 ? memberships[0]!.id : null);
     const project = projectId ? await getProject(db, projectId) : null;
     const roles = projectId
       ? await db
@@ -68,6 +74,12 @@ export async function buildMeResponse(
       project: project
         ? { id: project.id, name: project.name, repoUrl: project.repoUrl }
         : null,
+      projects: memberships.map((row) => ({
+        id: row.id,
+        name: row.name,
+        repoUrl: row.repoUrl,
+        ownerParticipantId: row.ownerParticipantId,
+      })),
       roles: roles.map((row) => row.role),
       projectId: project?.id ?? null,
     };

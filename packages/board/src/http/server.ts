@@ -137,7 +137,7 @@ export async function startBoardServer(input: {
         .from(agentCredentials)
         .where(eq(agentCredentials.participantId, agentId))
         .limit(1);
-      if (!cred?.projectId) {
+      if (!cred) {
         return;
       }
       await db
@@ -153,7 +153,6 @@ export async function startBoardServer(input: {
       await flushMailbox(db, relay, agentId);
       const undigested = await findUndigestedSession(db, {
         participantId: agentId,
-        projectId: cred.projectId,
       });
       if (undigested) {
         await sendTick(db, relay, {

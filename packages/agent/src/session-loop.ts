@@ -83,11 +83,13 @@ async function fetchIdentity(
       participant?: { displayName?: string };
       owner?: { displayName: string } | null;
       project?: { name: string; repoUrl: string | null } | null;
+      projects?: Array<{ id: string; name: string; repoUrl: string | null }>;
     };
     return {
       label: body.label ?? body.participant?.displayName ?? "エージェント",
       owner: body.owner ?? null,
       project: body.project ?? null,
+      projects: body.projects ?? [],
     };
   } catch (error) {
     console.error(
@@ -141,7 +143,17 @@ export async function runSessionLoop(
 
   try {
     const identity = await fetchIdentity(boardUrl, agentToken);
-    const repoUrl = identity?.project?.repoUrl ?? null;
+    const repoUrls = [
+      ...new Set(
+        (identity?.projects ?? [])
+          .map((row) => row.repoUrl)
+          .filter((url): url is string => Boolean(url)),
+      ),
+    ];
+    const repoUrl =
+      repoUrls.length === 1
+        ? repoUrls[0]!
+        : identity?.project?.repoUrl ?? null;
     if (repoUrl) {
       const checkout = ensureRepoCheckout(workDir, repoUrl);
       if (!checkout.ok) {
@@ -160,6 +172,7 @@ export async function runSessionLoop(
           label: "エージェント",
           owner: null,
           project: null,
+          projects: [],
         },
       ),
       mcp: {

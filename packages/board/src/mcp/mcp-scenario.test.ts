@@ -6,6 +6,7 @@ import { workClaims } from "../db/schema.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 import { registerParticipant } from "../domain/participants.js";
 import { createProject } from "../domain/projects.js";
+import { addMembership } from "../domain/memberships.js";
 import { adoptDefaultFounding } from "../domain/founding.js";
 
 describe("MCP scenario 1 minimal path", () => {
@@ -28,6 +29,11 @@ describe("MCP scenario 1 minimal path", () => {
     await adoptDefaultFounding(db, {
       projectId: project.id,
       ownerId: owner.id,
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: sou.id,
+      actorId: owner.id,
     });
 
     const { callTool, parseJsonContent } = createBoardMcpServer({

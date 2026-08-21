@@ -54,14 +54,17 @@ M7-1 はその宿題を返す。
 
 | キー | いま | M7 |
 | --- | --- | --- |
-| `you` | なし | `{ displayName, roles[], engine }` — 自分が誰で、何に責任を持つか |
-| `project` | なし | `{ name, repoUrl, githubOwner, githubRepo }` — どこにいるか |
-| `rules` | `""` ハードコード | 拘束的な有効決定の要約。[05](../05-sessions-and-memory.md) 5.4「朝は申し送り・規範メモリ・プロジェクトルールから始まる」の実体 |
-| `situation.threads` | 自分がオーナーのスレッドのみ | 維持 |
+| `you` | なし | `{ displayName, roles[], engine }` — 自分が誰で、何に責任を持つか。`roles` は所属が 1 つのときそのロール。複数なら空で、各 `projects[].roles` を見る |
+| `project` | なし | 所属がちょうど 1 つのときの `{ name, repoUrl, githubOwner, githubRepo }`。複数なら `null` |
+| `projects` | なし | 所属すべてのスライス（id / name / repo / roles / rules / situation）。接続先ではなく、今日の判断材料 |
+| `focus_project` | なし | このセッションで選んでいるプロジェクト。未選択なら `null` |
+| `previous_projects` | なし | 前回の申し送りに残したプロジェクトごとの要約 |
+| `rules` | `""` ハードコード | 所属が 1 つのときの拘束的な有効決定の要約。複数なら空（混ぜない）。各 `projects[].rules` が正 |
+| `situation.threads` | 自分がオーナーのスレッドのみ | 維持（所属 1 つのとき）。複数なら各 `projects[].situation` |
 | `situation.open_threads` | なし | プロジェクト全体の `discussing` / `awaiting_decision`。自分のスレッドが 0 件でも場が見える |
 | `situation.participants` | なし | 他の参加者と役割。誰がいて誰が何を担うか |
 | `situation.gates` | なし | `conflict_citations_required` — `create_thread` の衝突チェック門が武装しているか |
-| `handover` / `awaiting_decision` / `incomplete_goals` / `previous_interrupted` / `remaining_budget` | あり | 維持 |
+| `handover` / `awaiting_decision` / `incomplete_goals` / `previous_interrupted` / `remaining_budget` | あり | 維持。`handover` は本文。場所は `previous_projects` |
 
 **新規クエリを書かない。** 既存の関数を組み合わせる:
 

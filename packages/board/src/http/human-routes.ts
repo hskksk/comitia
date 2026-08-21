@@ -51,6 +51,7 @@ import {
   listMembershipsForParticipant,
   removeHumanMember,
   resolveHumanProjectId,
+  addOwnedAgentToProject,
 } from "../domain/memberships.js";
 import { createProject, updateProject } from "../domain/projects.js";
 import {
@@ -286,6 +287,28 @@ export function registerHumanRoutes(
   app.get("/v1/projects/:id/members", auth, human, memberById, async (c) => {
     const items = await listProjectParticipants(db, c.get("projectId"));
     return c.json({ items });
+  });
+
+  app.post("/v1/projects/:id/agents", auth, human, memberById, async (c) => {
+    const body = z.object({ agentId: z.string().uuid() }).parse(await c.req.json());
+    const projectId = c.get("projectId");
+    if (!projectId) {
+      return c.json({ error: "project required" }, 400);
+    }
+    try {
+      await addOwnedAgentToProject(db, {
+        actorId: c.get("participant").id,
+        agentId: body.agentId,
+        projectId,
+      });
+      return c.json({ ok: true, projectId, agentId: body.agentId }, 201);
+    } catch (error) {
+      const mapped = jsonErrorStatus(error);
+      if (mapped) {
+        return c.json({ error: mapped.message }, mapped.status);
+      }
+      throw error;
+    }
   });
 
   app.delete(

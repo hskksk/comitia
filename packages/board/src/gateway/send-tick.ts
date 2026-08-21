@@ -84,10 +84,10 @@ async function getAgentCredential(db: Db, participantId: string) {
     .from(agentCredentials)
     .where(eq(agentCredentials.participantId, participantId))
     .limit(1);
-  if (!cred || !cred.projectId) {
+  if (!cred) {
     throw new NotFoundError("エージェント資格情報が見つかりません");
   }
-  return cred as typeof cred & { projectId: string };
+  return cred;
 }
 
 async function deliverTick(
@@ -130,19 +130,17 @@ export async function sendTick(
   relay: Relay,
   input: SendTickInput,
 ): Promise<SendTickResult> {
-  const cred = await getAgentCredential(db, input.participantId);
+  await getAgentCredential(db, input.participantId);
   let sessionId: string | undefined;
 
   if (input.type === "session.start") {
     const session = await prepareSessionStart(db, {
       participantId: input.participantId,
-      projectId: cred.projectId,
     });
     sessionId = session.id;
   } else {
     const open = await findOpenSession(db, {
       participantId: input.participantId,
-      projectId: cred.projectId,
     });
     sessionId = open?.id;
   }

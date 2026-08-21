@@ -25,7 +25,6 @@ export async function runScheduler(
     .select({
       participantId: agentConnections.participantId,
       sessionStartMinute: agentConnections.sessionStartMinute,
-      projectId: agentCredentials.projectId,
     })
     .from(agentConnections)
     .innerJoin(
@@ -38,12 +37,8 @@ export async function runScheduler(
       continue;
     }
 
-    if (!agent.projectId) {
-      continue;
-    }
     const open = await findOpenSession(db, {
       participantId: agent.participantId,
-      projectId: agent.projectId,
     });
     if (open) {
       continue;

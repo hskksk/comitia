@@ -7,11 +7,15 @@ describe("buildEnvironmentPrompt", () => {
       label: "ウォーカー@ハル",
       owner: { displayName: "ハル" },
       project: { name: "comitia", repoUrl: "https://github.com/hskksk/comitia" },
+      projects: [
+        { id: "p1", name: "comitia", repoUrl: "https://github.com/hskksk/comitia" },
+      ],
     });
     expect(text).toContain("ウォーカー@ハル");
     expect(text).toContain("Comitia");
     expect(text).toContain("コンセンサス");
     expect(text).toContain("ハル はプロジェクトの特権者だが、あなたの上司ではない");
+    expect(text).toContain("comitia");
     expect(text).not.toContain("get_briefing");
   });
 });

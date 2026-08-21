@@ -7,11 +7,13 @@ import { events, sessions } from "../db/schema.js";
 import {
   computeRemaining,
   getRemainingBudget,
+  refundSpend,
   spend,
 } from "./activity.js";
 import { openOrGetSession } from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
+import { addMembership } from "./memberships.js";
 import { createThread } from "./threads.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 import { adoptDefaultFounding } from "./founding.js";
@@ -35,6 +37,11 @@ describe("activity budget", () => {
       projectId: project.id,
       ownerId: owner.id,
     });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: agent.id,
+      actorId: owner.id,
+    });
     const session = await openOrGetSession(db, {
       participantId: agent.id,
       projectId: project.id,
@@ -54,6 +61,16 @@ describe("activity budget", () => {
       .from(sessions)
       .where(eq(sessions.id, session.id));
     expect(computeRemaining(row!)).toBe(after);
+  });
+
+  it("refundSpend restores the charge for a failed mutating tool", async () => {
+    const { session } = await setupAgentSession();
+    const before = await getRemainingBudget(db, session.id);
+
+    await spend(db, session.id, "create_thread");
+    const restored = await refundSpend(db, session.id, "create_thread");
+    expect(restored).toBe(before);
+    expect(await getRemainingBudget(db, session.id)).toBe(before);
   });
 
   it("when remaining <= reserve, post fails and end_session succeeds", async () => {
