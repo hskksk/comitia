@@ -20,8 +20,10 @@ Vite が `/v1` と `/healthz` をボードへプロキシする。
 リポジトリルートから:
 
 ```bash
-pnpm build
-WEB_DIST=packages/web/dist DATABASE_URL=postgres://... pnpm start
+pnpm build   # 初回や board/agent も更新したいとき
+pnpm start   # web をビルドしてからボード起動（8787 で UI + API）
 ```
+
+`pnpm start` は `@comitia/web` を毎回ビルドしてからボードを起動する。`pnpm dev`（5173）と同じ UI コードが `8787` でも配信される。
 
 `packages/web/dist` がボードから見て存在するときは `WEB_DIST` なしでも配信する。

@@ -41,6 +41,19 @@ function fallThrough(
   res.end();
 }
 
+function cacheControlFor(file: string, dist: string): string {
+  const relative = file.startsWith(dist + sep)
+    ? file.slice(dist.length + 1)
+    : file;
+  if (relative === "index.html") {
+    return "no-cache";
+  }
+  if (relative.startsWith(`assets${sep}`)) {
+    return "public, max-age=31536000, immutable";
+  }
+  return "no-cache";
+}
+
 export function attachSpaFallback(server: Server, webDist: string): void {
   const dist = resolve(webDist);
   const previous = server.listeners("request") as Array<
@@ -80,6 +93,7 @@ export function attachSpaFallback(server: Server, webDist: string): void {
       "content-type",
       TYPES[extname(file)] ?? "application/octet-stream",
     );
+    res.setHeader("cache-control", cacheControlFor(file, dist));
     try {
       const stream = createReadStream(file);
       stream.once("error", () => fallThrough(req, res, previous));

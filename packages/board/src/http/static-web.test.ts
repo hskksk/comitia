@@ -14,6 +14,8 @@ describe("SPA fallback", () => {
     const dir = join(tmpdir(), `comitia-web-${Date.now()}`);
     mkdirSync(dir);
     writeFileSync(join(dir, "index.html"), "<!doctype html><title>Comitia</title>");
+    mkdirSync(join(dir, "assets"));
+    writeFileSync(join(dir, "assets", "app.js"), "console.log('app');");
 
     const app = createBoardApp({ db });
     const server = createServer(getRequestListener(app.fetch));
@@ -28,6 +30,13 @@ describe("SPA fallback", () => {
       const spa = await fetch(`${base}/threads/abc`);
       expect(spa.status).toBe(200);
       expect(await spa.text()).toContain("Comitia");
+      expect(spa.headers.get("cache-control")).toBe("no-cache");
+
+      const asset = await fetch(`${base}/assets/app.js`);
+      expect(asset.status).toBe(200);
+      expect(asset.headers.get("cache-control")).toBe(
+        "public, max-age=31536000, immutable",
+      );
 
       const health = await fetch(`${base}/healthz`);
       expect(health.status).toBe(200);
