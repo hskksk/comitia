@@ -64,6 +64,25 @@ export function DashboardPage() {
   return (
     <section className="dashboard">
       <h1>{summary.name}</h1>
+      {summary.setup &&
+      (!summary.setup.projectRule || !summary.setup.threadTemplate) ? (
+        <div className="setup-banner">
+          <strong>先に場の型を決めてください</strong>
+          <p className="muted">
+            {!summary.setup.projectRule ? "プロジェクトルール" : null}
+            {!summary.setup.projectRule && !summary.setup.threadTemplate
+              ? "と"
+              : null}
+            {!summary.setup.threadTemplate ? "スレッドテンプレ" : null}
+            がまだありません。これら以外の提案はできません。
+          </p>
+          <p>
+            <Link to={projectPath(projectId, "threads/new")}>
+              ルール / テンプレを提案する
+            </Link>
+          </p>
+        </div>
+      ) : null}
       <p className="muted">
         {summary.repoUrl ? (
           <a href={summary.repoUrl} target="_blank" rel="noreferrer">

@@ -33,6 +33,7 @@ const getProjectMock = vi.fn().mockResolvedValue({
     agentsConnected: 1,
     agentsDisconnected: 0,
   },
+  setup: { projectRule: true, threadTemplate: true },
 });
 
 vi.mock("../api.js", () => ({

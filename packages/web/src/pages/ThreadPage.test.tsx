@@ -88,6 +88,7 @@ vi.mock("../api.js", () => ({
     agreements: (...args: unknown[]) => agreementsMock(...args),
     archiveThread: (...args: unknown[]) => archiveThreadMock(...args),
     archiveProposal: (...args: unknown[]) => archiveProposalMock(...args),
+    listSystemTemplates: vi.fn().mockResolvedValue({ items: [] }),
   },
 }));
 

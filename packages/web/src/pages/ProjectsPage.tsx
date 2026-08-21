@@ -1,7 +1,25 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { boardClient, type ProjectListItem } from "../api.js";
+import {
+  TemplatePicker,
+  type SystemTemplateItem,
+} from "../components/TemplatePicker.js";
 import { projectPath, saveLastProjectId } from "../projectContext.js";
+
+function foundingInput(
+  templateId: string,
+  content: string,
+): { templateId?: string; content?: string } | undefined {
+  const trimmed = content.trim();
+  if (!templateId && !trimmed) {
+    return undefined;
+  }
+  return {
+    ...(templateId ? { templateId } : {}),
+    ...(trimmed ? { content: trimmed } : {}),
+  };
+}
 
 export function ProjectsPage() {
   const navigate = useNavigate();
@@ -12,6 +30,14 @@ export function ProjectsPage() {
   const [newName, setNewName] = useState("");
   const [newRepoUrl, setNewRepoUrl] = useState("");
   const [joinToken, setJoinToken] = useState("");
+  const [ruleTemplates, setRuleTemplates] = useState<SystemTemplateItem[]>([]);
+  const [threadTemplates, setThreadTemplates] = useState<SystemTemplateItem[]>(
+    [],
+  );
+  const [ruleTemplateId, setRuleTemplateId] = useState("");
+  const [ruleContent, setRuleContent] = useState("");
+  const [threadTemplateId, setThreadTemplateId] = useState("");
+  const [threadContent, setThreadContent] = useState("");
 
   function reload() {
     return boardClient
@@ -22,6 +48,15 @@ export function ProjectsPage() {
 
   useEffect(() => {
     reload();
+    Promise.all([
+      boardClient.listSystemTemplates("project_rule"),
+      boardClient.listSystemTemplates("thread_template"),
+    ])
+      .then(([rules, threads]) => {
+        setRuleTemplates(rules.items);
+        setThreadTemplates(threads.items);
+      })
+      .catch((err: Error) => setError(err.message));
   }, []);
 
   async function onCreate(event: FormEvent) {
@@ -35,6 +70,8 @@ export function ProjectsPage() {
       const created = await boardClient.createProject({
         name: newName.trim(),
         repoUrl: newRepoUrl.trim() || undefined,
+        projectRule: foundingInput(ruleTemplateId, ruleContent),
+        threadTemplate: foundingInput(threadTemplateId, threadContent),
       });
       saveLastProjectId(created.id);
       navigate(projectPath(created.id), { replace: true });
@@ -118,6 +155,47 @@ export function ProjectsPage() {
             value={newRepoUrl}
             onChange={(event) => setNewRepoUrl(event.target.value)}
             placeholder="https://github.com/org/repo"
+          />
+        </label>
+        <h3>プロジェクトルール（任意）</h3>
+        <p className="muted">
+          空のままなら作成後に決めます。そのあいだ他の提案はできません。
+        </p>
+        <TemplatePicker
+          label="ベースにするテンプレ"
+          templates={ruleTemplates}
+          templateId={ruleTemplateId}
+          emptyLabel="選ばない（あとで決める）"
+          onSelect={(id, content) => {
+            setRuleTemplateId(id);
+            setRuleContent(content);
+          }}
+        />
+        <label>
+          本文
+          <textarea
+            value={ruleContent}
+            onChange={(event) => setRuleContent(event.target.value)}
+            rows={8}
+          />
+        </label>
+        <h3>スレッドテンプレ（任意）</h3>
+        <TemplatePicker
+          label="ベースにするテンプレ"
+          templates={threadTemplates}
+          templateId={threadTemplateId}
+          emptyLabel="選ばない（あとで決める）"
+          onSelect={(id, content) => {
+            setThreadTemplateId(id);
+            setThreadContent(content);
+          }}
+        />
+        <label>
+          本文
+          <textarea
+            value={threadContent}
+            onChange={(event) => setThreadContent(event.target.value)}
+            rows={8}
           />
         </label>
         <button type="submit" className="btn-primary" disabled={saving}>

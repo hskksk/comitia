@@ -8,6 +8,10 @@ import {
 import { PostTypeBadge, ThreadBadges } from "../components/Badges.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
 import { SynthesisCard } from "../components/SynthesisCard.js";
+import {
+  TemplatePicker,
+  type SystemTemplateItem,
+} from "../components/TemplatePicker.js";
 import { pullRequestStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
@@ -43,6 +47,10 @@ export function ThreadPage() {
   const [postBody, setPostBody] = useState("");
   const [rationale, setRationale] = useState("");
   const [proposalContent, setProposalContent] = useState("");
+  const [proposalTemplateId, setProposalTemplateId] = useState("");
+  const [systemTemplates, setSystemTemplates] = useState<SystemTemplateItem[]>(
+    [],
+  );
   const [targetVersionId, setTargetVersionId] = useState("");
   const [ownerSummary, setOwnerSummary] = useState("");
   const [claimPathsText, setClaimPathsText] = useState("");
@@ -66,6 +74,14 @@ export function ThreadPage() {
             (item) => item.threadId === id && item.binding,
           ),
         );
+        const kind = thread.thread.sharedArtifactKind;
+        if (kind === "project_rule" || kind === "thread_template") {
+          return boardClient.listSystemTemplates(kind).then((res) => {
+            setSystemTemplates(res.items);
+          });
+        }
+        setSystemTemplates([]);
+        return undefined;
       })
       .catch((err: Error) => setError(err.message));
   }, [id, projectId]);
@@ -547,6 +563,20 @@ export function ThreadPage() {
           </form>
           <form className="composer" onSubmit={onAddProposal}>
             <h2>案を出す</h2>
+            {systemTemplates.length > 0 ? (
+              <TemplatePicker
+                label="ベースにするテンプレ"
+                templates={systemTemplates}
+                templateId={proposalTemplateId}
+                emptyLabel="選ばない（空のまま書く）"
+                onSelect={(id, content) => {
+                  setProposalTemplateId(id);
+                  if (content) {
+                    setProposalContent(content);
+                  }
+                }}
+              />
+            ) : null}
             <label>
               内容
               <textarea
