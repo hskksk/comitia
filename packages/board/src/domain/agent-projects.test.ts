@@ -1,12 +1,13 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { db } from "../test/helpers.js";
+import { sessions } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 import { addMembership } from "./memberships.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { adoptDefaultFounding } from "./founding.js";
 import { getBriefing } from "./briefing.js";
-import { endSession } from "./sessions.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 
 describe("agent project context", () => {
@@ -87,6 +88,11 @@ describe("agent project context", () => {
     });
     expect(denied.isError).toBe(true);
     expect(denied.content[0]?.text).toContain("project_id");
+    const [charged] = await db
+      .select({ budgetUsed: sessions.budgetUsed })
+      .from(sessions)
+      .where(eq(sessions.participantId, agent.id));
+    expect(charged?.budgetUsed).toBe(0);
 
     const focused = parseJsonContent(
       await callTool("use_project", { project_id: comitia.id }),

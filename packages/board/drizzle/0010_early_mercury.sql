@@ -7,6 +7,7 @@ CREATE TABLE "session_project_engagements" (
 );
 --> statement-breakpoint
 DROP INDEX "sessions_one_open_per_participant_project";--> statement-breakpoint
+UPDATE "sessions" SET "ended_at" = now(), "ended_reason" = 'interrupted' WHERE "ended_at" IS NULL AND "id" NOT IN (SELECT "id" FROM (SELECT DISTINCT ON ("participant_id") "id" FROM "sessions" WHERE "ended_at" IS NULL ORDER BY "participant_id", "started_at" DESC) AS "kept");--> statement-breakpoint
 ALTER TABLE "sessions" ALTER COLUMN "project_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "handovers" ADD COLUMN "projects" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
 ALTER TABLE "sessions" ADD COLUMN "focus_project_id" uuid;--> statement-breakpoint

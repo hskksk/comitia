@@ -11,7 +11,7 @@ import {
 } from "@comitia/shared";
 import { z, ZodError } from "zod";
 import type { Db, DbClient } from "../db/test-setup.js";
-import { spend } from "../domain/activity.js";
+import { refundSpend, spend } from "../domain/activity.js";
 import { searchAgreements } from "../domain/agreements.js";
 import { getBriefing } from "../domain/briefing.js";
 import { declare } from "../domain/declare.js";
@@ -94,19 +94,26 @@ export function createBoardToolRuntime(input: {
 }) {
   const { db, participantId, github } = input;
   let sessionId: string | null = null;
+  let cachedSession: Awaited<ReturnType<typeof getSessionById>> | null = null;
+
+  async function loadSession() {
+    if (cachedSession) {
+      return cachedSession;
+    }
+    const session = sessionId
+      ? await getSessionById(db, sessionId)
+      : await openOrGetSession(db, { participantId });
+    sessionId = session.id;
+    cachedSession = session;
+    return session;
+  }
 
   async function ensureSessionId(): Promise<string> {
-    if (sessionId) {
-      return sessionId;
-    }
-    const session = await openOrGetSession(db, { participantId });
-    sessionId = session.id;
-    return session.id;
+    return (await loadSession()).id;
   }
 
   async function resolveScopedProjectId(raw?: unknown): Promise<string> {
-    const sid = await ensureSessionId();
-    const session = await getSessionById(db, sid);
+    const session = await loadSession();
     const requested = typeof raw === "string" ? raw : undefined;
     const projectId = await resolveAgentToolProjectId(db, {
       participantId,
@@ -114,7 +121,7 @@ export function createBoardToolRuntime(input: {
       focusProjectId: session.focusProjectId,
     });
     await recordSessionProjectEngagement(db, {
-      sessionId: sid,
+      sessionId: session.id,
       projectId,
     });
     return projectId;
@@ -139,8 +146,15 @@ export function createBoardToolRuntime(input: {
     try {
       const sid = await ensureSessionId();
       const remaining = await spend(db, sid, toolName, options?.threadId);
-      const data = await handler();
-      return jsonResult({ ...data, remaining_budget: remaining });
+      try {
+        const data = await handler();
+        return jsonResult({ ...data, remaining_budget: remaining });
+      } catch (error) {
+        if (mapDomainError(error)) {
+          await refundSpend(db, sid, toolName);
+        }
+        throw error;
+      }
     } catch (error) {
       const mapped = mapDomainError(error);
       if (mapped) {
@@ -171,6 +185,7 @@ export function createBoardToolRuntime(input: {
       try {
         const briefing = await getBriefing(db, { participantId });
         sessionId = briefing.sessionId;
+        cachedSession = await getSessionById(db, briefing.sessionId);
         const remaining = await spend(db, briefing.sessionId, "get_briefing");
         const { sessionId: _sid, remaining_budget: _rb, ...pack } = briefing;
         return jsonResult({ ...pack, remaining_budget: remaining });
@@ -189,7 +204,7 @@ export function createBoardToolRuntime(input: {
         const parsed = z.object({ project_id: z.string().uuid() }).parse(args);
         await assertProjectMember(db, parsed.project_id, participantId);
         const project = await getProject(db, parsed.project_id);
-        await setSessionFocus(db, {
+        cachedSession = await setSessionFocus(db, {
           sessionId: sid,
           projectId: parsed.project_id,
         });
@@ -621,15 +636,23 @@ export function createBoardToolRuntime(input: {
           return toolError("申し送り（handover）は必須です");
         }
         const remaining = await spend(db, sid, "end_session");
-        await endSession(db, {
-          sessionId: sid,
-          handover: parsed.handover,
-          projects: parsed.projects?.map((row) => ({
-            projectId: row.project_id,
-            summary: row.summary,
-          })),
-        });
+        try {
+          await endSession(db, {
+            sessionId: sid,
+            handover: parsed.handover,
+            projects: parsed.projects?.map((row) => ({
+              projectId: row.project_id,
+              summary: row.summary,
+            })),
+          });
+        } catch (error) {
+          if (mapDomainError(error)) {
+            await refundSpend(db, sid, "end_session");
+          }
+          throw error;
+        }
         sessionId = null;
+        cachedSession = null;
         return jsonResult({ ok: true, remaining_budget: remaining });
       } catch (error) {
         const mapped = mapDomainError(error);

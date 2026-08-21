@@ -14,6 +14,7 @@ import { addProposal } from "../domain/proposals.js";
 import { openOrGetSession } from "../domain/sessions.js";
 import { registerParticipant } from "../domain/participants.js";
 import { addMembership } from "../domain/memberships.js";
+import { createProject } from "../domain/projects.js";
 import { eq } from "drizzle-orm";
 
 async function ownerAuthHeader(ownerId: string, projectId: string) {
@@ -804,6 +805,75 @@ describe("human ops REST", () => {
       body: JSON.stringify({ repoUrl: "https://github.com/a/b" }),
     });
     expect(res.status).toBe(403);
+  });
+
+  it("lets the owner add their agent to another project", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const playground = await createProject(db, {
+      name: "playground",
+      ownerParticipantId: owner.id,
+    });
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const res = await app.request(`/v1/projects/${playground.id}/agents`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ agentId: agent.id }),
+    });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      projectId: playground.id,
+      agentId: agent.id,
+    });
+
+    const members = await app.request(`/v1/projects/${playground.id}/members`, {
+      headers,
+    });
+    expect(members.status).toBe(200);
+    const body = (await members.json()) as {
+      items: Array<{ id: string }>;
+    };
+    expect(body.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([owner.id, agent.id]),
+    );
+  });
+
+  it("rejects adding someone else's agent", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const other = await registerParticipant(db, {
+      kind: "human",
+      displayName: "ユウ",
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: other.id,
+      actorId: owner.id,
+    });
+    const otherToken = issueToken();
+    await db.insert(agentCredentials).values({
+      participantId: other.id,
+      projectId: project.id,
+      tokenHash: hashToken(otherToken),
+    });
+
+    const res = await app.request(`/v1/projects/${project.id}/agents`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${otherToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ agentId: agent.id }),
+    });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({
+      error: "登録オーナーだけが自分のエージェントを足せます",
+    });
   });
 
   it("lists system templates and creates a project with a catalog template", async () => {

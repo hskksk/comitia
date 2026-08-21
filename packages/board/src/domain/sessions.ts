@@ -48,13 +48,13 @@ async function lockAgentConnectionIfPresent(db: Db, participantId: string) {
 
 async function insertOpenSession(
   db: Db,
-  input: { participantId: string; projectId?: string | null },
+  input: { participantId: string },
 ) {
   const [session] = await db
     .insert(sessions)
     .values({
       participantId: input.participantId,
-      projectId: input.projectId ?? null,
+      projectId: null,
       focusProjectId: null,
       briefingAt: null,
       budgetLimit: DEFAULT_SESSION_BUDGET,
@@ -64,7 +64,7 @@ async function insertOpenSession(
     .returning();
 
   await recordEvent(db, {
-    projectId: input.projectId ?? null,
+    projectId: null,
     actorParticipantId: input.participantId,
     kind: "session_started",
     payload: {
@@ -79,7 +79,7 @@ async function insertOpenSession(
 
 async function existingOrInsertOpenSession(
   db: Db,
-  input: { participantId: string; projectId?: string | null },
+  input: { participantId: string },
 ) {
   const existing = await findOpenSession(db, input);
   if (existing) {
@@ -152,24 +152,19 @@ export async function openOrGetSession(
   db: Db,
   input: { participantId: string; projectId?: string | null },
 ) {
-  if (input.projectId) {
-    await getProject(db, input.projectId);
-  }
-  return existingOrInsertOpenSession(db, input);
+  // Session identity is the participant. `projectId` is a legacy call-site hint
+  // and is not attached at open; focus is set by use_project / get_briefing.
+  return existingOrInsertOpenSession(db, { participantId: input.participantId });
 }
 
 export async function prepareSessionStart(
   db: Db,
   input: { participantId: string; projectId?: string | null },
 ) {
-  if (input.projectId) {
-    await getProject(db, input.projectId);
-  }
-
   try {
     return await runInTransaction(db, async (tx) => {
       await lockAgentConnectionIfPresent(tx, input.participantId);
-      const existing = await findOpenSession(tx, input);
+      const existing = await findOpenSession(tx, { participantId: input.participantId });
       if (existing) {
         return existing;
       }
