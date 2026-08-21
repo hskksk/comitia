@@ -9,6 +9,7 @@ import { getSystemParticipant } from "./participants.js";
 import { addProposal } from "./proposals.js";
 import { openOrGetSession } from "./sessions.js";
 import { createThread } from "./threads.js";
+import { adoptDefaultFounding } from "./founding.js";
 import { evaluateTimedConsensus } from "./timed-consensus.js";
 
 describe("シナリオ4: 沈黙期限", () => {
@@ -27,6 +28,10 @@ describe("シナリオ4: 沈黙期限", () => {
       displayName: "ミカ",
       engine: "claude-code",
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
 
     const thread = await createThread(db, {
       projectId: project.id,
@@ -36,6 +41,7 @@ describe("シナリオ4: 沈黙期限", () => {
       trigger: "テスト",
       duplicateSearchQuery: "沈黙期限",
       consensusType: "silence",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,
@@ -99,6 +105,10 @@ describe("シナリオ4: 沈黙期限", () => {
       displayName: "ソウ",
       engine: "claude-code",
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: sou.id,
@@ -107,6 +117,7 @@ describe("シナリオ4: 沈黙期限", () => {
       trigger: "テスト",
       duplicateSearchQuery: "直接呼び出し",
       consensusType: "silence",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,

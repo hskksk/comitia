@@ -3,6 +3,7 @@ import { threads } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
 import { searchAgreements } from "./agreements.js";
+import { getProjectSetup } from "./constitution.js";
 import { getParticipant, getProject } from "./helpers.js";
 import { listProjectParticipants } from "./human-ops.js";
 import {
@@ -79,6 +80,7 @@ export async function getBriefing(
     workClaims,
     unclaimedDecided,
     activeMemory,
+    setup,
   ] = await Promise.all([
     getProject(db, input.projectId),
     getParticipant(db, input.participantId),
@@ -91,6 +93,7 @@ export async function getBriefing(
     listActiveProjectClaims(db, input.projectId),
     listUnclaimedDecidedImplementations(db, input.projectId),
     listActiveMemory(db, input.participantId),
+    getProjectSetup(db, input.projectId),
   ]);
 
   const you = participants.find((row) => row.id === input.participantId);
@@ -131,6 +134,7 @@ export async function getBriefing(
       })),
       gates: {
         conflict_citations_required: bindingAgreements.length > 0,
+        setup,
       },
       ...(awaitingDecision.length > 0
         ? { awaiting_decision: awaitingDecision }

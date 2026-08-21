@@ -13,6 +13,7 @@ import { addProposal, addProposalVersion } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
 import { createThread } from "./threads.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("イベント記録", () => {
   it("主要操作がイベントに残る", async () => {
@@ -31,6 +32,10 @@ describe("イベント記録", () => {
       name: "p",
       ownerParticipantId: owner.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
 
     await assignRole(db, {
       projectId: project.id,
@@ -48,6 +53,7 @@ describe("イベント記録", () => {
       trigger: "きっかけ",
       duplicateSearchQuery: "q",
       consensusType: "rough",
+      conflictCitationsChecked: true,
     });
 
     const { proposal, version } = await addProposal(db, {

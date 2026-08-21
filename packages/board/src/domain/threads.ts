@@ -10,6 +10,7 @@ import type {
 import { threadConflictCitations, threads } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
+import { assertCreateThreadAllowed } from "./constitution.js";
 import { GateViolation } from "./errors.js";
 import {
   buildThreadTextFilter,
@@ -49,6 +50,13 @@ export async function createThread(
   if (input.target === "shared_artifact" && !input.sharedArtifactKind) {
     throw new GateViolation("共有物提案には sharedArtifactKind が必須です");
   }
+
+  await assertCreateThreadAllowed(db, {
+    projectId: input.projectId,
+    type: input.type,
+    target: input.target,
+    sharedArtifactKind: input.sharedArtifactKind,
+  });
 
   let consensusType: ConsensusType | null = input.consensusType ?? null;
 

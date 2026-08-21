@@ -13,6 +13,7 @@ import {
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
+import { getProjectSetup } from "./constitution.js";
 import { PermissionDenied } from "./errors.js";
 import { getParticipant, getProject } from "./helpers.js";
 import { listNonblockingInbox, listJudgmentQueue } from "./human-views.js";
@@ -47,9 +48,10 @@ export async function getProjectSummary(db: Db, projectId: string) {
     threadCounts[row.state] += 1;
   }
 
-  const [queue, inbox] = await Promise.all([
+  const [queue, inbox, setup] = await Promise.all([
     listJudgmentQueue(db, { projectId }),
     listNonblockingInbox(db, { projectId }),
+    getProjectSetup(db, projectId),
   ]);
 
   return {
@@ -69,6 +71,7 @@ export async function getProjectSummary(db: Db, projectId: string) {
       consensusType: item.consensusType,
       enteredAt: item.enteredAt,
     })),
+    setup,
   };
 }
 

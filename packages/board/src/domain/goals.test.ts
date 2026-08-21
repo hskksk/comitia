@@ -5,6 +5,7 @@ import { getBriefing } from "./briefing.js";
 import { completeGoal, openOrGetSession, setGoals } from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("session goals", () => {
   it("set_goals then complete_goal; briefing shows incomplete then completed", async () => {
@@ -20,6 +21,10 @@ describe("session goals", () => {
     const project = await createProject(db, {
       name: "comitia-web",
       ownerParticipantId: owner.id,
+    });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
     });
 
     const session = await openOrGetSession(db, {

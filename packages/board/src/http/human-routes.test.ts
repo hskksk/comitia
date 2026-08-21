@@ -805,4 +805,53 @@ describe("human ops REST", () => {
     });
     expect(res.status).toBe(403);
   });
+
+  it("lists system templates and creates a project with a catalog template", async () => {
+    const app = createBoardApp({ db });
+    const owner = await registerParticipant(db, {
+      kind: "human",
+      displayName: "ハル",
+    });
+    const token = issueToken();
+    await db.insert(agentCredentials).values({
+      participantId: owner.id,
+      projectId: null,
+      tokenHash: hashToken(token),
+    });
+    const headers = {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    };
+
+    const listed = await app.request("/v1/system/templates?kind=project_rule", {
+      headers,
+    });
+    expect(listed.status).toBe(200);
+    const catalog = (await listed.json()) as {
+      items: Array<{ id: string; kind: string }>;
+    };
+    expect(catalog.items.some((item) => item.id === "default")).toBe(true);
+
+    const created = await app.request("/v1/projects", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: "founded",
+        projectRule: { templateId: "lightweight" },
+        threadTemplate: { templateId: "minimal" },
+      }),
+    });
+    expect(created.status).toBe(201);
+    const project = (await created.json()) as { id: string };
+    const summary = await app.request(`/v1/projects/${project.id}`, {
+      headers: {
+        ...headers,
+        "x-comitia-project-id": project.id,
+      },
+    });
+    expect(summary.status).toBe(200);
+    expect(await summary.json()).toMatchObject({
+      setup: { projectRule: true, threadTemplate: true },
+    });
+  });
 });

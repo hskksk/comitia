@@ -7,6 +7,7 @@ import { addPost } from "./posts.js";
 import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("門の強制", () => {
   it("trigger 空は GateViolation", async () => {
@@ -18,6 +19,10 @@ describe("門の強制", () => {
       name: "p",
       ownerParticipantId: human.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: human.id,
+    });
     await expect(
       createThread(db, {
         projectId: project.id,
@@ -26,6 +31,7 @@ describe("門の強制", () => {
         title: "t",
         trigger: "  ",
         duplicateSearchQuery: "q",
+        conflictCitationsChecked: true,
       }),
     ).rejects.toThrow(GateViolation);
   });
@@ -39,6 +45,10 @@ describe("門の強制", () => {
       name: "p",
       ownerParticipantId: human.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: human.id,
+    });
     await expect(
       createThread(db, {
         projectId: project.id,
@@ -47,6 +57,7 @@ describe("門の強制", () => {
         title: "t",
         trigger: "きっかけ",
         duplicateSearchQuery: "",
+        conflictCitationsChecked: true,
       }),
     ).rejects.toThrow(GateViolation);
   });
@@ -60,6 +71,10 @@ describe("門の強制", () => {
       name: "p",
       ownerParticipantId: human.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: human.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: human.id,
@@ -68,6 +83,7 @@ describe("門の強制", () => {
       title: "t",
       trigger: "きっかけ",
       duplicateSearchQuery: "q",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,
@@ -94,6 +110,10 @@ describe("門の強制", () => {
       name: "p",
       ownerParticipantId: human.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: human.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: human.id,
@@ -102,6 +122,7 @@ describe("門の強制", () => {
       title: "t",
       trigger: "きっかけ",
       duplicateSearchQuery: "q",
+      conflictCitationsChecked: true,
     });
     await expect(
       addPost(db, {
@@ -124,6 +145,10 @@ describe("門の強制", () => {
       name: "p",
       ownerParticipantId: human.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: human.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: human.id,
@@ -131,6 +156,7 @@ describe("門の強制", () => {
       title: "t",
       trigger: "きっかけ",
       duplicateSearchQuery: "q",
+      conflictCitationsChecked: true,
     });
     await expect(
       addProposal(db, {
@@ -175,6 +201,10 @@ describe("門の強制", () => {
       name: "p",
       ownerParticipantId: human.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: human.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: human.id,
@@ -183,6 +213,7 @@ describe("門の強制", () => {
       trigger: "きっかけ",
       duplicateSearchQuery: "q",
       consensusType: "owner_decision",
+      conflictCitationsChecked: true,
     });
     await expect(
       addPost(db, {

@@ -155,3 +155,12 @@ export const evaluateConsensusResultSchema = z.object({
   satisfied: z.boolean(),
   reasons: z.array(z.string()),
 });
+
+export const foundingArtifactInputSchema = z
+  .object({
+    templateId: z.string().min(1).optional(),
+    content: z.string().optional(),
+  })
+  .refine((value) => Boolean(value.templateId || value.content?.trim()), {
+    message: "templateId または content が必要です",
+  });

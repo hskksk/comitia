@@ -10,6 +10,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  adoptDefaultFounding,
   bootstrapBoard,
   registerAgent,
   schema,
@@ -60,6 +61,10 @@ async function bootAgent(
     ownerParticipantId: boot.owner.id,
     displayName: "mika",
     engine: "claude-code",
+  });
+  await adoptDefaultFounding(db, {
+    projectId: boot.project.id,
+    ownerId: boot.owner.id,
   });
   const configDir = await mkdtemp(join(tmpdir(), "comitia-session-"));
   cleanups.push(() => rm(configDir, { recursive: true }));
@@ -374,6 +379,7 @@ describe("session loop with fake engine", () => {
               title: "idle check",
               trigger: "empty loop",
               duplicateSearchQuery: "idle",
+              conflictCitationsChecked: true,
             },
           },
           { tool: "read_thread", args: {} },

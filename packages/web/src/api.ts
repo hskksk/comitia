@@ -55,6 +55,10 @@ export type ProjectSummary = {
     agentsConnected: number;
     agentsDisconnected: number;
   };
+  setup: {
+    projectRule: boolean;
+    threadTemplate: boolean;
+  };
 };
 
 export type EventItem = {
@@ -170,6 +174,8 @@ export type HumanThreadView = {
     projectId: string;
     awaitingEnteredAt: string | null;
     timingEndsAt: string | null;
+    target?: string | null;
+    sharedArtifactKind?: string | null;
   };
   consensusReasons: string[];
   synthesis: { id: string; body: string; createdAt: string } | null;
@@ -304,6 +310,9 @@ function needsProjectHeader(path: string): boolean {
   if (path === "/v1/projects" || path === "/v1/join" || path === "/v1/init") {
     return false;
   }
+  if (path.startsWith("/v1/system/")) {
+    return false;
+  }
   if (path.startsWith("/v1/auth")) {
     return false;
   }
@@ -335,11 +344,26 @@ export class BoardClient {
   async createProject(input: {
     name: string;
     repoUrl?: string;
+    projectRule?: { templateId?: string; content?: string };
+    threadTemplate?: { templateId?: string; content?: string };
   }): Promise<ProjectListItem> {
     return this.request("/v1/projects", {
       method: "POST",
       body: JSON.stringify(input),
     });
+  }
+
+  async listSystemTemplates(kind?: "project_rule" | "thread_template"): Promise<{
+    items: Array<{
+      id: string;
+      kind: "project_rule" | "thread_template";
+      title: string;
+      summary: string;
+      content: string;
+    }>;
+  }> {
+    const query = kind ? `?kind=${kind}` : "";
+    return this.request(`/v1/system/templates${query}`);
   }
 
   async getProject(id: string): Promise<ProjectSummary> {

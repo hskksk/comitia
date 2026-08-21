@@ -14,6 +14,7 @@ import {
 } from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 async function setup() {
   const owner = await registerParticipant(db, {
@@ -29,6 +30,10 @@ async function setup() {
   const project = await createProject(db, {
     name: "comitia",
     ownerParticipantId: owner.id,
+  });
+  await adoptDefaultFounding(db, {
+    projectId: project.id,
+    ownerId: owner.id,
   });
   return { agent, project };
 }

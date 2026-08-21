@@ -74,6 +74,7 @@ describe("M13-1 accounts and membership", () => {
         type: "consultation",
         trigger: "試し",
         duplicateSearchQuery: "member thread",
+        conflictCitationsChecked: true,
       }),
     });
     expect(created.status).toBe(201);
@@ -138,6 +139,7 @@ describe("M13-1 accounts and membership", () => {
       trigger: "rule",
       duplicateSearchQuery: "binding",
       consensusType: "owner_decision",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,

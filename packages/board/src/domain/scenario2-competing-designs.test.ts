@@ -1,6 +1,6 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
 import { agreements, proposals } from "../db/schema.js";
 import { declare } from "./declare.js";
@@ -11,6 +11,7 @@ import { addProposal, addProposalVersion } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
 import { createThread } from "./threads.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("シナリオ2: 対立する設計判断", () => {
   it("rough 合意・異議・衝突チェック", async () => {
@@ -47,6 +48,10 @@ describe("シナリオ2: 対立する設計判断", () => {
       name: "comitia-web",
       ownerParticipantId: owner.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
 
     for (const [participantId, role] of [
       [ren.id, "proposer"],
@@ -70,6 +75,7 @@ describe("シナリオ2: 対立する設計判断", () => {
       trigger: "投稿の検索反映が遅い（ユーザー影響）",
       duplicateSearchQuery: "検索インデックス 更新",
       consensusType: "rough",
+      conflictCitationsChecked: true,
     });
 
     const { proposal: proposalA, version: aV1 } = await addProposal(db, {
@@ -150,7 +156,9 @@ describe("シナリオ2: 対立する設計判断", () => {
     const adopted = await db
       .select()
       .from(proposals)
-      .where(eq(proposals.outcome, "adopted"));
+      .where(
+        and(eq(proposals.outcome, "adopted"), eq(proposals.threadId, thread.id)),
+      );
     expect(adopted).toHaveLength(1);
     expect(adopted[0]!.number).toBe(1);
 

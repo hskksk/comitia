@@ -10,6 +10,10 @@ import {
   PermissionDenied,
 } from "./errors.js";
 import {
+  hasActiveSharedArtifact,
+  isConstitutionKind,
+} from "./constitution.js";
+import {
   assertProjectOwner,
   assertThreadOwner,
   assertThreadOwnerOrProjectOwner,
@@ -470,9 +474,18 @@ async function declareInTx(
         thread.candidateProposalVersionId,
       );
       if (proposal.authorParticipantId === input.actorId) {
-        throw new PermissionDenied(
-          "候補提案版の著者は自分の版を批准できません",
-        );
+        const founding =
+          isConstitutionKind(thread.sharedArtifactKind) &&
+          !(await hasActiveSharedArtifact(
+            db,
+            thread.projectId,
+            thread.sharedArtifactKind,
+          ));
+        if (!founding) {
+          throw new PermissionDenied(
+            "候補提案版の著者は自分の版を批准できません",
+          );
+        }
       }
 
       const { binding, summary } = requireDecisionPayload(input.payload);

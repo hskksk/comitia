@@ -10,6 +10,7 @@ import { registerParticipant } from "./participants.js";
 import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 /** レビューで見つけた穴の回帰テスト: 失敗した宣言の痕跡、決定済みへの再宣言、完了後の不採用 */
 describe("宣言のガード（トランザクションと状態遷移）", () => {
@@ -34,6 +35,10 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
       name: `guards-${consensusType}-${Date.now()}-${Math.random()}`,
       ownerParticipantId: owner.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: agent.id,
@@ -42,6 +47,7 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
       trigger: "テスト",
       duplicateSearchQuery: "guards",
       consensusType,
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,
@@ -209,6 +215,10 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
       name: `self-ratify-${Date.now()}-${Math.random()}`,
       ownerParticipantId: owner.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: owner.id,
@@ -264,6 +274,10 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
       name: `mains-${Date.now()}-${Math.random()}`,
       ownerParticipantId: owner.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: agent.id,
@@ -272,6 +286,7 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
       trigger: "テスト",
       duplicateSearchQuery: "主な参加者",
       consensusType: "owner_decision",
+      conflictCitationsChecked: true,
     });
 
     const ids = await getMainParticipantIds(db, thread.id);

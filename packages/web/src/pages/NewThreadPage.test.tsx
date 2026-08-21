@@ -7,12 +7,18 @@ import { NewThreadPage } from "./NewThreadPage.js";
 const searchThreadsMock = vi.fn().mockResolvedValue({ items: [] });
 const searchDecisionsMock = vi.fn().mockResolvedValue({ items: [] });
 const createThreadMock = vi.fn().mockResolvedValue({ id: "t-new", state: "discussing" });
+const getProjectMock = vi.fn().mockResolvedValue({
+  id: "proj-1",
+  name: "comitia",
+  setup: { projectRule: true, threadTemplate: true },
+});
 
 vi.mock("../api.js", () => ({
   boardClient: {
     searchThreads: (...args: unknown[]) => searchThreadsMock(...args),
     searchDecisions: (...args: unknown[]) => searchDecisionsMock(...args),
     createThread: (...args: unknown[]) => createThreadMock(...args),
+    getProject: (...args: unknown[]) => getProjectMock(...args),
   },
 }));
 

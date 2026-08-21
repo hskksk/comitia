@@ -31,6 +31,7 @@ describe("getDecisionView", () => {
       title: "検討",
       trigger: "確認",
       duplicateSearchQuery: "検討",
+      conflictCitationsChecked: true,
     });
     const view = await getDecisionView(db, thread.id);
     expect(view).toBeNull();
@@ -57,6 +58,7 @@ describe("getDecisionView", () => {
       trigger: "テスト",
       duplicateSearchQuery: "版の差分",
       consensusType: "owner_decision",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,

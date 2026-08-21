@@ -1,7 +1,16 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { boardClient, type AgreementItem, type SearchThreadItem } from "../api.js";
+import {
+  boardClient,
+  type AgreementItem,
+  type ProjectSummary,
+  type SearchThreadItem,
+} from "../api.js";
 import { projectPath } from "../projectContext.js";
+
+function setupComplete(setup: ProjectSummary["setup"] | undefined): boolean {
+  return Boolean(setup?.projectRule && setup?.threadTemplate);
+}
 
 export function NewThreadPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -22,10 +31,27 @@ export function NewThreadPage() {
   const [decisions, setDecisions] = useState<AgreementItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [setup, setSetup] = useState<ProjectSummary["setup"] | null>(null);
+
+  useEffect(() => {
+    if (!projectId) {
+      return;
+    }
+    boardClient
+      .getProject(projectId)
+      .then((project) => setSetup(project.setup))
+      .catch((err: Error) => setError(err.message));
+  }, [projectId]);
 
   if (!projectId) {
     return null;
   }
+
+  const ready = setup === null || setupComplete(setup);
+  const blockedReason =
+    setup && !setupComplete(setup)
+      ? "プロジェクトルールとスレッドテンプレが決まるまで、それら以外のスレッドは立てられません"
+      : null;
 
   async function onSearch(event: FormEvent) {
     event.preventDefault();
@@ -83,6 +109,12 @@ export function NewThreadPage() {
         スレッド一覧へ
       </Link>
       <h1>{type === "proposal" ? "提案する" : "作業する"}</h1>
+      {blockedReason ? (
+        <div className="setup-banner">
+          <strong>まだ決めていない共有物があります</strong>
+          <p className="muted">{blockedReason}</p>
+        </div>
+      ) : null}
       <div className="actions">
         <button
           type="button"
@@ -94,6 +126,8 @@ export function NewThreadPage() {
         <button
           type="button"
           className={type === "implementation" ? "btn-primary" : "btn-secondary"}
+          disabled={!ready}
+          title={blockedReason ?? undefined}
           onClick={() => setType("implementation")}
         >
           実装スレッド
@@ -211,7 +245,9 @@ export function NewThreadPage() {
                 }
               >
                 <option value="shared_artifact">共有物</option>
-                <option value="repo_artifact">リポジトリの具体物</option>
+                <option value="repo_artifact" disabled={!ready}>
+                  リポジトリの具体物
+                </option>
               </select>
             </label>
             {target === "shared_artifact" ? (
@@ -223,7 +259,9 @@ export function NewThreadPage() {
                 >
                   <option value="project_rule">プロジェクトルール</option>
                   <option value="thread_template">スレッドテンプレ</option>
-                  <option value="skill">スキル</option>
+                  <option value="skill" disabled={!ready}>
+                    スキル
+                  </option>
                 </select>
               </label>
             ) : null}

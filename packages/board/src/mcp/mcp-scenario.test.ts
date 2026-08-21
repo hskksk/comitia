@@ -6,6 +6,7 @@ import { workClaims } from "../db/schema.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 import { registerParticipant } from "../domain/participants.js";
 import { createProject } from "../domain/projects.js";
+import { adoptDefaultFounding } from "../domain/founding.js";
 
 describe("MCP scenario 1 minimal path", () => {
   it("get_briefing → set_goals → search_threads → create_thread → add_proposal → claim_work → post → end_session", async () => {
@@ -24,6 +25,10 @@ describe("MCP scenario 1 minimal path", () => {
       ownerParticipantId: owner.id,
       repoUrl: "https://github.com/example/comitia-web",
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
 
     const { callTool, parseJsonContent } = createBoardMcpServer({
       db,
@@ -33,7 +38,7 @@ describe("MCP scenario 1 minimal path", () => {
 
     const briefing = parseJsonContent(await callTool("get_briefing"));
     expect(typeof briefing.remaining_budget).toBe("number");
-    expect(briefing.rules).toBe("");
+    expect(String(briefing.rules)).toContain("プロジェクトルール");
 
     const goals = parseJsonContent(
       await callTool("set_goals", {
@@ -52,6 +57,7 @@ describe("MCP scenario 1 minimal path", () => {
         trigger: "docs/README.md の Comittia 表記ゆれを発見",
         duplicateSearchQuery: "typo README Comittia",
         consensusType: "owner_decision",
+        conflictCitationsChecked: true,
       }),
     );
     const threadId = created.thread_id as string;

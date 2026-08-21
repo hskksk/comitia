@@ -34,6 +34,7 @@ import {
   setGoals,
 } from "../domain/sessions.js";
 import { createThread, searchThreads } from "../domain/threads.js";
+import { listSystemTemplates } from "../catalog/index.js";
 import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
 import { linkPullRequest } from "../domain/pull-requests.js";
 import {
@@ -203,6 +204,24 @@ export function createBoardToolRuntime(input: {
           onlyActiveBinding: parsed.onlyActiveBinding,
         });
         return { agreements: rows };
+      }),
+
+    list_system_templates: async (args) =>
+      runTool("list_system_templates", async () => {
+        const parsed = z
+          .object({
+            kind: z.enum(["project_rule", "thread_template"]).optional(),
+          })
+          .parse(args);
+        return {
+          templates: listSystemTemplates(parsed.kind).map((template) => ({
+            id: template.id,
+            kind: template.kind,
+            title: template.title,
+            summary: template.summary,
+            content: template.content,
+          })),
+        };
       }),
 
     read_thread: async (args) => {
@@ -610,6 +629,19 @@ export function createBoardMcpServer(input: {
     },
     async (args) =>
       runtime.callTool("search_decisions", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "list_system_templates",
+    {
+      description:
+        "comitia が持つプロジェクトルール／スレッドテンプレのシステムテンプレを一覧する",
+      inputSchema: {
+        kind: z.enum(["project_rule", "thread_template"]).optional(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("list_system_templates", args as Record<string, unknown>),
   );
 
   server.registerTool(

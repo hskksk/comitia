@@ -5,6 +5,7 @@ import { agentConnections, agentCredentials, sessions, ticks } from "../db/schem
 import { registerParticipant } from "../domain/participants.js";
 import { createProject } from "../domain/projects.js";
 import { openOrGetSession } from "../domain/sessions.js";
+import { adoptDefaultFounding } from "../domain/founding.js";
 
 describe("M3 schema", () => {
   it("stores credential hash, connection row, tick, and briefingAt", async () => {
@@ -21,6 +22,10 @@ describe("M3 schema", () => {
     const project = await createProject(db, {
       name: "comitia",
       ownerParticipantId: owner.id,
+    });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
     });
 
     await db.insert(agentCredentials).values({

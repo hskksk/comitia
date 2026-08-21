@@ -12,6 +12,7 @@ import { assignRole } from "./roles.js";
 import { createThread } from "./threads.js";
 import { claimWork } from "./work-claims.js";
 import { seedDecidedImplementation } from "../test/human-fixtures.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 async function setupParticipants() {
   const owner = await registerParticipant(db, {
@@ -49,7 +50,9 @@ async function insertBindingAgreement(input: {
     title: "ルール",
     trigger: "テスト用の拘束的決定",
     duplicateSearchQuery: "rule",
-    target: "repo_artifact",
+    target: "shared_artifact",
+    sharedArtifactKind: "project_rule",
+    conflictCitationsChecked: true,
   });
   const { version } = await addProposal(db, {
     threadId: thread.id,
@@ -108,6 +111,7 @@ describe("getBriefing (M7-1 material)", () => {
     expect(briefing.rules).toBe("");
     expect(briefing.situation.gates).toEqual({
       conflict_citations_required: false,
+      setup: { projectRule: false, threadTemplate: false },
     });
   });
 
@@ -127,11 +131,16 @@ describe("getBriefing (M7-1 material)", () => {
     expect(briefing.rules).toContain("レビューは2人以上の承認が必要");
     expect(briefing.situation.gates).toEqual({
       conflict_citations_required: true,
+      setup: { projectRule: true, threadTemplate: false },
     });
   });
 
   it("shows a project-wide open thread even when the agent owns none of it", async () => {
     const { owner, agent, project } = await setupParticipants();
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: owner.id,
@@ -139,6 +148,7 @@ describe("getBriefing (M7-1 material)", () => {
       title: "オーナーが立てた相談",
       trigger: "きっかけ",
       duplicateSearchQuery: "owner thread",
+      conflictCitationsChecked: true,
     });
 
     const briefing = await getBriefing(db, {
@@ -224,6 +234,10 @@ describe("getBriefing (M7-1 material)", () => {
 
   it("surfaces active work_claims from another agent in situation.work_claims", async () => {
     const { owner, agent, project } = await setupParticipants();
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
     const otherAgent = await registerParticipant(db, {
       kind: "agent",
       displayName: "リン",
@@ -256,7 +270,11 @@ describe("getBriefing (M7-1 material)", () => {
   });
 
   it("lists a decided implementation thread as unclaimed_decided until it is claimed", async () => {
-    const { agent, project } = await setupParticipants();
+    const { owner, agent, project } = await setupParticipants();
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
     const { thread } = await seedDecidedImplementation(db, {
       agentId: agent.id,
       projectId: project.id,
