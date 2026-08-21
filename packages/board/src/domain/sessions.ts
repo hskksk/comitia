@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   DEFAULT_SESSION_BUDGET,
   WIND_DOWN_RESERVE,
@@ -16,7 +16,7 @@ import type { Db, DbClient } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError } from "./errors.js";
 import { getProject } from "./helpers.js";
-import { listMembershipsForParticipant } from "./memberships.js";
+import { listMemberParticipantIds, listMembershipsForParticipant } from "./memberships.js";
 
 function runInTransaction<T>(db: Db, fn: (tx: Db) => Promise<T>): Promise<T> {
   if (typeof (db as DbClient).transaction === "function") {
@@ -605,6 +605,19 @@ export async function listParticipantsWithSessionSince(
   db: Db,
   input: { projectId: string; since: Date },
 ): Promise<string[]> {
+  const memberIds = await listMemberParticipantIds(db, input.projectId);
+  const viaMemberSession =
+    memberIds.length === 0
+      ? []
+      : await db
+          .selectDistinct({ participantId: sessions.participantId })
+          .from(sessions)
+          .where(
+            and(
+              inArray(sessions.participantId, memberIds),
+              sql`${sessions.startedAt} >= ${input.since}`,
+            ),
+          );
   const viaSession = await db
     .selectDistinct({ participantId: sessions.participantId })
     .from(sessions)
@@ -629,6 +642,7 @@ export async function listParticipantsWithSessionSince(
     );
   return [
     ...new Set([
+      ...viaMemberSession.map((row) => row.participantId),
       ...viaSession.map((row) => row.participantId),
       ...viaEngagement.map((row) => row.participantId),
     ]),
