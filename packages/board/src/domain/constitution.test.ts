@@ -47,6 +47,7 @@ describe("project setup gate", () => {
         title: "作業",
         trigger: "きっかけ",
         duplicateSearchQuery: "work",
+        conflictCitationsChecked: true,
       }),
     ).rejects.toThrow(GateViolation);
 
@@ -59,6 +60,7 @@ describe("project setup gate", () => {
         title: "コード",
         trigger: "きっかけ",
         duplicateSearchQuery: "code",
+        conflictCitationsChecked: true,
       }),
     ).rejects.toThrow(GateViolation);
 
@@ -71,6 +73,7 @@ describe("project setup gate", () => {
       title: "ルール創設",
       trigger: "未設定",
       duplicateSearchQuery: "project_rule",
+      conflictCitationsChecked: true,
     });
     expect(ruleThread.consensusType).toBe("human_ratification");
   });
@@ -121,6 +124,7 @@ describe("project setup gate", () => {
       title: "創設ルール",
       trigger: "未設定",
       duplicateSearchQuery: "rule",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,

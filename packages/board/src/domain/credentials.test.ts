@@ -6,6 +6,7 @@ import { db } from "../test/helpers.js";
 import { createProject } from "./projects.js";
 import { registerParticipant } from "./participants.js";
 import { authenticateToken, hashToken, issueToken } from "./credentials.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("credentials", () => {
   it("hashes and issues tokens in the required format", () => {
@@ -23,6 +24,10 @@ describe("credentials", () => {
     const project = await createProject(db, {
       name: "comitia",
       ownerParticipantId: owner.id,
+    });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
     });
     const token = issueToken();
     await db.insert(agentCredentials).values({

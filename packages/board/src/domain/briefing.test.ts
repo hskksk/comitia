@@ -52,6 +52,7 @@ async function insertBindingAgreement(input: {
     duplicateSearchQuery: "rule",
     target: "shared_artifact",
     sharedArtifactKind: "project_rule",
+    conflictCitationsChecked: true,
   });
   const { version } = await addProposal(db, {
     threadId: thread.id,

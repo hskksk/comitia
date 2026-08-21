@@ -6,6 +6,7 @@ import { registerParticipant } from "./participants.js";
 import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("humanRequired フラグ", () => {
   it("rough + humanRequired → awaiting_decision → ratify で decided", async () => {
@@ -24,6 +25,10 @@ describe("humanRequired フラグ", () => {
       name: "comitia-web",
       ownerParticipantId: owner.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
 
     const thread = await createThread(db, {
       projectId: project.id,
@@ -35,6 +40,7 @@ describe("humanRequired フラグ", () => {
       duplicateSearchQuery: "API breaking",
       consensusType: "rough",
       humanRequired: true,
+      conflictCitationsChecked: true,
     });
 
     const { version } = await addProposal(db, {

@@ -9,6 +9,7 @@ import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
 import { claimWork } from "./work-claims.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("シナリオ1: 最小作業", () => {
   it("implementation + owner_decision → decided → completed", async () => {
@@ -27,6 +28,10 @@ describe("シナリオ1: 最小作業", () => {
       ownerParticipantId: owner.id,
       repoUrl: "https://github.com/example/comitia-web",
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
 
     const thread = await createThread(db, {
       projectId: project.id,
@@ -36,6 +41,7 @@ describe("シナリオ1: 最小作業", () => {
       trigger: "docs/README.md の Comittia 表記ゆれを発見",
       duplicateSearchQuery: "typo README Comittia",
       consensusType: "owner_decision",
+      conflictCitationsChecked: true,
     });
 
     const { version } = await addProposal(db, {

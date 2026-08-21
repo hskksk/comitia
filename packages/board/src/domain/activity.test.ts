@@ -14,6 +14,7 @@ import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("activity budget", () => {
   async function setupAgentSession() {
@@ -29,6 +30,10 @@ describe("activity budget", () => {
     const project = await createProject(db, {
       name: "comitia-web",
       ownerParticipantId: owner.id,
+    });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
     });
     const session = await openOrGetSession(db, {
       participantId: agent.id,
@@ -91,6 +96,7 @@ describe("activity budget", () => {
       title: "検討",
       trigger: "確認",
       duplicateSearchQuery: "検討",
+      conflictCitationsChecked: true,
     });
 
     await spend(db, session.id, "post", thread.id);
@@ -112,6 +118,7 @@ describe("activity budget", () => {
       title: "検討",
       trigger: "確認",
       duplicateSearchQuery: "検討",
+      conflictCitationsChecked: true,
     });
 
     const { callTool } = createBoardMcpServer({

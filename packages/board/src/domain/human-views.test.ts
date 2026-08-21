@@ -129,6 +129,7 @@ describe("listJudgmentQueue", () => {
       trigger: "テスト",
       duplicateSearchQuery: "沈黙",
       consensusType: "silence",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,
@@ -156,6 +157,7 @@ describe("listJudgmentQueue", () => {
       trigger: "テスト",
       duplicateSearchQuery: "全員賛成",
       consensusType: "unanimous",
+      conflictCitationsChecked: true,
     });
     const { version } = await addProposal(db, {
       threadId: thread.id,

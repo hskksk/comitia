@@ -7,6 +7,7 @@ import { getBriefing } from "./briefing.js";
 import { endSession, findOpenSession, openOrGetSession } from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("sessions", () => {
   async function setupParticipants() {
@@ -23,6 +24,10 @@ describe("sessions", () => {
     const project = await createProject(db, {
       name: "comitia-web",
       ownerParticipantId: owner.id,
+    });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
     });
     return { owner, agent, project };
   }

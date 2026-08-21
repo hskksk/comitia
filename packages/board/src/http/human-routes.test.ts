@@ -803,6 +803,9 @@ describe("human ops REST", () => {
       },
       body: JSON.stringify({ repoUrl: "https://github.com/a/b" }),
     });
+    expect(res.status).toBe(403);
+  });
+
   it("lists system templates and creates a project with a catalog template", async () => {
     const app = createBoardApp({ db });
     const owner = await registerParticipant(db, {

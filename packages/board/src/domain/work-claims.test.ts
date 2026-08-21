@@ -296,6 +296,7 @@ describe("session end vs thread completion", () => {
       title: "検討",
       trigger: "確認",
       duplicateSearchQuery: "検討",
+      conflictCitationsChecked: true,
     });
     const { claim } = await claimWork(db, {
       threadId: thread.id,

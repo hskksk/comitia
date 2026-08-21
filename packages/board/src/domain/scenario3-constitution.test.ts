@@ -7,6 +7,7 @@ import { registerParticipant } from "./participants.js";
 import { addProposal } from "./proposals.js";
 import { createProject } from "./projects.js";
 import { createThread } from "./threads.js";
+import { adoptDefaultFounding } from "./founding.js";
 
 describe("シナリオ3: 憲法改正", () => {
   it("project_rule は human_ratification 固定・批准フロー", async () => {
@@ -25,6 +26,10 @@ describe("シナリオ3: 憲法改正", () => {
       name: "comitia-web",
       ownerParticipantId: owner.id,
     });
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
 
     await expect(
       createThread(db, {
@@ -37,6 +42,7 @@ describe("シナリオ3: 憲法改正", () => {
         trigger: "衝突チェックの検索ノイズ",
         duplicateSearchQuery: "合意物 提案集",
         consensusType: "rough",
+        conflictCitationsChecked: true,
       }),
     ).rejects.toThrow(GateViolation);
 
@@ -49,6 +55,7 @@ describe("シナリオ3: 憲法改正", () => {
       title: "合意物区分の導入",
       trigger: "衝突チェックの検索ノイズ",
       duplicateSearchQuery: "合意物 提案集",
+      conflictCitationsChecked: true,
     });
     expect(thread.consensusType).toBe("human_ratification");
 
