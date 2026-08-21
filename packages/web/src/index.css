@@ -718,6 +718,16 @@ label textarea {
   margin: 0.35rem 0 0;
 }
 
+.collapse-preview.is-collapsed {
+  cursor: pointer;
+}
+
+.collapse-preview.is-collapsed:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius);
+}
+
 .collapse-toggle {
   margin-top: 0.35rem;
   min-height: auto;

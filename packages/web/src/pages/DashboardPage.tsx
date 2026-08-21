@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type EventItem, type ProjectSummary } from "../api.js";
-import { MarkdownBody } from "../components/MarkdownBody.js";
+import { CollapsibleMarkdown } from "../components/CollapsibleMarkdown.js";
 import { judgmentNeedLabel, threadStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
@@ -98,8 +98,9 @@ export function DashboardPage() {
               スレッドへ
             </Link>
           </div>
-          <MarkdownBody
+          <CollapsibleMarkdown
             source={summary.activeProjectRule.content}
+            previewLines={5}
             className="project-rules-hero-body"
           />
         </section>
