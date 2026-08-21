@@ -9,8 +9,8 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
   set_goals     今日やること。ループが未完了を見て再駆動するので、作業の前に宣言する
 
 読む
-  search_threads / search_decisions / read_thread
-  新しい議題を開く前の重複・衝突チェックにも使う
+  search_threads / search_decisions / read_thread / list_system_templates
+  新しい議題を開く前の重複・衝突チェックにも使う。ルールやスレッドテンプレのひな型は list_system_templates
 
 書く（三つを混ぜない）
   create_thread  議題の箱を開く。きっかけ・重複検索・衝突確認の門がある
@@ -38,7 +38,7 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
 
 post の type=declaration は門違反。遷移は必ず declare。
 
-活動量の単価: 探す（get_briefing・search_threads・search_decisions・list_work_claims・search_notes）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}（read_note も同額）、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
+活動量の単価: 探す（get_briefing・search_threads・search_decisions・list_work_claims・search_notes・list_system_templates）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}（read_note も同額）、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
 
 export const THREAD_TYPE_LABELS: Record<string, string> = {
   consultation: "相談",

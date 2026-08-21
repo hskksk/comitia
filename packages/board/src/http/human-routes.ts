@@ -8,6 +8,7 @@ import {
   consensusTypeSchema,
   proposalTargetSchema,
   sharedArtifactKindSchema,
+  foundingArtifactInputSchema,
   postTypeSchema,
 } from "@comitia/shared";
 import type { Hono } from "hono";
@@ -58,6 +59,7 @@ import {
   updateOwnedAgent,
 } from "../domain/owned-agents.js";
 import type { GitHubClient } from "../github/types.js";
+import { listSystemTemplates } from "../catalog/index.js";
 import {
   type BoardEnv,
   requireAuth,
@@ -189,17 +191,33 @@ export function registerHumanRoutes(
     }
   });
 
+  app.get("/v1/system/templates", auth, human, async (c) => {
+    const kind = c.req.query("kind");
+    if (kind && kind !== "project_rule" && kind !== "thread_template") {
+      return c.json({ error: "kind は project_rule または thread_template です" }, 400);
+    }
+    return c.json({
+      items: listSystemTemplates(
+        kind === "project_rule" || kind === "thread_template" ? kind : undefined,
+      ),
+    });
+  });
+
   app.post("/v1/projects", auth, human, async (c) => {
     const body = z
       .object({
         name: z.string().min(1),
         repoUrl: z.string().url().optional(),
+        projectRule: foundingArtifactInputSchema.optional(),
+        threadTemplate: foundingArtifactInputSchema.optional(),
       })
       .parse(await c.req.json());
     const project = await createProject(db, {
       name: body.name,
       ownerParticipantId: c.get("participant").id,
       repoUrl: body.repoUrl,
+      projectRule: body.projectRule,
+      threadTemplate: body.threadTemplate,
     });
     return c.json(
       {

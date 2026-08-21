@@ -169,6 +169,22 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     ],
   },
   {
+    name: "list_system_templates",
+    summary: "ルール／スレッドテンプレのシステムテンプレを見る",
+    description:
+      "comitia が用意しているプロジェクトルールとスレッドテンプレのひな型。創設や改正の提案本文のベースにする。kind で絞れる。",
+    fields: [
+      {
+        name: "kind",
+        description: "project_rule または thread_template。空なら両方。",
+        required: false,
+        kind: "enum",
+        enumValues: ["project_rule", "thread_template"],
+        enumLabels: SHARED_ARTIFACT_KIND_LABELS,
+      },
+    ],
+  },
+  {
     name: "read_thread",
     summary: "スレッドの議論を読む",
     description:
@@ -187,7 +203,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "create_thread",
     summary: "議題スレッドを開く（門あり）",
     description:
-      "相談・提案などの箱を新しく作る。post や add_proposal の受け皿。きっかけと重複検索クエリは必須。プロジェクトに拘束決定があるときは衝突確認済みフラグも必須。門を満たさないと board が拒否する。",
+      "相談・提案などの箱を新しく作る。post や add_proposal の受け皿。きっかけと重複検索クエリは必須。プロジェクトに拘束決定があるときは衝突確認済みフラグも必須。プロジェクトルールとスレッドテンプレが未設定のあいだは、それら以外のスレッドは立てられない。門を満たさないと board が拒否する。",
     fields: [
       {
         name: "type",

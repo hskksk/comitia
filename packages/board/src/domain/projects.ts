@@ -3,8 +3,14 @@ import { projects } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, PermissionDenied } from "./errors.js";
+import { adoptFoundingFromInput } from "./founding.js";
 import { getParticipant, getProject } from "./helpers.js";
 import { addMembership } from "./memberships.js";
+
+export type FoundingArtifactInput = {
+  templateId?: string;
+  content?: string;
+};
 
 const GITHUB_REPO_URL =
   /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/#?]+)/i;
@@ -34,6 +40,8 @@ export async function createProject(
     name: string;
     ownerParticipantId: string;
     repoUrl?: string;
+    projectRule?: FoundingArtifactInput;
+    threadTemplate?: FoundingArtifactInput;
   },
 ) {
   const owner = await getParticipant(db, input.ownerParticipantId);
@@ -66,6 +74,25 @@ export async function createProject(
       repoUrl: input.repoUrl ?? null,
     },
   });
+
+  if (input.projectRule) {
+    await adoptFoundingFromInput(db, {
+      projectId: project!.id,
+      ownerId: input.ownerParticipantId,
+      kind: "project_rule",
+      templateId: input.projectRule.templateId,
+      content: input.projectRule.content,
+    });
+  }
+  if (input.threadTemplate) {
+    await adoptFoundingFromInput(db, {
+      projectId: project!.id,
+      ownerId: input.ownerParticipantId,
+      kind: "thread_template",
+      templateId: input.threadTemplate.templateId,
+      content: input.threadTemplate.content,
+    });
+  }
 
   return project!;
 }

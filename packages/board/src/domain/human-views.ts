@@ -1,6 +1,6 @@
 import { formatParticipantLabel } from "@comitia/shared";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import type { ConsensusType, PullRequestState, ThreadType } from "@comitia/shared";
+import type { ConsensusType, PullRequestState, SharedArtifactKind, ThreadType } from "@comitia/shared";
 import {
   events,
   participants,
@@ -82,6 +82,8 @@ export type HumanThreadView = {
     ownerParticipantId: string;
     awaitingEnteredAt: string | null;
     timingEndsAt: string | null;
+    target: "repo_artifact" | "shared_artifact" | null;
+    sharedArtifactKind: SharedArtifactKind | null;
   };
   consensusReasons: string[];
   synthesis: { id: string; body: string; createdAt: string } | null;
@@ -374,6 +376,8 @@ export async function getHumanThreadView(
       ownerParticipantId: thread.ownerParticipantId,
       awaitingEnteredAt: thread.awaitingEnteredAt?.toISOString() ?? null,
       timingEndsAt: thread.timingEndsAt?.toISOString() ?? null,
+      target: thread.target,
+      sharedArtifactKind: thread.sharedArtifactKind,
     },
     consensusReasons: await consensusReasonsOf(db, thread),
     synthesis: await latestSynthesis(db, threadId),

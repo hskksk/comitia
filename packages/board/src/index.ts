@@ -5,6 +5,8 @@ export * from "./domain/credentials.js";
 export * from "./domain/connections.js";
 export * from "./domain/bootstrap.js";
 export * from "./domain/projects.js";
+export * from "./domain/constitution.js";
+export * from "./domain/founding.js";
 export * from "./domain/roles.js";
 export * from "./domain/threads.js";
 export * from "./domain/proposals.js";

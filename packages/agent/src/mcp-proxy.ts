@@ -18,6 +18,7 @@ export const MCP_PROXY_TOOLS = [
   "complete_goal",
   "search_threads",
   "search_decisions",
+  "list_system_templates",
   "read_thread",
   "create_thread",
   "add_proposal",
@@ -144,6 +145,19 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
     },
     async (args) =>
       runtime.callTool("search_decisions", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
+    "list_system_templates",
+    {
+      description:
+        "comitia が持つプロジェクトルール／スレッドテンプレのシステムテンプレを一覧する",
+      inputSchema: {
+        kind: z.enum(["project_rule", "thread_template"]).optional(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("list_system_templates", args as Record<string, unknown>),
   );
 
   server.registerTool(

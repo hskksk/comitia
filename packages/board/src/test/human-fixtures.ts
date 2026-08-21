@@ -5,6 +5,7 @@ import { addProposal } from "../domain/proposals.js";
 import { registerParticipant } from "../domain/participants.js";
 import { createProject } from "../domain/projects.js";
 import { createThread } from "../domain/threads.js";
+import { adoptDefaultFounding } from "../domain/founding.js";
 import type { Db } from "../db/test-setup.js";
 
 export async function seedOwnerAgentProject(db: Db) {
@@ -26,6 +27,10 @@ export async function seedOwnerAgentProject(db: Db) {
     projectId: project.id,
     participantId: agent.id,
     actorId: owner.id,
+  });
+  await adoptDefaultFounding(db, {
+    projectId: project.id,
+    ownerId: owner.id,
   });
   return { owner, agent, project };
 }
