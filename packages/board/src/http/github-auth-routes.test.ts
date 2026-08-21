@@ -119,4 +119,25 @@ describe("GitHub installation setup", () => {
       "github.com/apps/comitia-board/installations/new",
     );
   });
+
+  it("returns install url as json for SPA clients", async () => {
+    const board = app();
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const token = "owner-token";
+    await db.insert(agentCredentials).values({
+      participantId: owner.id,
+      projectId: project.id,
+      tokenHash: (await import("../domain/credentials.js")).hashToken(token),
+    });
+    const res = await board.request("/v1/github/install", {
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: "application/json",
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      url: "https://github.com/apps/comitia-board/installations/new",
+    });
+  });
 });

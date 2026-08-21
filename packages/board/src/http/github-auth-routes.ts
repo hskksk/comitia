@@ -129,10 +129,12 @@ export function registerGithubAuthRoutes(
     if (!input.appSlug) {
       return c.json({ error: "GitHub App is not configured" }, 503);
     }
-    return c.redirect(
-      `https://github.com/apps/${input.appSlug}/installations/new`,
-      302,
-    );
+    const url = `https://github.com/apps/${input.appSlug}/installations/new`;
+    const accept = c.req.header("accept") ?? "";
+    if (accept.includes("application/json")) {
+      return c.json({ url });
+    }
+    return c.redirect(url, 302);
   });
 
   app.get("/v1/github/setup", auth, human, member, projectOwner, async (c) => {

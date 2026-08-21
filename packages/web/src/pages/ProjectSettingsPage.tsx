@@ -100,7 +100,7 @@ export function ProjectSettingsPage() {
   async function onInstallGitHubApp() {
     setError(null);
     try {
-      const url = await boardClient.beginAuthenticatedRedirect("/v1/github/install");
+      const url = await boardClient.getGitHubInstallUrl();
       window.location.assign(url);
     } catch (err) {
       setError(
