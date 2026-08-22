@@ -6,6 +6,7 @@ import {
   engineGithubEnv,
   fetchGithubCredentials,
   gitEnvWithToken,
+  githubAuthNeedsRefresh,
   writeIsolatedGitHubAuth,
 } from "./github-auth.js";
 
@@ -112,5 +113,56 @@ describe("fetchGithubCredentials", () => {
     await expect(
       fetchGithubCredentials("http://board.test", "agent-token"),
     ).resolves.toBeNull();
+  });
+
+  it("logs the board error body on 502", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error:
+                "GitHub App is missing Contents write or Pull requests write, or the installation has not been re-approved after a permission change",
+            }),
+            { status: 502 },
+          ),
+      ),
+    );
+    await expect(
+      fetchGithubCredentials("http://board.test", "agent-token"),
+    ).resolves.toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Contents write"),
+    );
+    errorSpy.mockRestore();
+  });
+});
+
+describe("githubAuthNeedsRefresh", () => {
+  it("does not retry a failed mint", () => {
+    expect(githubAuthNeedsRefresh(null)).toBe(false);
+  });
+
+  it("refreshes when fewer than 10 minutes remain", () => {
+    expect(
+      githubAuthNeedsRefresh({
+        token: "ghs_minted",
+        expiresAt: new Date("2026-08-22T10:05:00.000Z"),
+        owner: "hskksk",
+        repo: "comitia",
+        repoUrl: "https://github.com/hskksk/comitia",
+      }, Date.parse("2026-08-22T10:00:00.000Z")),
+    ).toBe(true);
+    expect(
+      githubAuthNeedsRefresh({
+        token: "ghs_minted",
+        expiresAt: new Date("2026-08-22T11:00:00.000Z"),
+        owner: "hskksk",
+        repo: "comitia",
+        repoUrl: "https://github.com/hskksk/comitia",
+      }, Date.parse("2026-08-22T10:00:00.000Z")),
+    ).toBe(false);
   });
 });

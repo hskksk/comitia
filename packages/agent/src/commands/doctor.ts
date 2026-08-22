@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { loadConfig, type ComitiaConfig } from "../config.js";
+import { readJsonErrorMessage } from "../github-auth.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -83,9 +84,10 @@ async function checkGithubCredentials(
           "GitHub 実行資格: 未接続（App 未設定か、プロジェクトに installation が無い）。git / gh はホスト環境に依存する",
       };
     }
+    const detail = await readJsonErrorMessage(response);
     return {
       ok: false,
-      message: `GitHub 実行資格: 発行に失敗（${response.status}）`,
+      message: `GitHub 実行資格: 発行に失敗（${response.status}${detail ? `: ${detail}` : ""}）`,
     };
   } catch {
     return {

@@ -551,6 +551,37 @@ describe("operator commands", () => {
     expect(output).not.toContain("ghs_secret_should_not_appear");
   });
 
+  it("surfaces a 502 GitHub mint error without printing a token", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeConfig(configDir);
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "GitHub App is missing Contents write or Pull requests write, or the installation has not been re-approved after a permission change",
+          }),
+          { status: 502 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({ configDir, fetch: fetchMock as typeof fetch, stdout });
+    const output = chunks.join("");
+    expect(output).toContain("GitHub 実行資格: 発行に失敗（502");
+    expect(output).toContain("Contents write");
+    expect(output).not.toContain("ghs_");
+  });
+
   it("wakes an agent via owner request-session", async () => {
     const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
     cleanups.push(() => rm(configDir, { recursive: true }));

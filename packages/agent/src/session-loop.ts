@@ -19,6 +19,7 @@ import {
 import {
   fetchGithubCredentials,
   gitEnvWithToken,
+  githubAuthNeedsRefresh,
   type GithubSessionCredentials,
 } from "./github-auth.js";
 import type { EngineGithubAuth } from "./plugins/types.js";
@@ -105,8 +106,6 @@ async function fetchIdentity(
   }
 }
 
-const GITHUB_TOKEN_REFRESH_MS = 10 * 60 * 1000;
-
 function toEngineGithubAuth(
   creds: GithubSessionCredentials,
   committerName: string,
@@ -118,13 +117,6 @@ function toEngineGithubAuth(
   };
 }
 
-function githubAuthNeedsRefresh(creds: GithubSessionCredentials | null): boolean {
-  if (!creds) {
-    return true;
-  }
-  return creds.expiresAt.getTime() - Date.now() < GITHUB_TOKEN_REFRESH_MS;
-}
-
 async function refreshGithubCredentials(
   boardUrl: string,
   agentToken: string,
@@ -134,7 +126,7 @@ async function refreshGithubCredentials(
     return current;
   }
   const next = await fetchGithubCredentials(boardUrl, agentToken);
-    return next ?? current;
+  return next ?? current;
 }
 
 /** Clone repoUrl into workDir, or pull it if already checked out there. Never throws. */

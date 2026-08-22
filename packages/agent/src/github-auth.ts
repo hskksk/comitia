@@ -10,6 +10,30 @@ export type GithubSessionCredentials = {
 };
 
 const GITHUB_TOKEN_ENV_KEYS = ["GH_TOKEN", "GITHUB_TOKEN"] as const;
+export const GITHUB_TOKEN_REFRESH_MS = 10 * 60 * 1000;
+
+export function githubAuthNeedsRefresh(
+  creds: GithubSessionCredentials | null,
+  now = Date.now(),
+): boolean {
+  if (!creds) {
+    return false;
+  }
+  return creds.expiresAt.getTime() - now < GITHUB_TOKEN_REFRESH_MS;
+}
+
+export async function readJsonErrorMessage(
+  response: Response,
+): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === "string" && body.error.length > 0
+      ? body.error
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchGithubCredentials(
   boardUrl: string,
@@ -29,8 +53,9 @@ export async function fetchGithubCredentials(
       },
     );
     if (!response.ok) {
+      const detail = await readJsonErrorMessage(response);
       console.error(
-        `[github-auth] POST /v1/me/github-credentials failed: ${response.status}`,
+        `[github-auth] POST /v1/me/github-credentials failed: ${response.status}${detail ? ` ${detail}` : ""}`,
       );
       return null;
     }

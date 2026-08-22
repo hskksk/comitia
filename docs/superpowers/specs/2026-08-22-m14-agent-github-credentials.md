@@ -115,7 +115,7 @@ Fake client: return a deterministic token such as `ghs_fake_<installationId>_<ow
 - 400 `project required` — membership cannot be resolved to one project
 - 404 `github credentials unavailable` — no `repoUrl`, or no `githubInstallationId` / owner / repo. Adapter treats this as soft-fail (no throw)
 - 503 `GitHub App is not configured` — no `GitHubClient`. Soft-fail
-- 502 — GitHub mint failed (permissions missing, installation gone). Soft-fail at the adapter; the route itself may 502 with a short error string, no token
+- 502 — GitHub mint failed (permissions missing, installation gone). Soft-fail at the adapter; the route itself may 502 with a short error string, no token. If the App or installation lacks Contents write / Pull requests write, the error string says so (login OAuth does not fix this)
 
 Humans calling this route: 403 (agent-only). Do not mint for owner tokens.
 
@@ -141,7 +141,7 @@ Session loop, after `fetchIdentity` and before clone:
 2. Clone/pull with token env when mint succeeded
 3. `plugin.start({ …, github: { token, expiresAt, committerName } | null })`
 
-Each `plugin.run` (or immediately before it): if `expiresAt - now < 10 minutes`, remint and `plugin.updateGithubAuth?(cred)` **or** pass the new token via `plugin.start` being connect-scoped. Simplest: keep credentials on the plugin object through `start`, add optional `plugin.updateGithubAuth`. Claude plugin rewrites isolated `.gitconfig` and uses the new token on the next spawn. If remint fails, keep the old token until GitHub rejects it; do not abort the session.
+Each `plugin.run` (or immediately before it): if a token is present and `expiresAt - now < 10 minutes`, remint and `plugin.updateGithubAuth?(cred)` **or** pass the new token via `plugin.start` being connect-scoped. Simplest: keep credentials on the plugin object through `start`, add optional `plugin.updateGithubAuth`. Claude plugin rewrites isolated `.gitconfig` and uses the new token on the next spawn. If remint fails, keep the old token until GitHub rejects it; do not abort the session. Do not retry a failed initial mint on every run (reconnect after fixing App permissions).
 
 `EnginePlugin.start` session shape: add optional `github?: { token: string; expiresAt: string; committerName: string }`. Optional `updateGithubAuth` on the plugin type, default no-op.
 
