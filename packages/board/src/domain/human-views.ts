@@ -18,6 +18,7 @@ import { getThreadApprovals, getThreadObjections } from "./posts.js";
 import { listProjectPullRequestsForThreads, listThreadPullRequests } from "./pull-requests.js";
 import { listParticipantsWithSessionSince } from "./sessions.js";
 import {
+  activeClaimantsByThreadId,
   listActiveProjectClaims,
   listActiveThreadClaims,
   type ThreadWorkClaim,
@@ -37,6 +38,7 @@ export type JudgmentQueueItem = {
     versionNumber: number;
     content: string;
   } | null;
+  activeWorkClaimants: string[];
 };
 
 export type PullRequestRow = {
@@ -182,16 +184,20 @@ export async function listJudgmentQueue(
   db: Db,
   input: { projectId: string },
 ): Promise<JudgmentQueueItem[]> {
-  const rows = await db
-    .select()
-    .from(threads)
-    .where(
-      and(
-        eq(threads.projectId, input.projectId),
-        eq(threads.state, "awaiting_decision"),
-        isNull(threads.archivedAt),
+  const [rows, activeClaims] = await Promise.all([
+    db
+      .select()
+      .from(threads)
+      .where(
+        and(
+          eq(threads.projectId, input.projectId),
+          eq(threads.state, "awaiting_decision"),
+          isNull(threads.archivedAt),
+        ),
       ),
-    );
+    listActiveProjectClaims(db, input.projectId),
+  ]);
+  const claimantsByThread = activeClaimantsByThreadId(activeClaims);
 
   const queued = await Promise.all(
     rows.map(async (thread) => ({
@@ -216,6 +222,7 @@ export async function listJudgmentQueue(
           db,
           thread.candidateProposalVersionId,
         ),
+        activeWorkClaimants: claimantsByThread.get(thread.id) ?? [],
       })),
   );
 
@@ -458,9 +465,9 @@ export async function listProjectThreads(
       .orderBy(desc(threads.createdAt)),
     listActiveProjectClaims(db, input.projectId),
   ]);
-  const claimedThreadIds = new Set(activeClaims.map((claim) => claim.threadId));
+  const claimantsByThread = activeClaimantsByThreadId(activeClaims);
   return rows.map((row) => ({
     ...row,
-    hasActiveWorkClaim: claimedThreadIds.has(row.id),
+    activeWorkClaimants: claimantsByThread.get(row.id) ?? [],
   }));
 }

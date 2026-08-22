@@ -181,6 +181,47 @@ export async function deactivateThreadClaims(
   return updated;
 }
 
+export function uniqueClaimantDisplayNames(
+  claims: ReadonlyArray<{ participantId: string; displayName: string }>,
+): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const claim of claims) {
+    if (seen.has(claim.participantId)) {
+      continue;
+    }
+    seen.add(claim.participantId);
+    names.push(claim.displayName);
+  }
+  return names;
+}
+
+export function activeClaimantsByThreadId(
+  claims: ReadonlyArray<{
+    threadId: string;
+    participantId: string;
+    displayName: string;
+  }>,
+): Map<string, string[]> {
+  const grouped = new Map<
+    string,
+    Array<{ participantId: string; displayName: string }>
+  >();
+  for (const claim of claims) {
+    const list = grouped.get(claim.threadId) ?? [];
+    list.push({
+      participantId: claim.participantId,
+      displayName: claim.displayName,
+    });
+    grouped.set(claim.threadId, list);
+  }
+  const result = new Map<string, string[]>();
+  for (const [threadId, threadClaims] of grouped) {
+    result.set(threadId, uniqueClaimantDisplayNames(threadClaims));
+  }
+  return result;
+}
+
 export type ActiveWorkClaim = {
   id: string;
   threadId: string;

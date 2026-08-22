@@ -16,6 +16,7 @@ vi.mock("../api.js", () => ({
           consensusType: "human_ratification",
           humanRequired: false,
           enteredAt: "2026-08-16T00:00:00.000Z",
+          activeWorkClaimants: ["ハル"],
           synthesis: {
             id: "s1",
             body: "決めるのは区分の是非",
@@ -37,6 +38,7 @@ vi.mock("../api.js", () => ({
           enteredAt: "2026-08-16T01:00:00.000Z",
           synthesis: null,
           candidateProposal: null,
+          activeWorkClaimants: [],
         },
       ],
     }),
@@ -55,6 +57,7 @@ describe("QueuePage", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText("ルール改正")).toBeInTheDocument();
+    expect(screen.getByText("着手中: ハル")).toBeInTheDocument();
     expect(screen.getByText("人間批准が必要です")).toBeInTheDocument();
     expect(screen.getByText("提案")).toBeInTheDocument();
     expect(screen.getAllByText("判断待ち").length).toBeGreaterThan(0);

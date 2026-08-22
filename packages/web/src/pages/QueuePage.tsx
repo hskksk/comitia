@@ -116,6 +116,7 @@ export function QueuePage() {
             type={item.type}
             state={item.state}
             consensusType={item.consensusType}
+            activeWorkClaimants={item.activeWorkClaimants}
           />
           <SynthesisCard
             synthesis={item.synthesis}
