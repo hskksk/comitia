@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { and, eq, gt } from "drizzle-orm";
 import type { Hono } from "hono";
 import { githubOauthStates } from "../db/schema.js";
@@ -7,7 +7,7 @@ import {
   bindGithubIdentity,
   findHumanByGithubUserId,
   findUnboundSingleHuman,
-  issueOrRotateIdentityToken,
+  issueIdentityToken,
   registerHuman,
 } from "../domain/accounts.js";
 import { recordEvent } from "../domain/events.js";
@@ -20,56 +20,17 @@ import {
   requireProjectOwner,
 } from "./auth.js";
 import { connectExistingOrInstallUrl, connectInstallation } from "./github-routes.js";
+import {
+  decodeOauthState,
+  encodeOauthState,
+  sanitizeLoginOrigin,
+} from "./oauth-state.js";
+import { normalizeIdentityClientLabel } from "../domain/identity-credentials.js";
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
-const LOCAL_DEV_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 function stripTrailingSlash(url: string): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;
-}
-
-export function sanitizeLoginOrigin(
-  candidate: string | null | undefined,
-  publicBaseUrl?: string,
-): string | null {
-  if (!candidate) {
-    return null;
-  }
-  try {
-    const url = new URL(candidate);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return null;
-    }
-    if (publicBaseUrl && url.origin === new URL(publicBaseUrl).origin) {
-      return url.origin;
-    }
-    if (LOCAL_DEV_HOSTS.has(url.hostname)) {
-      return url.origin;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export function encodeOauthState(returnOrigin: string | null): string {
-  const nonce = randomBytes(24).toString("hex");
-  if (!returnOrigin) {
-    return nonce;
-  }
-  return `${nonce}.${Buffer.from(returnOrigin).toString("base64url")}`;
-}
-
-export function decodeOauthReturnOrigin(state: string): string | null {
-  const separator = state.indexOf(".");
-  if (separator === -1) {
-    return null;
-  }
-  try {
-    return Buffer.from(state.slice(separator + 1), "base64url").toString("utf8") || null;
-  } catch {
-    return null;
-  }
 }
 
 function oauthCallbackBase(
@@ -88,11 +49,13 @@ function loginCallbackLocation(
   requestUrl: string,
 ): string {
   const fallback = oauthCallbackBase(publicBaseUrl, requestUrl);
+  const { returnOrigin } = decodeOauthState(state);
   const origin =
-    sanitizeLoginOrigin(decodeOauthReturnOrigin(state), publicBaseUrl) ??
-    fallback;
+    sanitizeLoginOrigin(returnOrigin, publicBaseUrl) ?? fallback;
   return `${origin}/login/callback?token=${token}`;
 }
+
+export { decodeOauthReturnOrigin, encodeOauthState, sanitizeLoginOrigin } from "./oauth-state.js";
 
 export function registerGithubAuthRoutes(
   app: Hono<BoardEnv>,
@@ -122,7 +85,8 @@ export function registerGithubAuthRoutes(
       c.req.query("return_origin"),
       input.publicBaseUrl,
     );
-    const state = encodeOauthState(returnOrigin);
+    const clientLabel = normalizeIdentityClientLabel(c.req.query("client"));
+    const state = encodeOauthState(returnOrigin, clientLabel);
     const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS);
     await input.db.insert(githubOauthStates).values({ state, expiresAt });
     const redirectUri = `${oauthCallbackBase(input.publicBaseUrl, c.req.url)}/v1/auth/github/callback`;
@@ -189,6 +153,7 @@ export function registerGithubAuthRoutes(
           githubUserId: user.id,
           githubLogin: user.login,
           ignoreSignupGate: true,
+          clientLabel: decodeOauthState(state).clientLabel,
         });
         return c.redirect(
           loginCallbackLocation(
@@ -202,7 +167,11 @@ export function registerGithubAuthRoutes(
       }
     }
 
-    const token = await issueOrRotateIdentityToken(input.db, humanRow.id);
+    const token = await issueIdentityToken(
+      input.db,
+      humanRow.id,
+      decodeOauthState(state).clientLabel,
+    );
     return c.redirect(
       loginCallbackLocation(token, state, input.publicBaseUrl, c.req.url),
       302,

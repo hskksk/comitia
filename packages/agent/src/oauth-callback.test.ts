@@ -25,7 +25,7 @@ describe("oauth callback server", () => {
         "http://127.0.0.1:54321",
       ),
     ).toBe(
-      "http://127.0.0.1:8787/v1/auth/github?return_origin=http%3A%2F%2F127.0.0.1%3A54321",
+      "http://127.0.0.1:8787/v1/auth/github?return_origin=http%3A%2F%2F127.0.0.1%3A54321&client=cli",
     );
   });
 });

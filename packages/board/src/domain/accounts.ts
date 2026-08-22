@@ -6,6 +6,10 @@ import {
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { hashToken, issueToken } from "./credentials.js";
+import {
+  type IdentityClientLabel,
+  normalizeIdentityClientLabel,
+} from "./identity-credentials.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError, PermissionDenied } from "./errors.js";
 import { addMembership, assertProjectMember } from "./memberships.js";
@@ -20,31 +24,23 @@ export function issueInviteToken() {
   return `comt_inv_${issueToken().slice("comt_".length)}`;
 }
 
-export async function issueOrRotateIdentityToken(
+export async function issueIdentityToken(
   db: Db,
   participantId: string,
+  clientLabel: IdentityClientLabel = "manual",
 ) {
   const token = issueToken();
-  const tokenHash = hashToken(token);
-  const [existing] = await db
-    .select()
-    .from(agentCredentials)
-    .where(eq(agentCredentials.participantId, participantId))
-    .limit(1);
-  if (existing) {
-    await db
-      .update(agentCredentials)
-      .set({ tokenHash, revokedAt: null })
-      .where(eq(agentCredentials.id, existing.id));
-  } else {
-    await db.insert(agentCredentials).values({
-      participantId,
-      projectId: null,
-      tokenHash,
-    });
-  }
+  await db.insert(agentCredentials).values({
+    participantId,
+    projectId: null,
+    clientLabel: normalizeIdentityClientLabel(clientLabel),
+    tokenHash: hashToken(token),
+  });
   return token;
 }
+
+/** @deprecated Use issueIdentityToken. Kept as an alias for existing imports. */
+export const issueOrRotateIdentityToken = issueIdentityToken;
 
 export async function registerHuman(
   db: Db,
@@ -53,6 +49,7 @@ export async function registerHuman(
     githubUserId?: string;
     githubLogin?: string;
     ignoreSignupGate?: boolean;
+    clientLabel?: IdentityClientLabel;
   },
 ) {
   if (!input.ignoreSignupGate && !isOpenSignupEnabled()) {
@@ -71,7 +68,11 @@ export async function registerHuman(
       })
       .where(eq(participants.id, human.id));
   }
-  const token = await issueOrRotateIdentityToken(db, human.id);
+  const token = await issueIdentityToken(
+    db,
+    human.id,
+    input.clientLabel ?? "register",
+  );
   return { human: { ...human, githubUserId: input.githubUserId ?? null, githubLogin: input.githubLogin ?? null }, token };
 }
 

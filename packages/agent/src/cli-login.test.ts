@@ -86,7 +86,7 @@ async function completeGithubOAuth(
   callbackOrigin: string,
 ): Promise<void> {
   const start = await fetchImpl(
-    `${boardUrl}/v1/auth/github?return_origin=${encodeURIComponent(callbackOrigin)}`,
+    `${boardUrl}/v1/auth/github?return_origin=${encodeURIComponent(callbackOrigin)}&client=cli`,
     { redirect: "manual" },
   );
   expect(start.status).toBe(302);
@@ -169,6 +169,11 @@ describe("login command", () => {
     expect(after.ownerToken).not.toBe(staleToken);
     expect(after.ownerId).toBe(bootstrapped.owner.id);
     expect(chunks.join("")).toContain("ログインしました");
+
+    const staleMeRes = await fetchImpl(`${boardUrl}/v1/me`, {
+      headers: { authorization: `Bearer ${staleToken}` },
+    });
+    expect(staleMeRes.status).toBe(200);
 
     const listOut: string[] = [];
     const listStdout = new PassThrough();
