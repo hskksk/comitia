@@ -3,10 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  applyClaudeCredentialEnv,
+  blobHasClaudeOauth,
+  claudeKeychainAccount,
+  claudeKeychainServiceName,
+  detectClaudeAuthSource,
   resolveClaudeSecureStoragePin,
   resolveHostClaudeCredentialsDir,
   seedIsolatedClaudeAuth,
-  detectClaudeAuthSource,
 } from "./claude-auth.js";
 
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -39,6 +43,15 @@ describe("resolveClaudeSecureStoragePin", () => {
         CLAUDE_CONFIG_DIR: "~/.claude-work",
       }),
     ).toBe("~/.claude-work");
+  });
+
+  it("treats CLAUDE_CONFIG_DIR=$HOME/.claude as the default store", () => {
+    expect(
+      resolveClaudeSecureStoragePin(
+        { CLAUDE_CONFIG_DIR: "/Users/haru/.claude" },
+        "/Users/haru",
+      ),
+    ).toBe("");
   });
 });
 
@@ -187,5 +200,76 @@ describe("detectClaudeAuthSource", () => {
     expect(await detectClaudeAuthSource({}, hostHome)).toEqual({
       kind: "credentials-file",
     });
+  });
+
+  it("detects a macOS Keychain claude login", async () => {
+    expect(
+      await detectClaudeAuthSource({}, "/missing-home", {
+        readKeychain: () => '{"claudeAiOauth":{"accessToken":"sk-ant-oat"}}',
+      }),
+    ).toEqual({ kind: "keychain" });
+  });
+
+  it("ignores a Keychain item that only has MCP OAuth", async () => {
+    expect(
+      await detectClaudeAuthSource({}, "/missing-home", {
+        readKeychain: () => '{"mcpOAuth":{"plugin":{"accessToken":"mcp"}}}',
+      }),
+    ).toEqual({ kind: "host-login" });
+  });
+});
+
+describe("applyClaudeCredentialEnv", () => {
+  it("strips CLAUDE_CONFIG_DIR and does not export an empty pin", () => {
+    const env = applyClaudeCredentialEnv(
+      {
+        PATH: "/bin",
+        CLAUDE_CONFIG_DIR: "/Users/haru/.claude",
+        CLAUDE_SECURESTORAGE_CONFIG_DIR: "",
+      },
+      { PATH: "/bin" },
+    );
+    expect(env.CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBeUndefined();
+  });
+
+  it("keeps a non-empty host profile as the secure-storage pin only", () => {
+    const env = applyClaudeCredentialEnv(
+      {
+        PATH: "/bin",
+        CLAUDE_CONFIG_DIR: "/host/.claude-work",
+      },
+      { CLAUDE_CONFIG_DIR: "/host/.claude-work" },
+      "/Users/haru",
+    );
+    expect(env.CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe("/host/.claude-work");
+  });
+});
+
+describe("claudeKeychainServiceName", () => {
+  it("uses the unsuffixed default service for the default store", () => {
+    expect(claudeKeychainServiceName("")).toBe("Claude Code-credentials");
+  });
+
+  it("suffixes sha256(NFC(pin))[:8] for a custom config dir", () => {
+    expect(claudeKeychainServiceName("/host/.claude-work")).toMatch(
+      /^Claude Code-credentials-[0-9a-f]{8}$/,
+    );
+  });
+});
+
+describe("blobHasClaudeOauth", () => {
+  it("requires a top-level claudeAiOauth field", () => {
+    expect(blobHasClaudeOauth('{"claudeAiOauth":{}}')).toBe(true);
+    expect(blobHasClaudeOauth('{"mcpOAuth":{"x":{"accessToken":"t"}}}')).toBe(
+      false,
+    );
+  });
+});
+
+describe("claudeKeychainAccount", () => {
+  it("uses USER when it is a simple account name", () => {
+    expect(claudeKeychainAccount({ USER: "keisuke" })).toBe("keisuke");
   });
 });
