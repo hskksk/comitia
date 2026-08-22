@@ -22,10 +22,11 @@ GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
 **Permissions**
 
 - Repository metadata: Read
-- Pull requests: Read
+- Contents: Read & Write（ボードは使わない。M14 の実行役 token 用）
+- Pull requests: Read & Write（ボードの同期は Read。Write は M14 の `gh pr` 用）
 - Issues: Read & Write
 
-実行役が `git` / `gh` するための Contents / Pull requests Write は M5 では足さない。[設計 08](../design/08-agent-github-credentials.md)（M14）で足し、エージェントへ渡す token だけに downscope する。
+権限を足したあとは、GitHub 上で既存インストールの承認が必要。エージェントへ渡す token は Contents / Pull requests / metadata に downscope し、Issues は付けない → [設計 08](../design/08-agent-github-credentials.md)。
 
 **Subscribe to events**
 

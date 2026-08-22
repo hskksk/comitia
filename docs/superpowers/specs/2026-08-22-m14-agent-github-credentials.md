@@ -2,7 +2,7 @@
 
 Date: 2026-08-22
 
-Status: awaiting approval before implementation. Product decisions are in `docs/design/08-agent-github-credentials.md`. Remaining product questions this spec does not reopen are in `docs/09-open-questions.md`.
+Status: approved for implementation. Product decisions are in `docs/design/08-agent-github-credentials.md`. Remaining product questions this spec does not reopen are in `docs/09-open-questions.md`.
 
 ## Goal
 
@@ -61,8 +61,6 @@ The model never calls a new MCP tool. The adapter fetches credentials the same w
 No new tables. Reuse `projects.githubInstallationId` / `githubOwner` / `githubRepo`.
 
 Do not persist the minted token.
-
-Do not add an Event that includes the token. An optional `github_session_token_issued` with `{ participantId, projectId, repo, expiresAt }` (no token) is allowed but not required for this slice.
 
 ## GitHub client port
 
@@ -210,8 +208,6 @@ Two PRs, both on this branch or stacked:
 
 1. **Board:** port + fake + `POST /v1/me/github-credentials` + tests
 2. **Adapter:** `github-auth.ts`, session-loop, Claude env, doctor, dogfood permissions note
-
-Do not start coding until this spec is approved.
 
 ## Completion checklist
 
