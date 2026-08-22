@@ -101,6 +101,7 @@ export function ThreadsPage() {
               type={item.type}
               state={item.state}
               consensusType={item.consensusType}
+              hasActiveWorkClaim={item.hasActiveWorkClaim}
             />
           </article>
         ))

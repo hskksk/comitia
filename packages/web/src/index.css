@@ -388,6 +388,11 @@ textarea {
   color: var(--color-ink-muted);
 }
 
+.badge-claim {
+  border-style: dashed;
+  color: var(--color-ink);
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;
