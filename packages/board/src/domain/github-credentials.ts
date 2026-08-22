@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { projectMemberships } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import type { GitHubClient } from "../github/types.js";
+import { publicMintError } from "../github/mint-error.js";
 import { getProject } from "./helpers.js";
 import {
   isProjectMember,
@@ -68,8 +69,10 @@ export async function issueAgentGithubCredentials(
       repo: project.githubRepo,
       repoUrl: project.repoUrl,
     };
-  } catch {
-    return { ok: false, status: 502, error: "failed to mint GitHub credentials" };
+  } catch (error) {
+    const message = publicMintError(error);
+    console.error(`[github-credentials] mint failed: ${message}`);
+    return { ok: false, status: 502, error: message };
   }
 }
 
