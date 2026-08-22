@@ -8,7 +8,6 @@ import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 import { joinSystemPrompt } from "../environment-prompt.js";
 import type { EnginePlugin } from "./types.js";
 
-const RUN_TIMEOUT_MS = 300_000;
 const RM_OPTS = {
   recursive: true,
   force: true,
@@ -309,17 +308,11 @@ export function createClaudeCodePlugin(): EnginePlugin {
           running.stderr.setEncoding("utf8");
           running.stdout.on("data", (chunk: string) => { stdout += chunk; });
           running.stderr.on("data", (chunk: string) => { stderr += chunk; });
-          const timeout = setTimeout(() => {
-            running.kill("SIGTERM");
-            reject(new Error("Claude Code run timed out after 5 minutes"));
-          }, RUN_TIMEOUT_MS);
           running.once("error", (error) => {
-            clearTimeout(timeout);
             child = undefined;
             reject(error);
           });
           running.once("close", (code) => {
-            clearTimeout(timeout);
             child = undefined;
             if (code !== 0) {
               reject(
