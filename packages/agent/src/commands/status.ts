@@ -1,5 +1,6 @@
 import { loadConfig } from "../config.js";
 import { formatHttpError } from "../http-error.js";
+import { ownerAuthHeaders } from "../owner-headers.js";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
 
@@ -40,9 +41,7 @@ export async function statusCommand(
     throw new Error("オーナートークンがありません。`comitia init` を実行してください。");
   }
 
-  const headers = {
-    authorization: `Bearer ${config.ownerToken}`,
-  };
+  const headers = ownerAuthHeaders(config);
 
   const meRes = await fetchFn(new URL("/v1/me", config.boardUrl), { headers });
   if (!meRes.ok) {

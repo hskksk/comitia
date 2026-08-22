@@ -1,5 +1,6 @@
 import { loadConfig } from "../config.js";
 import { formatHttpError } from "../http-error.js";
+import { ownerAuthHeaders } from "../owner-headers.js";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
 
@@ -27,10 +28,9 @@ export async function wakeCommand(options: WakeCommandOptions): Promise<void> {
     new URL(`/v1/agents/${agent.agentId}/request-session`, config.boardUrl),
     {
       method: "POST",
-      headers: {
+      headers: ownerAuthHeaders(config, {
         "content-type": "application/json",
-        authorization: `Bearer ${config.ownerToken}`,
-      },
+      }),
       body: "{}",
     },
   );

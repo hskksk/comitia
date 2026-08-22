@@ -1,5 +1,6 @@
 import { loadConfig } from "../config.js";
 import { formatHttpError } from "../http-error.js";
+import { ownerAuthHeaders } from "../owner-headers.js";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
 
@@ -26,11 +27,9 @@ type ChatLogResponse = {
 async function readJson<T>(
   fetchFn: typeof fetch,
   url: URL,
-  token: string,
+  headers: Record<string, string>,
 ): Promise<T> {
-  const response = await fetchFn(url, {
-    headers: { authorization: `Bearer ${token}` },
-  });
+  const response = await fetchFn(url, { headers });
   if (!response.ok) {
     throw new Error(await formatHttpError(response));
   }
@@ -53,10 +52,11 @@ export async function agentLogsCommand(
     throw new Error(`不明なエージェント: ${options.name}`);
   }
 
+  const headers = ownerAuthHeaders(config);
   const sessions = await readJson<SessionList>(
     fetchFn,
     new URL(`/v1/agents/${agent.agentId}/sessions`, boardUrl),
-    ownerToken,
+    headers,
   );
   const sessionId = options.sessionId ?? sessions.items[0]?.id;
   if (!sessionId) {
@@ -67,7 +67,7 @@ export async function agentLogsCommand(
     readJson<ChatLogResponse>(
       fetchFn,
       new URL(`/v1/sessions/${sessionId}/chat-log`, boardUrl),
-      ownerToken,
+      headers,
     );
 
   const first = await loadLog();
