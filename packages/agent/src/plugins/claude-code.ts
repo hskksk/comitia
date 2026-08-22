@@ -1,13 +1,12 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { devNull, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 import {
   applyClaudeCredentialEnv,
-  seedIsolatedClaudeAuth,
   resolveHostHome,
 } from "../claude-auth.js";
 import { joinSystemPrompt } from "../environment-prompt.js";
@@ -44,14 +43,17 @@ export function buildClaudeArgs(options: {
   appendSystemPrompt?: string;
 }): string[] {
   // Do not pass --bare: it skips OAuth / Keychain credentials, so a host
-  // `claude login` would not be inherited. Isolated HOME + --strict-mcp-config
-  // still keep host hooks, plugins, and MCP servers out of the session.
+  // `claude login` would not be inherited. Keep the real HOME (Keychain /
+  // ~/.claude credentials) and isolate user settings via --setting-sources
+  // plus --strict-mcp-config. Git uses GIT_CONFIG_GLOBAL, not a fake HOME.
   const args = [
     "-p",
     options.prompt,
     "--mcp-config",
     options.mcpConfigPath,
     "--strict-mcp-config",
+    "--setting-sources",
+    "project,local",
     "--permission-mode",
     "bypassPermissions",
     "--output-format",
@@ -97,14 +99,18 @@ export function buildClaudeRunEnv(
   hostEnv: NodeJS.ProcessEnv = process.env,
   hostHome?: string,
 ): NodeJS.ProcessEnv {
+  const resolvedHostHome = hostHome ?? resolveHostHome(hostEnv);
   const env = engineGithubEnv(githubToken ?? null, hostEnv);
-  env.HOME = isolatedHome;
+  // Claude Code resolves login from $HOME / Keychain. Remapping HOME to a
+  // temp dir makes `claude login` invisible even when CLAUDE_CONFIG_DIR is unset.
+  env.HOME = resolvedHostHome;
+  env.GIT_TERMINAL_PROMPT = "0";
+  env.GIT_CONFIG_NOSYSTEM = "1";
+  env.GIT_CONFIG_GLOBAL = githubToken
+    ? join(isolatedHome, ".gitconfig")
+    : devNull;
   env.MCP_CONNECTION_NONBLOCKING = "0";
-  return applyClaudeCredentialEnv(
-    env,
-    hostEnv,
-    hostHome ?? resolveHostHome(hostEnv),
-  );
+  return applyClaudeCredentialEnv(env, hostEnv, resolvedHostHome);
 }
 
 export function resolveMcpStdioEntrypoint(fromUrl = import.meta.url): string {
@@ -271,10 +277,6 @@ export function createClaudeCodePlugin(options: {
       environmentPrompt = session.environmentPrompt ?? "";
       if (!isolatedHome) {
         isolatedHome = await mkdtemp(join(tmpdir(), "comitia-claude-home-"));
-        await seedIsolatedClaudeAuth(isolatedHome, {
-          env: options.hostEnv,
-          hostHome: options.hostHome,
-        });
       }
       if (!runtimeDir) {
         runtimeDir = await mkdtemp(join(tmpdir(), "comitia-claude-runtime-"));
@@ -310,7 +312,7 @@ export function createClaudeCodePlugin(options: {
       if (!workDir || !isolatedHome || !mcpConfigPath) {
         throw new Error("Claude Code plugin has not been started");
       }
-      const home = isolatedHome;
+      const gitHome = isolatedHome;
       runIndex += 1;
       const args = buildClaudeArgs({
         prompt,
@@ -324,7 +326,7 @@ export function createClaudeCodePlugin(options: {
           const running = spawn("claude", args, {
             cwd: workDir,
             env: buildClaudeRunEnv(
-              home,
+              gitHome,
               githubToken,
               options.hostEnv,
               options.hostHome,
