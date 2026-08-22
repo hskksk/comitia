@@ -16,6 +16,12 @@ import {
   buildEnvironmentPrompt,
   type AgentIdentity,
 } from "./environment-prompt.js";
+import {
+  fetchGithubCredentials,
+  gitEnvWithToken,
+  type GithubSessionCredentials,
+} from "./github-auth.js";
+import type { EngineGithubAuth } from "./plugins/types.js";
 
 export interface SessionLoopOptions {
   plugin: EnginePlugin;
@@ -99,15 +105,52 @@ async function fetchIdentity(
   }
 }
 
+const GITHUB_TOKEN_REFRESH_MS = 10 * 60 * 1000;
+
+function toEngineGithubAuth(
+  creds: GithubSessionCredentials,
+  committerName: string,
+): EngineGithubAuth {
+  return {
+    token: creds.token,
+    expiresAt: creds.expiresAt.toISOString(),
+    committerName,
+  };
+}
+
+function githubAuthNeedsRefresh(creds: GithubSessionCredentials | null): boolean {
+  if (!creds) {
+    return true;
+  }
+  return creds.expiresAt.getTime() - Date.now() < GITHUB_TOKEN_REFRESH_MS;
+}
+
+async function refreshGithubCredentials(
+  boardUrl: string,
+  agentToken: string,
+  current: GithubSessionCredentials | null,
+): Promise<GithubSessionCredentials | null> {
+  if (!githubAuthNeedsRefresh(current)) {
+    return current;
+  }
+  const next = await fetchGithubCredentials(boardUrl, agentToken);
+    return next ?? current;
+}
+
 /** Clone repoUrl into workDir, or pull it if already checked out there. Never throws. */
 export function ensureRepoCheckout(
   workDir: string,
   repoUrl: string,
+  env?: NodeJS.ProcessEnv,
 ): { ok: true } | { ok: false; error: string } {
   const args = existsSync(join(workDir, ".git"))
     ? ["-C", workDir, "pull", "--ff-only"]
     : ["clone", repoUrl, workDir];
-  const result = spawnSync("git", args, { encoding: "utf8", timeout: 120_000 });
+  const result = spawnSync("git", args, {
+    encoding: "utf8",
+    timeout: 120_000,
+    env,
+  });
   if (result.error) {
     return { ok: false, error: result.error.message };
   }
@@ -154,8 +197,14 @@ export async function runSessionLoop(
       repoUrls.length === 1
         ? repoUrls[0]!
         : identity?.project?.repoUrl ?? null;
+    const committerName = identity?.label ?? "エージェント";
+    let githubCreds = await fetchGithubCredentials(boardUrl, agentToken);
     if (repoUrl) {
-      const checkout = ensureRepoCheckout(workDir, repoUrl);
+      const checkout = ensureRepoCheckout(
+        workDir,
+        repoUrl,
+        githubCreds ? gitEnvWithToken(githubCreds.token) : undefined,
+      );
       if (!checkout.ok) {
         const note = `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。作業ディレクトリの中身無しで続行する。`;
         console.error(note);
@@ -175,6 +224,9 @@ export async function runSessionLoop(
           projects: [],
         },
       ),
+      github: githubCreds
+        ? toEngineGithubAuth(githubCreds, committerName)
+        : null,
       mcp: {
         command: process.execPath,
         args: [],
@@ -214,6 +266,18 @@ export async function runSessionLoop(
           incompleteGoals: priorDecision?.incompleteGoalTexts ?? [],
           goalsEverSet: priorDecision?.goalsEverSet ?? false,
         });
+      }
+
+      const refreshed = await refreshGithubCredentials(
+        boardUrl,
+        agentToken,
+        githubCreds,
+      );
+      if (refreshed && refreshed.token !== githubCreds?.token) {
+        githubCreds = refreshed;
+        await plugin.updateGithubAuth?.(
+          toEngineGithubAuth(githubCreds, committerName),
+        );
       }
 
       const result = await plugin.run(prompt);

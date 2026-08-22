@@ -429,6 +429,12 @@ describe("operator commands", () => {
       if (String(input).endsWith("/healthz")) {
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
       }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "GitHub App is not configured" }),
+          { status: 503 },
+        );
+      }
       return new Response("error", { status: 500 });
     });
 
@@ -442,6 +448,7 @@ describe("operator commands", () => {
     expect(output).toContain("0600");
     expect(output).toContain("boardUrl");
     expect(output).toContain("ボード: 稼働中");
+    expect(output).toContain("GitHub 実行資格: 未接続");
   });
 
   it("tells how to start the board from the repo root when it is down", async () => {
@@ -493,6 +500,12 @@ describe("operator commands", () => {
       if (String(input).endsWith("/healthz")) {
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
       }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "GitHub App is not configured" }),
+          { status: 503 },
+        );
+      }
       return new Response("error", { status: 500 });
     });
     const stdout = new PassThrough();
@@ -503,6 +516,39 @@ describe("operator commands", () => {
     const output = chunks.join("");
     expect(output).toContain("エンジン: fake");
     expect(output).not.toContain("Claude Code CLI が見つかりません");
+  });
+
+  it("reports GitHub credential minting without printing the token", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeConfig(configDir);
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({
+            token: "ghs_secret_should_not_appear",
+            expiresAt: "2026-08-22T10:00:00.000Z",
+            owner: "hskksk",
+            repo: "comitia",
+            repoUrl: "https://github.com/hskksk/comitia",
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({ configDir, fetch: fetchMock as typeof fetch, stdout });
+    const output = chunks.join("");
+    expect(output).toContain("GitHub 実行資格: 発行できる（hskksk/comitia）");
+    expect(output).not.toContain("ghs_secret_should_not_appear");
   });
 
   it("wakes an agent via owner request-session", async () => {
