@@ -8,6 +8,7 @@ export class UsageError extends Error {
 const TOP_LEVEL_COMMANDS = [
   "help",
   "init",
+  "login",
   "token",
   "status",
   "doctor",
@@ -95,6 +96,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
 コマンド:
   help              この一覧を表示
   init              空のボードを初期化
+  login             GitHub OAuth でログイン
   token             オーナートークンを表示
   status            ボードとエージェントの状態
   doctor            設定と環境を診断
@@ -112,6 +114,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
 
 例:
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
+  comitia login --board-url http://127.0.0.1:8787
   comitia project create --name 実験場
   comitia project use <projectId>
   comitia agent register --engine claude-code --name mika
