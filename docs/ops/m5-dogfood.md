@@ -25,6 +25,8 @@ GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
 - Pull requests: Read
 - Issues: Read & Write
 
+実行役が `git` / `gh` するための Contents / Pull requests Write は M5 では足さない。[設計 08](../design/08-agent-github-credentials.md)（M14）で足し、エージェントへ渡す token だけに downscope する。
+
 **Subscribe to events**
 
 - Pull request
