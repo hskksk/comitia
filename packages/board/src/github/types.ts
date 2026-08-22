@@ -28,4 +28,5 @@ export interface GitHubClient {
   listInstallationRepos(installationId: string): Promise<
     Array<{ owner: string; repo: string }>
   >;
+  listInstallations(): Promise<Array<{ id: string }>>;
 }

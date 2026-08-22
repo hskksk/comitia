@@ -99,15 +99,24 @@ export function ProjectSettingsPage() {
 
   async function onInstallGitHubApp() {
     setError(null);
+    setSaving(true);
     try {
-      const url = await boardClient.getGitHubInstallUrl();
-      window.location.assign(url);
+      const result = await boardClient.connectGitHubApp({
+        repoUrl: repoUrl.trim() === "" ? undefined : repoUrl.trim(),
+      });
+      if (result.connected) {
+        await reload();
+        return;
+      }
+      window.location.assign(result.url);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "GitHub App のインストールに失敗しました",
+          : "GitHub App の接続に失敗しました",
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -181,11 +190,12 @@ export function ProjectSettingsPage() {
             <button
               type="button"
               className="back-link"
+              disabled={saving}
               onClick={() => void onInstallGitHubApp()}
             >
               {project.githubInstallationId
                 ? "再接続する"
-                : "GitHub App をインストール"}
+                : "GitHub App を接続"}
             </button>
           ) : null}
         </p>

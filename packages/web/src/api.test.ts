@@ -61,30 +61,25 @@ describe("BoardClient", () => {
     expect(getCurrentProjectId()).toBe("proj-1");
   });
 
-  it("loads the github install url for SPA navigation", async () => {
+  it("connects an existing GitHub App installation", async () => {
     setToken("comt_abc");
     setCurrentProjectId("proj-1");
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          url: "https://github.com/apps/comitia-board/installations/new",
-        }),
-        {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        },
-      ),
+      new Response(JSON.stringify({ connected: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const url = await new BoardClient().getGitHubInstallUrl();
-    expect(url).toBe("https://github.com/apps/comitia-board/installations/new");
+    const result = await new BoardClient().connectGitHubApp();
+    expect(result).toEqual({ connected: true });
     expect(fetchMock).toHaveBeenCalledWith(
-      "/v1/github/install",
+      "/v1/github/connect",
       expect.objectContaining({
+        method: "POST",
         headers: expect.objectContaining({
           authorization: "Bearer comt_abc",
-          accept: "application/json",
           "x-comitia-project-id": "proj-1",
         }),
       }),
