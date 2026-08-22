@@ -126,7 +126,7 @@ Do not log `token`. JSON error bodies must not echo it.
 New module `packages/agent/src/github-auth.ts` (engine-agnostic):
 
 - `fetchGithubCredentials(boardUrl, agentToken, projectId?: string)` → credential or `null` (any non-200 → null + `console.error`, never throw)
-- `gitEnvWithToken(token): NodeJS.ProcessEnv` — for `ensureRepoCheckout` in the adapter process. Prefer `GIT_CONFIG_COUNT` / `http.extraHeader=Authorization: Bearer <token>` (or a temp gitconfig with `url.insteadOf`) so host `~/.gitconfig` is not rewritten
+- `gitEnvWithToken(token): NodeJS.ProcessEnv` — for `ensureRepoCheckout` in the adapter process. GitHub git HTTP does not accept `Authorization: Bearer`. Use `http.extraheader=AUTHORIZATION: basic base64(x-access-token:<token>)`, ignore host `~/.gitconfig` / credential helpers, and do not put `GH_TOKEN` on the clone env (host PAT or `gh` helper would send a second credential and GitHub would 401). Isolated HOME still uses `url.insteadOf` as below.
 - `writeIsolatedGitHubAuth(home, input: { token, committerName })` — write `$home/.gitconfig` only:
   - `user.name` = committerName
   - `user.email` = `comitia-agent@users.noreply.github.com` (stable, not a secret)

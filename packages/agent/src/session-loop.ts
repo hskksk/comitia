@@ -17,9 +17,9 @@ import {
   type AgentIdentity,
 } from "./environment-prompt.js";
 import {
-  engineGithubEnv,
   fetchGithubCredentials,
   gitEnvWithToken,
+  gitEnvWithoutHostCredentials,
   githubAuthNeedsRefresh,
   type GithubSessionCredentials,
 } from "./github-auth.js";
@@ -198,7 +198,7 @@ export async function runSessionLoop(
         repoUrl,
         githubCreds
           ? gitEnvWithToken(githubCreds.token)
-          : engineGithubEnv(null),
+          : gitEnvWithoutHostCredentials(),
       );
       if (!checkout.ok) {
         const note = githubCreds
