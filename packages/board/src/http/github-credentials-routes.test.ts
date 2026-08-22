@@ -121,7 +121,7 @@ describe("POST /v1/me/github-credentials", () => {
     });
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({
-      error: "github credentials unavailable",
+      error: "project has no GitHub App installation",
     });
     expect(github.mintCalls).toEqual([]);
   });

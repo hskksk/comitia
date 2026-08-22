@@ -45,8 +45,13 @@ describe("engineGithubEnv", () => {
 
 describe("gitEnvWithToken", () => {
   it("sets a GitHub Authorization extraHeader without dropping PATH", () => {
-    const env = gitEnvWithToken("ghs_minted", { PATH: "/bin" });
+    const env = gitEnvWithToken("ghs_minted", {
+      PATH: "/bin",
+      GH_TOKEN: "github_pat_host",
+    });
     expect(env.PATH).toBe("/bin");
+    expect(env.GH_TOKEN).toBe("ghs_minted");
+    expect(env.GITHUB_TOKEN).toBe("ghs_minted");
     expect(env.GIT_CONFIG_COUNT).toBe("1");
     expect(env.GIT_CONFIG_KEY_0).toBe("http.https://github.com/.extraHeader");
     expect(env.GIT_CONFIG_VALUE_0).toBe("Authorization: Bearer ghs_minted");

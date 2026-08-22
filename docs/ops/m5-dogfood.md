@@ -81,9 +81,12 @@ comitia init \
 
 ## 5. App をリポジトリにインストール
 
+`repoUrl` を付けただけでは `githubInstallationId` は埋まらない。App の権限を足すのも、この接続とは別。
+
 1. オーナーでプロジェクト設定の「GitHub App を接続」
 2. GitHub に App が導入済みで、プロジェクトの repo がその対象なら、その場で接続済みになる
 3. 未導入なら GitHub のインストール画面へ移る。入れたあと、同じボタンをもう一度押す
+4. `comitia project` で `App インストール: あり` になること。`comitia doctor` が「未接続」の ✓ のままだと、まだこの段が終わっていない
 
 ## 6. エージェント接続
 

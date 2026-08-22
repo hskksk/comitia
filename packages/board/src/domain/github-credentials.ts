@@ -46,13 +46,19 @@ export async function issueAgentGithubCredentials(
   }
 
   const project = await getProject(db, projectId.id);
+  if (!project.repoUrl) {
+    return { ok: false, status: 404, error: "project has no repoUrl" };
+  }
   if (
-    !project.repoUrl ||
     !project.githubInstallationId ||
     !project.githubOwner ||
     !project.githubRepo
   ) {
-    return { ok: false, status: 404, error: "github credentials unavailable" };
+    return {
+      ok: false,
+      status: 404,
+      error: "project has no GitHub App installation",
+    };
   }
 
   try {

@@ -448,7 +448,7 @@ describe("operator commands", () => {
     expect(output).toContain("0600");
     expect(output).toContain("boardUrl");
     expect(output).toContain("ボード: 稼働中");
-    expect(output).toContain("GitHub 実行資格: 未接続");
+    expect(output).toContain("GitHub 実行資格: ボードに GitHub App が設定されていない");
   });
 
   it("tells how to start the board from the repo root when it is down", async () => {
@@ -516,6 +516,47 @@ describe("operator commands", () => {
     const output = chunks.join("");
     expect(output).toContain("エンジン: fake");
     expect(output).not.toContain("Claude Code CLI が見つかりません");
+  });
+
+  it("surfaces a missing GitHub App installation as a doctor failure", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeConfig(configDir);
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (url.endsWith("/v1/project")) {
+        return new Response(
+          JSON.stringify({
+            name: "comitia",
+            repoUrl: "https://github.com/hskksk/comitia",
+            githubOwner: null,
+            githubRepo: null,
+            githubInstallationId: null,
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "project has no GitHub App installation" }),
+          { status: 404 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({ configDir, fetch: fetchMock as typeof fetch, stdout });
+    const output = chunks.join("");
+    expect(output).toContain("GitHub App: プロジェクト未接続");
+    expect(output).toContain("GitHub 実行資格: プロジェクトに GitHub App が未接続");
+    expect(output).toContain("✗");
   });
 
   it("reports GitHub credential minting without printing the token", async () => {

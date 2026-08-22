@@ -96,7 +96,7 @@ export function gitEnvWithToken(
   base: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
   return {
-    ...base,
+    ...engineGithubEnv(token, base),
     GIT_CONFIG_COUNT: "1",
     GIT_CONFIG_KEY_0: "http.https://github.com/.extraHeader",
     GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token}`,

@@ -113,7 +113,7 @@ Fake client: return a deterministic token such as `ghs_fake_<installationId>_<ow
 ```
 
 - 400 `project required` — membership cannot be resolved to one project
-- 404 `github credentials unavailable` — no `repoUrl`, or no `githubInstallationId` / owner / repo. Adapter treats this as soft-fail (no throw)
+- 404 `project has no repoUrl` / `project has no GitHub App installation` — Adapter treats this as soft-fail (no throw). Doctor prints these as failures, not a green 未接続
 - 503 `GitHub App is not configured` — no `GitHubClient`. Soft-fail
 - 502 — GitHub mint failed (permissions missing, installation gone). Soft-fail at the adapter; the route itself may 502 with a short error string, no token. If the App or installation lacks Contents write / Pull requests write, the error string says so (login OAuth does not fix this)
 
@@ -163,7 +163,8 @@ Isolated HOME is connect-scoped (already). Rewriting `.gitconfig` there does not
 When an agent is registered (or config has an agent token), `POST /v1/me/github-credentials` (or a dedicated dry-run — do **not** add a second route; POST is the check).
 
 - 200: `GitHub 実行資格: 発行できる（<owner>/<repo>、有効期限は出してよい、token は出さない）`
-- 404/503: `GitHub 実行資格: 未接続（App 未設定か、プロジェクトに installation が無い）。git / gh はホスト環境に依存する`
+- 404: `GitHub 実行資格: プロジェクトに GitHub App が未接続`（または repoUrl 無し）。`ok: false`
+- 503: `GitHub 実行資格: ボードに GitHub App が設定されていない`。`ok: false`
 - Other: status + short error, no token
 
 If the response is 200, discard the token immediately. Do not write it to disk.
