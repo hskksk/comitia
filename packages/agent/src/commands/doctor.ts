@@ -5,6 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { loadConfig, type ComitiaConfig } from "../config.js";
 import { readJsonErrorMessage } from "../github-auth.js";
+import { ownerAuthHeaders } from "../owner-headers.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -52,9 +53,16 @@ async function checkProjectGithub(
   }
   try {
     const response = await fetchFn(new URL("/v1/project", boardUrl), {
-      headers: { authorization: `Bearer ${config.ownerToken}` },
+      headers: ownerAuthHeaders(config),
     });
     if (!response.ok) {
+      if (response.status === 400) {
+        return {
+          ok: false,
+          message:
+            "GitHub App: 現在のプロジェクトを特定できない。`comitia project list` のあと `comitia project use <id>`",
+        };
+      }
       return null;
     }
     const body = (await response.json()) as {

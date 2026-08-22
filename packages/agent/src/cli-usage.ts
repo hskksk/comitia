@@ -116,7 +116,10 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
   comitia login --board-url http://127.0.0.1:8787
   comitia project create --name 実験場
+  comitia project list
   comitia project use <projectId>
+  comitia project
+  comitia project set --repo-url https://github.com/hskksk/comitia
   comitia agent register --engine claude-code --name mika
   comitia agent register --engine fake --name walker --project <projectId>
   comitia agent register --engine claude-code --name walker --role proposer

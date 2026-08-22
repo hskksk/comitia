@@ -1,5 +1,6 @@
 import { loadConfig, saveConfig } from "../config.js";
 import { formatHttpError } from "../http-error.js";
+import { ownerAuthHeaders } from "../owner-headers.js";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
 
@@ -28,17 +29,18 @@ type ProjectSummary = {
   githubInstallationId: string | null;
 };
 
-async function requireOwnerHeaders(options: ProjectCommandOptions) {
+async function requireOwnerHeaders(
+  options: ProjectCommandOptions,
+  extra?: Record<string, string>,
+) {
   const config = await loadConfig(options.configDir);
   if (!config.boardUrl) {
     throw new Error("boardUrl が設定されていません。`comitia init` を実行してください。");
   }
-  if (!config.ownerToken) {
-    throw new Error("オーナートークンがありません。`comitia init` を実行してください。");
-  }
   return {
     boardUrl: config.boardUrl,
-    headers: { authorization: `Bearer ${config.ownerToken}` },
+    headers: ownerAuthHeaders(config, extra),
+    config,
   };
 }
 
@@ -75,14 +77,16 @@ export async function projectSetCommand(
 ): Promise<void> {
   const fetchFn = options.fetch ?? globalThis.fetch;
   const stdout = options.stdout ?? process.stdout;
-  const { boardUrl, headers } = await requireOwnerHeaders(options);
+  const { boardUrl, headers } = await requireOwnerHeaders(options, {
+    "content-type": "application/json",
+  });
 
   const repoUrl =
     options.clearRepo || !options.repoUrl?.trim() ? null : options.repoUrl.trim();
 
   const res = await fetchFn(new URL("/v1/project", boardUrl), {
     method: "PATCH",
-    headers: { ...headers, "content-type": "application/json" },
+    headers,
     body: JSON.stringify({ repoUrl }),
   });
   if (!res.ok) {

@@ -20,8 +20,10 @@ import { agentLogsCommand } from "./commands/agent-logs.js";
 import { initCommand } from "./commands/init.js";
 import { registerCommand } from "./commands/register.js";
 import {
+  projectCommand,
   projectCreateCommand,
   projectListCommand,
+  projectSetCommand,
   projectUseCommand,
 } from "./commands/project.js";
 
@@ -239,9 +241,11 @@ describe("init and agent register commands", () => {
       project: "comitia",
       configDir,
     });
+    const originalId = (await loadConfig(configDir)).projectId!;
     await projectCreateCommand({ name: "実験場", configDir });
     const afterCreate = await loadConfig(configDir);
     expect(afterCreate.projectId).toBeTruthy();
+    expect(afterCreate.projectId).not.toBe(originalId);
 
     const chunks: string[] = [];
     const stdout = new PassThrough();
@@ -252,9 +256,37 @@ describe("init and agent register commands", () => {
     expect(chunks.join("")).toContain("実験場");
     expect(chunks.join("")).toContain("comitia");
 
-    const firstId = afterCreate.projectId!;
-    await projectUseCommand({ projectId: firstId, configDir });
-    expect((await loadConfig(configDir)).projectId).toBe(firstId);
+    const currentChunks: string[] = [];
+    const currentOut = new PassThrough();
+    currentOut.on("data", (chunk: Buffer | string) => {
+      currentChunks.push(String(chunk));
+    });
+    await projectCommand({ configDir, stdout: currentOut });
+    expect(currentChunks.join("")).toContain("プロジェクト: 実験場");
+
+    await projectUseCommand({ projectId: originalId, configDir });
+    expect((await loadConfig(configDir)).projectId).toBe(originalId);
+
+    const switchedChunks: string[] = [];
+    const switchedOut = new PassThrough();
+    switchedOut.on("data", (chunk: Buffer | string) => {
+      switchedChunks.push(String(chunk));
+    });
+    await projectCommand({ configDir, stdout: switchedOut });
+    expect(switchedChunks.join("")).toContain("プロジェクト: comitia");
+
+    const setOut = new PassThrough();
+    const setChunks: string[] = [];
+    setOut.on("data", (chunk: Buffer | string) => {
+      setChunks.push(String(chunk));
+    });
+    await projectSetCommand({
+      configDir,
+      repoUrl: "https://github.com/hskksk/comitia",
+      clearRepo: false,
+      stdout: setOut,
+    });
+    expect(setChunks.join("")).toContain("https://github.com/hskksk/comitia");
   });
 
   it("assigns a role only when --role is given", async () => {
