@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { loadConfig, type ComitiaConfig } from "../config.js";
+import { detectClaudeAuthSource, resolveHostHome } from "../claude-auth.js";
 import { readJsonErrorMessage } from "../github-auth.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
 
@@ -20,6 +21,8 @@ export interface DoctorCommandOptions {
   configDir?: string;
   fetch?: typeof globalThis.fetch;
   stdout?: CliOutput;
+  env?: NodeJS.ProcessEnv;
+  hostHome?: string;
 }
 
 function defaultConfigDir(): string {
@@ -40,6 +43,37 @@ async function checkClaudeAvailability(): Promise<DoctorFinding> {
     ok: false,
     message:
       "Claude Code CLI が見つかりません（PATH に claude がありません）。エージェント接続には必要です。",
+  };
+}
+
+async function checkClaudeAuth(
+  env: NodeJS.ProcessEnv,
+  hostHome: string,
+): Promise<DoctorFinding> {
+  const source = await detectClaudeAuthSource(env, hostHome);
+  if (source.kind === "api-key") {
+    return {
+      ok: true,
+      message:
+        "Claude 認証: ANTHROPIC_API_KEY が設定されています（claude login より優先）",
+    };
+  }
+  if (source.kind === "oauth-token") {
+    return {
+      ok: true,
+      message: "Claude 認証: CLAUDE_CODE_OAUTH_TOKEN が設定されています",
+    };
+  }
+  if (source.kind === "credentials-file") {
+    return {
+      ok: true,
+      message: "Claude 認証: ホストの claude login を引き継ぎます",
+    };
+  }
+  return {
+    ok: true,
+    message:
+      "Claude 認証: ホストの claude login（Keychain または ~/.claude/.credentials.json）を使う。未ログインなら `claude login`",
   };
 }
 
@@ -162,6 +196,8 @@ export async function doctorCommand(
   const fetchFn = options.fetch ?? globalThis.fetch;
   const stdout = options.stdout ?? process.stdout;
   const configDir = options.configDir ?? defaultConfigDir();
+  const env = options.env ?? process.env;
+  const hostHome = options.hostHome ?? resolveHostHome(env);
   const configPath = join(configDir, "config.json");
   const findings: DoctorFinding[] = [];
 
@@ -235,6 +271,7 @@ export async function doctorCommand(
     engines.length === 0 || engines.includes("claude-code");
   if (needsClaude) {
     findings.push(await checkClaudeAvailability());
+    findings.push(await checkClaudeAuth(env, hostHome));
   } else {
     findings.push({
       ok: true,

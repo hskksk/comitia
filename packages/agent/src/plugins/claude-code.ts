@@ -5,6 +5,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
+import {
+  resolveClaudeSecureStoragePin,
+  seedIsolatedClaudeAuth,
+} from "../claude-auth.js";
 import { joinSystemPrompt } from "../environment-prompt.js";
 import type { EngineGithubAuth, EnginePlugin } from "./types.js";
 import { engineGithubEnv, writeIsolatedGitHubAuth } from "../github-auth.js";
@@ -36,9 +40,11 @@ async function waitForChildExit(
 export function buildClaudeArgs(options: {
   prompt: string;
   mcpConfigPath: string;
-  hasBare: boolean;
   appendSystemPrompt?: string;
 }): string[] {
+  // Do not pass --bare: it skips OAuth / Keychain credentials, so a host
+  // `claude login` would not be inherited. Isolated HOME + --strict-mcp-config
+  // still keep host hooks, plugins, and MCP servers out of the session.
   const args = [
     "-p",
     options.prompt,
@@ -55,9 +61,6 @@ export function buildClaudeArgs(options: {
   ];
   if (options.appendSystemPrompt) {
     args.push("--append-system-prompt", options.appendSystemPrompt);
-  }
-  if (options.hasBare) {
-    args.push("--bare");
   }
   return args;
 }
@@ -90,12 +93,14 @@ export function buildMcpConfig(mcp: {
 export function buildClaudeRunEnv(
   isolatedHome: string,
   githubToken?: string | null,
+  hostEnv: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  return {
-    ...engineGithubEnv(githubToken ?? null),
-    HOME: isolatedHome,
-    MCP_CONNECTION_NONBLOCKING: "0",
-  };
+  const env = engineGithubEnv(githubToken ?? null, hostEnv);
+  env.HOME = isolatedHome;
+  env.MCP_CONNECTION_NONBLOCKING = "0";
+  env.CLAUDE_CONFIG_DIR = join(isolatedHome, ".claude");
+  env.CLAUDE_SECURESTORAGE_CONFIG_DIR = resolveClaudeSecureStoragePin(hostEnv);
+  return env;
 }
 
 export function resolveMcpStdioEntrypoint(fromUrl = import.meta.url): string {
@@ -123,14 +128,6 @@ export function resolveMcpStdioEntrypoint(fromUrl = import.meta.url): string {
     }
     dir = parent;
   }
-}
-
-function claudeHasBare(): boolean {
-  const result = spawnSync("claude", ["--help"], {
-    encoding: "utf8",
-    timeout: 15_000,
-  });
-  return result.status === 0 && result.stdout.includes("--bare");
 }
 
 function parseJson(value: string): unknown {
@@ -238,13 +235,15 @@ export function parseClaudeStream(output: string, run: number) {
   };
 }
 
-export function createClaudeCodePlugin(): EnginePlugin {
+export function createClaudeCodePlugin(options: {
+  hostEnv?: NodeJS.ProcessEnv;
+  hostHome?: string;
+} = {}): EnginePlugin {
   let workDir: string | undefined;
   let workDirPersistent = false;
   let isolatedHome: string | undefined;
   let runtimeDir: string | undefined;
   let mcpConfigPath: string | undefined;
-  let hasBare = false;
   let child: ChildProcess | undefined;
   let runIndex = 0;
   let lastTokens = 0;
@@ -268,6 +267,10 @@ export function createClaudeCodePlugin(): EnginePlugin {
       environmentPrompt = session.environmentPrompt ?? "";
       if (!isolatedHome) {
         isolatedHome = await mkdtemp(join(tmpdir(), "comitia-claude-home-"));
+        await seedIsolatedClaudeAuth(isolatedHome, {
+          env: options.hostEnv,
+          hostHome: options.hostHome,
+        });
       }
       if (!runtimeDir) {
         runtimeDir = await mkdtemp(join(tmpdir(), "comitia-claude-runtime-"));
@@ -290,7 +293,6 @@ export function createClaudeCodePlugin(): EnginePlugin {
         ),
         "utf8",
       );
-      hasBare = claudeHasBare();
       runIndex = 0;
       lastTokens = 0;
       await applyGithubAuth(session.github ?? null);
@@ -309,7 +311,6 @@ export function createClaudeCodePlugin(): EnginePlugin {
       const args = buildClaudeArgs({
         prompt,
         mcpConfigPath,
-        hasBare,
         appendSystemPrompt: environmentPrompt
           ? joinSystemPrompt(environmentPrompt, TOOLSET_OVERVIEW)
           : TOOLSET_OVERVIEW,
@@ -318,7 +319,7 @@ export function createClaudeCodePlugin(): EnginePlugin {
         (resolve, reject) => {
           const running = spawn("claude", args, {
             cwd: workDir,
-            env: buildClaudeRunEnv(home, githubToken),
+            env: buildClaudeRunEnv(home, githubToken, options.hostEnv),
             stdio: ["ignore", "pipe", "pipe"],
           });
           child = running;

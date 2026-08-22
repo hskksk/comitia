@@ -12,7 +12,7 @@ pnpm start          # ボード（要 DATABASE_URL）
 pnpm comitia --help
 ```
 
-設定と発行されたトークンは `~/.comitia/config.json` にパーミッション `0600` で保存されます。
+設定と発行されたトークンは `~/.comitia/config.json` にパーミッション `0600` で保存されます。`claude-code` エンジンはホストで `claude login` 済みであればその認証を使います。`ANTHROPIC_API_KEY` は不要です。
 
 ## 1. プロジェクトを初期化する
 
@@ -57,7 +57,7 @@ pnpm comitia status
 pnpm comitia doctor
 ```
 
-設定ファイルの存在とパーミッション、`boardUrl`、ボード到達を確認します。登録エージェントが `claude-code` を含む（または未登録の）ときは Claude Code CLI の有無も見ます。`fake` だけのときは不要と出します。ボードが止まっている場合は起動方法を案内します。
+設定ファイルの存在とパーミッション、`boardUrl`、ボード到達を確認します。登録エージェントが `claude-code` を含む（または未登録の）ときは Claude Code CLI の有無と、ホストの `claude login` / API キーの有無も見ます。`fake` だけのときは不要と出します。ボードが止まっている場合は起動方法を案内します。
 
 ## 6. エージェントを登録する
 
@@ -86,6 +86,8 @@ pnpm comitia agent connect facilitator
 ```
 
 アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`fake` ならターミナルにプロンプトとツール一覧を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。
+
+Claude Code は隔離した `HOME` で動きますが、ホスト環境の `claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）を引き継ぎます。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。
 
 `fake` エンジンの操作:
 
