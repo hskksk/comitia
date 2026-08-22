@@ -544,6 +544,11 @@ describe("human ops REST", () => {
       agentId: agent.id,
       projectId: project.id,
     });
+    const decided = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+      title: "採択された提案のタイトル",
+    });
     const headers = await ownerAuthHeader(owner.id, project.id);
 
     const projectRes = await app.request("/v1/project", { headers });
@@ -567,6 +572,20 @@ describe("human ops REST", () => {
 
     const agreements = await app.request("/v1/agreements", { headers });
     expect(agreements.status).toBe(200);
+    const agreementBody = (await agreements.json()) as {
+      items: Array<{
+        threadId: string;
+        threadTitle: string | null;
+        proposalContent: string;
+        summary: string;
+      }>;
+    };
+    const decidedAgreement = agreementBody.items.find(
+      (item) => item.threadId === decided.thread.id,
+    );
+    expect(decidedAgreement?.threadTitle).toBe("採択された提案のタイトル");
+    expect(decidedAgreement?.proposalContent).toBe("Comittia → Comitia");
+    expect(decidedAgreement?.summary).toBe("表記修正を採用");
 
     const events = await app.request("/v1/events?limit=10", { headers });
     expect(events.status).toBe(200);

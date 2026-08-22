@@ -44,13 +44,20 @@ export function AgreementsPage() {
       <h1>提案集</h1>
       {items.map((item) => (
         <article key={item.id} className="card">
-          <h2>
-            <Link to={projectPath(projectId, `threads/${item.threadId}`)}>
-              {item.threadTitle ?? "スレッド"}
-            </Link>
-          </h2>
-          <p className="muted">{item.binding ? "拘束力あり" : "拘束力なし"}</p>
-          <MarkdownBody source={item.summary} />
+          <MarkdownBody source={item.proposalContent} />
+          <footer className="muted">
+            <p>
+              スレッド:{" "}
+              <Link to={projectPath(projectId, `threads/${item.threadId}`)}>
+                {item.threadTitle ?? "スレッド"}
+              </Link>
+              {" ・ "}
+              {item.binding ? "拘束力あり" : "拘束力なし"}
+            </p>
+            {item.summary ? (
+              <p className="agreement-summary">{item.summary}</p>
+            ) : null}
+          </footer>
         </article>
       ))}
     </section>

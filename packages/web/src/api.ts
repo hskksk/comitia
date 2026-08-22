@@ -231,6 +231,7 @@ export type AgreementItem = {
   id: string;
   threadId: string;
   threadTitle: string | null;
+  proposalContent: string;
   summary: string;
   outcome: string;
   binding: boolean;
