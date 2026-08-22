@@ -13,6 +13,7 @@ import {
   PermissionDenied,
 } from "../domain/errors.js";
 import { getProject } from "../domain/helpers.js";
+import { issueAgentGithubCredentials } from "../domain/github-credentials.js";
 import { resolveHumanProjectId, resolveUniqueMembershipProjectId } from "../domain/memberships.js";
 import { agentBelongsToProject } from "../domain/owned-agents.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
@@ -232,6 +233,34 @@ export function createBoardApp(input: {
       repoUrl: project.repoUrl,
       githubOwner: project.githubOwner,
       githubRepo: project.githubRepo,
+    });
+  });
+
+  app.post("/v1/me/github-credentials", auth, agent, async (c) => {
+    const participant = c.get("participant");
+    let requestedProjectId: string | undefined;
+    const contentType = c.req.header("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const body = await c.req.json().catch(() => ({}));
+      const parsed = z
+        .object({ projectId: z.string().min(1).optional() })
+        .parse(body ?? {});
+      requestedProjectId = parsed.projectId;
+    }
+    const result = await issueAgentGithubCredentials(db, input.github, {
+      participantId: participant.id,
+      requestedProjectId,
+      credentialProjectId: c.get("credentialProjectId"),
+    });
+    if (!result.ok) {
+      return c.json({ error: result.error }, result.status);
+    }
+    return c.json({
+      token: result.token,
+      expiresAt: result.expiresAt.toISOString(),
+      owner: result.owner,
+      repo: result.repo,
+      repoUrl: result.repoUrl,
     });
   });
 

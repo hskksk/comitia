@@ -1,5 +1,8 @@
 import { App } from "@octokit/app";
-import type { GitHubClient } from "./types.js";
+import {
+  AGENT_GITHUB_TOKEN_PERMISSIONS,
+  type GitHubClient,
+} from "./types.js";
 import { mapPullRequestState } from "./map-pr-state.js";
 import type { readGitHubConfig } from "./config.js";
 
@@ -101,6 +104,30 @@ export function createOctokitGitHubClient(
         per_page: 100,
       });
       return data.map((installation) => ({ id: String(installation.id) }));
+    },
+
+    async createInstallationAccessToken(input) {
+      const repos = await this.listInstallationRepos(input.installationId);
+      const included = repos.some(
+        (row) => row.owner === input.owner && row.repo === input.repo,
+      );
+      if (!included) {
+        throw new Error(
+          `installation ${input.installationId} does not include ${input.owner}/${input.repo}`,
+        );
+      }
+      const { data } = await app.octokit.request(
+        "POST /app/installations/{installation_id}/access_tokens",
+        {
+          installation_id: Number(input.installationId),
+          repositories: [input.repo],
+          permissions: { ...AGENT_GITHUB_TOKEN_PERMISSIONS },
+        },
+      );
+      return {
+        token: data.token,
+        expiresAt: new Date(data.expires_at),
+      };
     },
   };
 }

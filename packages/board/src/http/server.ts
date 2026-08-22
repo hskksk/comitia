@@ -24,6 +24,7 @@ import {
 import { createBoardApp, type BoardGateway } from "./app.js";
 import { readGitHubConfig } from "../github/config.js";
 import { createOctokitGitHubClient } from "../github/octokit-client.js";
+import type { GitHubClient } from "../github/types.js";
 import { attachSpaFallback, resolveWebDist } from "./static-web.js";
 
 export function startLoops(input: {
@@ -86,6 +87,7 @@ async function runLoopTick(
 export async function startBoardServer(input: {
   db: Db;
   port?: number;
+  github?: GitHubClient;
 }): Promise<{
   port: number;
   baseUrl: string;
@@ -105,9 +107,10 @@ export async function startBoardServer(input: {
 
   const githubConfig = readGitHubConfig();
   const github =
-    githubConfig.installationReady && githubConfig.oauthEnabled
+    input.github ??
+    (githubConfig.installationReady && githubConfig.oauthEnabled
       ? createOctokitGitHubClient(githubConfig)
-      : undefined;
+      : undefined);
 
   const app = createBoardApp({
     db,
