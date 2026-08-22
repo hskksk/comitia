@@ -161,20 +161,35 @@ export function ProjectSettingsPage() {
         )}
       </form>
 
-      {owner ? (
-        <section className="composer">
-          <h2>GitHub App</h2>
-          <p>
+      <section className="composer">
+        <h2>GitHub App</h2>
+        <p className="github-app-status">
+          <span
+            className={`connection-badge ${
+              project.githubInstallationId ? "is-connected" : "is-never"
+            }`}
+            role="status"
+          >
+            {project.githubInstallationId ? "接続済み" : "未接続"}
+          </span>
+          {project.githubInstallationId && project.githubOwner && project.githubRepo ? (
+            <span className="muted">
+              {project.githubOwner}/{project.githubRepo}
+            </span>
+          ) : null}
+          {owner ? (
             <button
               type="button"
               className="back-link"
               onClick={() => void onInstallGitHubApp()}
             >
-              GitHub App をインストール
+              {project.githubInstallationId
+                ? "再接続する"
+                : "GitHub App をインストール"}
             </button>
-          </p>
-        </section>
-      ) : null}
+          ) : null}
+        </p>
+      </section>
 
       <section className="composer">
         <h2>メンバー</h2>
