@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +8,7 @@ import {
   fetchGithubCredentials,
   gitEnvWithToken,
   gitEnvWithoutHostCredentials,
+  githubAppGitExtraHeader,
   githubAuthNeedsRefresh,
   writeIsolatedGitHubAuth,
 } from "./github-auth.js";
@@ -77,7 +79,7 @@ describe("gitEnvWithoutHostCredentials", () => {
 });
 
 describe("writeIsolatedGitHubAuth", () => {
-  it("writes insteadOf and committer identity into the isolated HOME", async () => {
+  it("writes extraheader auth without embedding x-access-token in the URL", async () => {
     const home = await mkdtemp(join(tmpdir(), "comitia-gh-home-"));
     cleanups.push(() => rm(home, { recursive: true, force: true }));
     await writeIsolatedGitHubAuth(home, {
@@ -87,10 +89,30 @@ describe("writeIsolatedGitHubAuth", () => {
     const gitconfig = await readFile(join(home, ".gitconfig"), "utf8");
     expect(gitconfig).toContain("name = ウォーカー@ハル");
     expect(gitconfig).toContain("email = comitia-agent@users.noreply.github.com");
+    expect(gitconfig).toContain("helper =");
     expect(gitconfig).toContain(
-      'url "https://x-access-token:ghs_minted@github.com/"',
+      `extraHeader = ${githubAppGitExtraHeader("ghs_minted")}`,
     );
-    expect(gitconfig).toContain("insteadOf = https://github.com/");
+    expect(gitconfig).not.toContain('url "https://x-access-token:');
+    expect(gitconfig).not.toContain("x-access-token:ghs_minted@github.com");
+    expect(gitconfig).toContain('url "https://github.com/"');
+    expect(gitconfig).toContain("insteadOf = git@github.com:");
+
+    const gitconfigPath = join(home, ".gitconfig");
+    const extraHeader = spawnSync(
+      "git",
+      ["config", "--file", gitconfigPath, "--get", "http.https://github.com/.extraHeader"],
+      { encoding: "utf8" },
+    );
+    expect(extraHeader.status).toBe(0);
+    expect(extraHeader.stdout.trim()).toBe(githubAppGitExtraHeader("ghs_minted"));
+    const helper = spawnSync(
+      "git",
+      ["config", "--file", gitconfigPath, "--get", "credential.helper"],
+      { encoding: "utf8" },
+    );
+    expect(helper.status).toBe(0);
+    expect(helper.stdout).toBe("\n");
   });
 });
 

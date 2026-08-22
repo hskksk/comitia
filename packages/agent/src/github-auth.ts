@@ -95,6 +95,11 @@ export async function fetchGithubCredentials(
   }
 }
 
+export function githubAppGitExtraHeader(token: string): string {
+  const basic = Buffer.from(`x-access-token:${token}`, "utf8").toString("base64");
+  return `AUTHORIZATION: basic ${basic}`;
+}
+
 function gitEnvIgnoringHostConfig(
   base: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv {
@@ -116,10 +121,9 @@ export function gitEnvWithToken(
   base: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
   const env = gitEnvIgnoringHostConfig(base);
-  const basic = Buffer.from(`x-access-token:${token}`, "utf8").toString("base64");
   env.GIT_CONFIG_COUNT = "1";
   env.GIT_CONFIG_KEY_0 = "http.https://github.com/.extraheader";
-  env.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${basic}`;
+  env.GIT_CONFIG_VALUE_0 = githubAppGitExtraHeader(token);
   return env;
 }
 
@@ -143,12 +147,17 @@ export async function writeIsolatedGitHubAuth(
   home: string,
   input: { token: string; committerName: string },
 ): Promise<void> {
+  const extraHeader = githubAppGitExtraHeader(input.token);
   const gitconfig = `[user]
 	name = ${escapeGitConfigValue(input.committerName)}
 	email = comitia-agent@users.noreply.github.com
-[url "https://x-access-token:${input.token}@github.com/"]
-	insteadOf = https://github.com/
+[credential]
+	helper =
+[http "https://github.com/"]
+	extraHeader = ${extraHeader}
+[url "https://github.com/"]
 	insteadOf = git@github.com:
+	insteadOf = ssh://git@github.com/
 `;
   await mkdir(home, { recursive: true });
   await writeFile(join(home, ".gitconfig"), gitconfig, { mode: 0o600 });

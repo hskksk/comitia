@@ -148,6 +148,8 @@ describe("buildClaudeRunEnv", () => {
     expect(buildClaudeRunEnv("/tmp/isolated-home")).toMatchObject({
       HOME: "/tmp/isolated-home",
       MCP_CONNECTION_NONBLOCKING: "0",
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_TERMINAL_PROMPT: "0",
     });
   });
 

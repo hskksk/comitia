@@ -95,6 +95,8 @@ export function buildClaudeRunEnv(
     ...engineGithubEnv(githubToken ?? null),
     HOME: isolatedHome,
     MCP_CONNECTION_NONBLOCKING: "0",
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_CONFIG_NOSYSTEM: "1",
   };
 }
 

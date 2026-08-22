@@ -126,11 +126,13 @@ Do not log `token`. JSON error bodies must not echo it.
 New module `packages/agent/src/github-auth.ts` (engine-agnostic):
 
 - `fetchGithubCredentials(boardUrl, agentToken, projectId?: string)` → credential or `null` (any non-200 → null + `console.error`, never throw)
-- `gitEnvWithToken(token): NodeJS.ProcessEnv` — for `ensureRepoCheckout` in the adapter process. GitHub git HTTP does not accept `Authorization: Bearer`. Use `http.extraheader=AUTHORIZATION: basic base64(x-access-token:<token>)`, ignore host `~/.gitconfig` / credential helpers, and do not put `GH_TOKEN` on the clone env (host PAT or `gh` helper would send a second credential and GitHub would 401). Isolated HOME still uses `url.insteadOf` as below.
+- `gitEnvWithToken(token): NodeJS.ProcessEnv` — for `ensureRepoCheckout` in the adapter process. GitHub git HTTP does not accept `Authorization: Bearer`. Use `http.extraheader=AUTHORIZATION: basic base64(x-access-token:<token>)`, ignore host `~/.gitconfig` / credential helpers, and do not put `GH_TOKEN` on the clone env (host PAT or `gh` helper would send a second credential and GitHub would 401). Isolated HOME uses the same extraheader (not URL-embedded `x-access-token`).
 - `writeIsolatedGitHubAuth(home, input: { token, committerName })` — write `$home/.gitconfig` only:
   - `user.name` = committerName
   - `user.email` = `comitia-agent@users.noreply.github.com` (stable, not a secret)
-  - `url.https://x-access-token:<token>@github.com/.insteadOf` for `https://github.com/` and `git@github.com:`
+  - `http.https://github.com/.extraHeader` = GitHub App basic extraheader (same as clone). Do **not** rewrite URLs to `https://x-access-token:...@github.com/` — macOS osxkeychain then tries to store the username `x-access-token` and pops キーチェーン dialogs
+  - `credential.helper` empty, and Claude's env sets `GIT_CONFIG_NOSYSTEM=1` so `/etc/gitconfig`'s osxkeychain is not loaded
+  - `url.https://github.com/.insteadOf` for `git@github.com:` / `ssh://git@github.com/` so SSH remotes become HTTPS and pick up the extraheader
 - `engineGithubEnv(token | null): Record<string, string>` — always set `GH_TOKEN` to the minted token **or delete/blank it**. Also clear `GITHUB_TOKEN` when mint failed so a host PAT cannot leak. When mint succeeded, `GH_TOKEN` = minted token (overrides host)
 
 `ensureRepoCheckout(workDir, repoUrl, env?)` — pass `env` into `spawnSync` when present. Existing tests (local path clone) stay green with env omitted.
@@ -153,6 +155,7 @@ On `start` (and `updateGithubAuth`):
 - `buildClaudeRunEnv(isolatedHome, githubToken: string | undefined)`
   - spread `process.env`
   - `HOME` = isolated home (unchanged)
+  - `GIT_CONFIG_NOSYSTEM=1` and `GIT_TERMINAL_PROMPT=0` so `/etc/gitconfig` osxkeychain cannot prompt (do **not** set `GIT_CONFIG_GLOBAL=/dev/null`; isolated HOME `.gitconfig` must still load)
   - if `githubToken`: `GH_TOKEN` = that value, `GITHUB_TOKEN` = that value (some tools read this)
   - else: omit `GH_TOKEN` and `GITHUB_TOKEN` from the child env (do not inherit host)
 
