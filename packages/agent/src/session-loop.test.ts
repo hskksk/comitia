@@ -113,6 +113,7 @@ function wrapPlugin(inner: EnginePlugin): {
         await inner.stop();
         stopped = true;
       },
+      dispose: () => inner.dispose(),
     },
     stopped: () => stopped,
     workDir: () => workDir,

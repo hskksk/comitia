@@ -86,7 +86,7 @@ async function completeGithubOAuth(
   callbackOrigin: string,
 ): Promise<void> {
   const start = await fetchImpl(
-    `${boardUrl}/v1/auth/github?return_origin=${encodeURIComponent(callbackOrigin)}`,
+    `${boardUrl}/v1/auth/github?return_origin=${encodeURIComponent(callbackOrigin)}&client=cli`,
     { redirect: "manual" },
   );
   expect(start.status).toBe(302);

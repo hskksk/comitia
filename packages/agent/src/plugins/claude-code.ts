@@ -9,6 +9,29 @@ import { joinSystemPrompt } from "../environment-prompt.js";
 import type { EnginePlugin } from "./types.js";
 
 const RUN_TIMEOUT_MS = 300_000;
+const RM_OPTS = {
+  recursive: true,
+  force: true,
+  maxRetries: 3,
+  retryDelay: 100,
+} as const;
+
+async function waitForChildExit(
+  process: ChildProcess | undefined,
+  signal: NodeJS.Signals = "SIGTERM",
+): Promise<void> {
+  if (!process) {
+    return;
+  }
+  if (process.exitCode !== null || process.signalCode !== null) {
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    process.once("close", () => resolve());
+    process.once("error", () => resolve());
+    process.kill(signal);
+  });
+}
 
 export function buildClaudeArgs(options: {
   prompt: string;
@@ -229,8 +252,12 @@ export function createClaudeCodePlugin(): EnginePlugin {
       workDir = session.workDir;
       workDirPersistent = session.workDirPersistent;
       environmentPrompt = session.environmentPrompt ?? "";
-      isolatedHome = await mkdtemp(join(tmpdir(), "comitia-claude-home-"));
-      runtimeDir = await mkdtemp(join(tmpdir(), "comitia-claude-runtime-"));
+      if (!isolatedHome) {
+        isolatedHome = await mkdtemp(join(tmpdir(), "comitia-claude-home-"));
+      }
+      if (!runtimeDir) {
+        runtimeDir = await mkdtemp(join(tmpdir(), "comitia-claude-runtime-"));
+      }
       mcpConfigPath = join(runtimeDir, "mcp-config.json");
       const mcpEntrypoint = resolveMcpStdioEntrypoint();
       if (!existsSync(mcpEntrypoint)) {
@@ -320,13 +347,23 @@ export function createClaudeCodePlugin(): EnginePlugin {
     },
 
     async stop() {
-      child?.kill("SIGTERM");
+      await waitForChildExit(child);
+      child = undefined;
+      if (workDir && !workDirPersistent) {
+        await rm(workDir, RM_OPTS);
+      }
+      workDir = undefined;
+      workDirPersistent = false;
+    },
+
+    async dispose() {
+      await waitForChildExit(child);
       child = undefined;
       await Promise.all([
-        isolatedHome ? rm(isolatedHome, { recursive: true, force: true }) : undefined,
-        runtimeDir ? rm(runtimeDir, { recursive: true, force: true }) : undefined,
+        isolatedHome ? rm(isolatedHome, RM_OPTS) : undefined,
+        runtimeDir ? rm(runtimeDir, RM_OPTS) : undefined,
         workDir && !workDirPersistent
-          ? rm(workDir, { recursive: true, force: true })
+          ? rm(workDir, RM_OPTS)
           : undefined,
       ]);
       isolatedHome = undefined;
