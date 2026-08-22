@@ -12,8 +12,6 @@ describe("installationGrantsAgentTokenPermissions", () => {
       installationGrantsAgentTokenPermissions({
         contents: "write",
         pull_requests: "write",
-        metadata: "read",
-        issues: "write",
       }),
     ).toBe(true);
     expect(
@@ -25,8 +23,6 @@ describe("installationGrantsAgentTokenPermissions", () => {
     expect(
       installationGrantsAgentTokenPermissions({
         pull_requests: "read",
-        issues: "write",
-        metadata: "read",
       }),
     ).toBe(false);
   });
