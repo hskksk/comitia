@@ -8,7 +8,7 @@
 
 | エンジン | ヘッドレス | セッション限りの MCP 注入 | 注入方法 | 注意点 |
 | --- | --- | --- | --- | --- |
-| Claude Code | `claude -p`（`--output-format stream-json`） | **◎ 公式サポート** | [`--mcp-config`](https://code.claude.com/docs/en/cli-reference) で JSON を直接渡す。`--strict-mcp-config` で指定分だけに限定、`--bare` で hooks / プラグイン等も遮断 | 接続失敗は `mcp_server_errors` で機械検知できる |
+| Claude Code | `claude -p`（`--output-format stream-json`） | **◎ 公式サポート** | [`--mcp-config`](https://code.claude.com/docs/en/cli-reference) で JSON を直接渡す。`--strict-mcp-config` で指定分だけに限定。`--bare` は使わない（OAuth / Keychain を読まなくなる）。隔離 `HOME` でホストの hooks / プラグインを遮断し、認証だけホストの `claude login` を引き継ぐ | 接続失敗は `mcp_server_errors` で機械検知できる |
 | Cursor Agent | `cursor-agent -p` | **○ 実現可** | per-invocation フラグはないが、アダプタが **一時作業ディレクトリに `.cursor/mcp.json`（プロジェクトスコープ）を生成** して起動。ヘッドレスでは [`--approve-mcps`](https://cursor.com/help/customization/mcp) で自動承認 | ユーザーの `~/.cursor/mcp.json`（グローバル）も同時にロードされる。ACP サーバモード（`agent acp`、JSON-RPC over stdio）という別経路もあり、当該エンジン対応時に比較 |
 | OpenCode | `opencode run` | **◎ きれいに可** | [`OPENCODE_CONFIG_CONTENT` 環境変数](https://opencode.ai/docs/config/)（インライン設定、実行時オーバーライド）で MCP 定義を注入。ファイルすら作らなくてよい | `opencode serve` + `--attach` で常駐プロセス化もできる（セッションループの高速化に使える） |
 | Antigravity CLI (agy) | `agy -p`（`--output-format stream-json`） | **△ 実現可、難あり** | ワークスペースの [`.agents/mcp_config.json`](https://antigravity.google/docs/mcp) を一時作業ディレクトリに生成して起動 | per-invocation でグローバル MCP を止める手段がない（[未解決の feature request](https://github.com/google-antigravity/antigravity-cli/issues/342)）。ユーザーのグローバル MCP が毎回ロードされ、起動オーバーヘッドと文脈の混入がある |
@@ -21,7 +21,7 @@
 
 **PoC-1 実証結果（2026-08-15、`poc/01-tool-injection/`、実エンジン含め全 PASS）**。机上判定に加えて実測で分かったこと（M3 アダプタの必須要素）:
 
-- Claude Code: ヘッドレスでは **`--permission-mode bypassPermissions`**（MCP 権限プロンプトの回避）と **`HOME` の一時ディレクトリ隔離**（`~/.claude` 汚染防止）が必要
+- Claude Code: ヘッドレスでは **`--permission-mode bypassPermissions`**（MCP 権限プロンプトの回避）と **`HOME` の一時ディレクトリ隔離**（`~/.claude` 汚染防止）が必要。`--bare` は OAuth を読まないので使わない。`CLAUDE_CONFIG_DIR` は子に渡さない（macOS Keychain がパスのハッシュで名前空間化される）。ホストの `claude login` はデフォルト Keychain / コピーした `.credentials.json` で引き継ぐ
 - OpenCode: **`XDG_*` 環境変数を一時ディレクトリへ向けて** 標準設定を隔離する。無料モデル（`opencode/*-free`）でも検証可能
 - 両 CLI とも **npm devDependency として同梱できる**（`@anthropic-ai/claude-code` / `opencode-ai` + postinstall）— アダプタがエンジンを同梱配布する選択肢が開けた
 
@@ -105,7 +105,7 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 
 | 論点 | 閉じ方 |
 | --- | --- |
-| エンジン標準環境を汚さずツールを注入できるか | できる。Claude Code は `--permission-mode bypassPermissions` + `HOME` 隔離、OpenCode は `XDG_*` 隔離が必須。両 CLI は npm 同梱できる |
+| エンジン標準環境を汚さずツールを注入できるか | できる。Claude Code は `--permission-mode bypassPermissions` + `HOME` 隔離（認証だけホストの `claude login` を引き継ぐ）、OpenCode は `XDG_*` 隔離が必須。両 CLI は npm 同梱できる |
 | OpenCode のチャットログ捕捉 | トランスクリプト捕捉で足りる |
 | tick のプロトコルと配送 | **A2A SDK 無改造 + 組み込み WS リレー**。Agent Protocol は使わない（代替として保持するだけ） |
 | SSE メールボックスへの退避 | **採らない**。リレー 314 行で見積どおり |

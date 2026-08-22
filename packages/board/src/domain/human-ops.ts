@@ -6,6 +6,7 @@ import {
   events,
   participants,
   projectMemberships,
+  proposalVersions,
   roleAssignments,
   sessions,
   threads,
@@ -371,11 +372,25 @@ export async function listHumanAgreements(
           .from(threads)
           .where(inArray(threads.id, threadIds));
   const titleById = new Map(threadRows.map((row) => [row.id, row.title]));
+  const proposalVersionIds = [
+    ...new Set(filtered.map((row) => row.proposalVersionId)),
+  ];
+  const proposalVersionRows =
+    proposalVersionIds.length === 0
+      ? []
+      : await db
+          .select({ id: proposalVersions.id, content: proposalVersions.content })
+          .from(proposalVersions)
+          .where(inArray(proposalVersions.id, proposalVersionIds));
+  const proposalContentById = new Map(
+    proposalVersionRows.map((row) => [row.id, row.content]),
+  );
   return filtered.map((row) => ({
     id: row.id,
     threadId: row.threadId,
     threadTitle: titleById.get(row.threadId) ?? null,
     proposalVersionId: row.proposalVersionId,
+    proposalContent: proposalContentById.get(row.proposalVersionId) ?? "",
     outcome: row.outcome,
     binding: row.binding,
     state: row.state,

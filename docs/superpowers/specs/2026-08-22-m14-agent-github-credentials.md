@@ -126,7 +126,7 @@ Do not log `token`. JSON error bodies must not echo it.
 New module `packages/agent/src/github-auth.ts` (engine-agnostic):
 
 - `fetchGithubCredentials(boardUrl, agentToken, projectId?: string)` → credential or `null` (any non-200 → null + `console.error`, never throw)
-- `gitEnvWithToken(token): NodeJS.ProcessEnv` — for `ensureRepoCheckout` in the adapter process. Prefer `GIT_CONFIG_COUNT` / `http.extraHeader=Authorization: Bearer <token>` (or a temp gitconfig with `url.insteadOf`) so host `~/.gitconfig` is not rewritten
+- `gitEnvWithToken(token): NodeJS.ProcessEnv` — for `ensureRepoCheckout` in the adapter process. GitHub git HTTP does not accept `Authorization: Bearer`. Use `http.extraheader=AUTHORIZATION: basic base64(x-access-token:<token>)`, ignore host `~/.gitconfig` / credential helpers, and do not put `GH_TOKEN` on the clone env (host PAT or `gh` helper would send a second credential and GitHub would 401). Isolated HOME still uses `url.insteadOf` as below.
 - `writeIsolatedGitHubAuth(home, input: { token, committerName })` — write `$home/.gitconfig` only:
   - `user.name` = committerName
   - `user.email` = `comitia-agent@users.noreply.github.com` (stable, not a secret)
@@ -153,6 +153,8 @@ On `start` (and `updateGithubAuth`):
 - `buildClaudeRunEnv(isolatedHome, githubToken: string | undefined)`
   - spread `process.env`
   - `HOME` = isolated home (unchanged)
+  - do **not** set `CLAUDE_CONFIG_DIR` (it namespaces macOS Keychain away from the host `claude login`; isolated HOME already relocates `~/.claude` files)
+  - if the host has a non-empty `CLAUDE_CONFIG_DIR` / `CLAUDE_SECURESTORAGE_CONFIG_DIR`, pass that string only as `CLAUDE_SECURESTORAGE_CONFIG_DIR`
   - if `githubToken`: `GH_TOKEN` = that value, `GITHUB_TOKEN` = that value (some tools read this)
   - else: omit `GH_TOKEN` and `GITHUB_TOKEN` from the child env (do not inherit host)
 
