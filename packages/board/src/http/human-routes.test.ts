@@ -558,20 +558,37 @@ describe("human ops REST", () => {
     const people = await app.request("/v1/participants", { headers });
     expect(people.status).toBe(200);
     const listed = (await people.json()) as {
-      items: Array<{ displayName: string; kind: string; connection: unknown }>;
+      items: Array<{
+        displayName: string;
+        kind: string;
+        connection: unknown;
+        lastActionAt: string | null;
+      }>;
     };
     expect(listed.items.some((item) => item.displayName === "ハル")).toBe(true);
     expect(listed.items.some((item) => item.displayName === "ミカ" && item.kind === "agent")).toBe(
       true,
     );
+    // owner created the membership (actorId: owner.id) and the agent created the thread
+    // via seedAwaitingRatification, so both should have a recorded lastActionAt.
+    expect(
+      listed.items.find((item) => item.displayName === "ハル")?.lastActionAt,
+    ).not.toBeNull();
+    expect(
+      listed.items.find((item) => item.displayName === "ミカ")?.lastActionAt,
+    ).not.toBeNull();
 
     const agreements = await app.request("/v1/agreements", { headers });
     expect(agreements.status).toBe(200);
 
     const events = await app.request("/v1/events?limit=10", { headers });
     expect(events.status).toBe(200);
-    const eventBody = (await events.json()) as { items: Array<{ kind: string }> };
+    const eventBody = (await events.json()) as {
+      items: Array<{ kind: string; actorDisplayName: string | null }>;
+    };
     expect(eventBody.items.length).toBeGreaterThan(0);
+    // the most recent event ("request_ratification") was declared by the agent.
+    expect(eventBody.items[0]?.actorDisplayName).toBe("ミカ@ハル");
   });
 
   it("derives wake status: queued tick, undigested session, idle, and digested (null)", async () => {
@@ -836,11 +853,35 @@ describe("human ops REST", () => {
     });
     expect(members.status).toBe(200);
     const body = (await members.json()) as {
-      items: Array<{ id: string }>;
+      items: Array<{ id: string; lastActionAt: string | null }>;
     };
     expect(body.items.map((item) => item.id)).toEqual(
       expect.arrayContaining([owner.id, agent.id]),
     );
+    // adding the agent recorded a project_membership_added event with owner as actor.
+    expect(
+      body.items.find((item) => item.id === owner.id)?.lastActionAt,
+    ).not.toBeNull();
+
+    const playgroundHeaders = {
+      ...(await ownerAuthHeader(owner.id, playground.id)),
+    };
+    const events = await app.request("/v1/events?limit=10", {
+      headers: playgroundHeaders,
+    });
+    expect(events.status).toBe(200);
+    const eventBody = (await events.json()) as {
+      items: Array<{
+        kind: string;
+        actorDisplayName: string | null;
+        targetDisplayName: string | null;
+      }>;
+    };
+    const membershipEvent = eventBody.items.find(
+      (item) => item.kind === "project_membership_added",
+    );
+    expect(membershipEvent?.actorDisplayName).toBe("ハル");
+    expect(membershipEvent?.targetDisplayName).toBe("ミカ@ハル");
   });
 
   it("rejects adding someone else's agent", async () => {
