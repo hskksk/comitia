@@ -85,6 +85,13 @@
       "when": 1787369375268,
       "tag": "0011_multiple_identity_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787371294428,
+      "tag": "0012_credential_client_label",
+      "breakpoints": true
     }
   ]
 }

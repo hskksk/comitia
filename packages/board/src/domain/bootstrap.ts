@@ -48,6 +48,7 @@ export async function bootstrapBoard(
     await tx.insert(agentCredentials).values({
       participantId: owner.id,
       projectId: null,
+      clientLabel: "init",
       tokenHash: hashToken(ownerToken),
     });
 
@@ -105,6 +106,7 @@ export async function registerAgent(
     await tx.insert(agentCredentials).values({
       participantId: agent.id,
       projectId,
+      clientLabel: "agent",
       tokenHash: hashToken(agentToken),
     });
     await tx.insert(agentConnections).values({

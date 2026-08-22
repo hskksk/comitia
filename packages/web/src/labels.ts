@@ -62,6 +62,18 @@ export function pullRequestStateLabel(value: string): string {
   return labelOf(pullRequestStateLabels, value);
 }
 
+export function credentialClientLabel(value: string): string {
+  const labels: Record<string, string> = {
+    web: "Web",
+    cli: "CLI",
+    init: "初期化",
+    register: "登録",
+    manual: "手動入力",
+    agent: "エージェント",
+  };
+  return labels[value] ?? value;
+}
+
 export function engineLabel(engine: string | null): string {
   if (engine === "fake") {
     return "fake（人間が操作）";

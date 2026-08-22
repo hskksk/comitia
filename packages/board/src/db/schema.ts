@@ -492,6 +492,7 @@ export const agentCredentials = pgTable("agent_credentials", {
     .notNull()
     .references(() => participants.id),
   projectId: uuid("project_id").references(() => projects.id),
+  clientLabel: text("client_label"),
   tokenHash: text("token_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

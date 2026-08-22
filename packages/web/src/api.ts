@@ -82,6 +82,13 @@ export type OwnedAgent = {
   ownerParticipantId: string;
 };
 
+export type IdentityCredential = {
+  id: string;
+  clientLabel: string;
+  createdAt: string;
+  current: boolean;
+};
+
 export type QueueItem = {
   threadId: string;
   title: string;
@@ -423,6 +430,18 @@ export class BoardClient {
 
   async listOwnedAgents(): Promise<{ items: OwnedAgent[] }> {
     return this.request("/v1/me/agents");
+  }
+
+  async listIdentityCredentials(): Promise<{ items: IdentityCredential[] }> {
+    return this.request("/v1/me/credentials");
+  }
+
+  async revokeIdentityCredential(
+    credentialId: string,
+  ): Promise<{ revoked: boolean; revokedCredentialId: string; current: boolean }> {
+    return this.request(`/v1/me/credentials/${credentialId}`, {
+      method: "DELETE",
+    });
   }
 
   async createAgent(input: {

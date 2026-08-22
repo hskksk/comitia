@@ -135,8 +135,13 @@ export function startOAuthCallbackServer(
   });
 }
 
-export function buildOAuthStartUrl(boardUrl: string, callbackOrigin: string): string {
+export function buildOAuthStartUrl(
+  boardUrl: string,
+  callbackOrigin: string,
+  clientLabel = "cli",
+): string {
   const url = new URL("/v1/auth/github", boardUrl);
   url.searchParams.set("return_origin", callbackOrigin);
+  url.searchParams.set("client", clientLabel);
   return url.toString();
 }

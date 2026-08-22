@@ -1,0 +1,1 @@
+ALTER TABLE "agent_credentials" ADD COLUMN "client_label" text;

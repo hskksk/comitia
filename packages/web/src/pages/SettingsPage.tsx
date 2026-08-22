@@ -1,16 +1,23 @@
 import { type FormEvent, useCallback, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   boardClient,
+  type IdentityCredential,
   type MeResponse,
   type OwnedAgent,
   type ProjectListItem,
 } from "../api.js";
-import { engineLabel } from "../labels.js";
+import { clearToken } from "../auth.js";
+import { credentialClientLabel, engineLabel } from "../labels.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [agents, setAgents] = useState<OwnedAgent[] | null>(null);
+  const [credentials, setCredentials] = useState<IdentityCredential[] | null>(
+    null,
+  );
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +34,14 @@ export function SettingsPage() {
   const [editName, setEditName] = useState("");
   const [editEngine, setEditEngine] = useState("claude-code");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
+
+  function reloadCredentials() {
+    return boardClient
+      .listIdentityCredentials()
+      .then((res) => setCredentials(res.items))
+      .catch((err: Error) => setError(err.message));
+  }
 
   function reloadAgents() {
     return boardClient
@@ -38,11 +53,17 @@ export function SettingsPage() {
   const reset = useCallback(() => {
     setMe(null);
     setAgents(null);
+    setCredentials(null);
     setError(null);
   }, []);
 
   const reloadAll = useCallback(() => {
-    return Promise.all([boardClient.me(), boardClient.listProjects(), reloadAgents()])
+    return Promise.all([
+      boardClient.me(),
+      boardClient.listProjects(),
+      reloadAgents(),
+      reloadCredentials(),
+    ])
       .then(([identity, projectRes]) => {
         setMe(identity);
         setDisplayName(identity.participant.displayName);
@@ -141,6 +162,25 @@ export function SettingsPage() {
     }
   }
 
+  async function onRevokeCredential(credentialId: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await boardClient.revokeIdentityCredential(credentialId);
+      setRevokeConfirmId(null);
+      if (result.current) {
+        clearToken();
+        navigate("/login", { replace: true });
+        return;
+      }
+      await reloadCredentials();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無効化に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (error && !me) {
     return <p className="status status-error">{error}</p>;
   }
@@ -177,6 +217,71 @@ export function SettingsPage() {
           <p className="muted">
             GitHub 連携はログイン画面の「GitHub で入る」から行えます。
           </p>
+        )}
+      </section>
+
+      <section className="composer">
+        <h2>ログインセッション</h2>
+        <p className="muted">
+          Web・CLI など、発行済みのログイントークンを確認できます。不要なセッションは無効化してください。
+        </p>
+        {credentials === null ? (
+          <p className="muted">読み込み中…</p>
+        ) : credentials.length === 0 ? (
+          <p className="muted">有効なセッションはありません</p>
+        ) : (
+          <ul className="agent-settings-list">
+            {credentials.map((credential) => (
+              <li key={credential.id} className="agent-settings-item">
+                <div>
+                  <p>
+                    <strong>{credentialClientLabel(credential.clientLabel)}</strong>
+                    {credential.current ? (
+                      <span className="muted"> · このブラウザ</span>
+                    ) : null}
+                  </p>
+                  <p className="muted">
+                    発行: {new Date(credential.createdAt).toLocaleString("ja-JP")}
+                  </p>
+                  <div className="actions">
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={() => setRevokeConfirmId(credential.id)}
+                    >
+                      無効化
+                    </button>
+                  </div>
+                  {revokeConfirmId === credential.id ? (
+                    <div className="decision-confirm" role="group">
+                      <p>
+                        {credential.current
+                          ? "このブラウザのセッションを無効化します。ログイン画面へ戻ります。"
+                          : "このログインセッションを無効化します。"}
+                      </p>
+                      <div className="actions">
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          disabled={saving}
+                          onClick={() => void onRevokeCredential(credential.id)}
+                        >
+                          無効化を確定
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setRevokeConfirmId(null)}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

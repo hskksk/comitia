@@ -12,6 +12,7 @@ export type BoardVariables = {
   participant: InferSelectModel<typeof participants>;
   projectId: string;
   credentialProjectId: string | null;
+  credentialId: string | null;
 };
 
 export type BoardEnv = { Variables: BoardVariables };
@@ -39,6 +40,7 @@ export function requireAuth(db: Db): MiddlewareHandler<BoardEnv> {
     }
     c.set("participant", auth.participant);
     c.set("credentialProjectId", auth.projectId);
+    c.set("credentialId", auth.credentialId);
     if (auth.participant.kind !== "agent" && auth.projectId) {
       c.set("projectId", auth.projectId);
     }

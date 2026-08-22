@@ -14,8 +14,10 @@ export function issueToken(): string {
 export async function authenticateToken(db: Db, token: string) {
   const [authenticated] = await db
     .select({
+      credentialId: agentCredentials.id,
       participant: participants,
       projectId: agentCredentials.projectId,
+      clientLabel: agentCredentials.clientLabel,
     })
     .from(agentCredentials)
     .innerJoin(participants, eq(agentCredentials.participantId, participants.id))

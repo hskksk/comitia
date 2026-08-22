@@ -6,6 +6,10 @@ import {
 } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { hashToken, issueToken } from "./credentials.js";
+import {
+  type IdentityClientLabel,
+  normalizeIdentityClientLabel,
+} from "./identity-credentials.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError, PermissionDenied } from "./errors.js";
 import { addMembership, assertProjectMember } from "./memberships.js";
@@ -20,11 +24,16 @@ export function issueInviteToken() {
   return `comt_inv_${issueToken().slice("comt_".length)}`;
 }
 
-export async function issueIdentityToken(db: Db, participantId: string) {
+export async function issueIdentityToken(
+  db: Db,
+  participantId: string,
+  clientLabel: IdentityClientLabel = "manual",
+) {
   const token = issueToken();
   await db.insert(agentCredentials).values({
     participantId,
     projectId: null,
+    clientLabel: normalizeIdentityClientLabel(clientLabel),
     tokenHash: hashToken(token),
   });
   return token;
@@ -40,6 +49,7 @@ export async function registerHuman(
     githubUserId?: string;
     githubLogin?: string;
     ignoreSignupGate?: boolean;
+    clientLabel?: IdentityClientLabel;
   },
 ) {
   if (!input.ignoreSignupGate && !isOpenSignupEnabled()) {
@@ -58,7 +68,11 @@ export async function registerHuman(
       })
       .where(eq(participants.id, human.id));
   }
-  const token = await issueIdentityToken(db, human.id);
+  const token = await issueIdentityToken(
+    db,
+    human.id,
+    input.clientLabel ?? "register",
+  );
   return { human: { ...human, githubUserId: input.githubUserId ?? null, githubLogin: input.githubLogin ?? null }, token };
 }
 

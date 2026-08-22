@@ -9,6 +9,7 @@ const createAgentMock = vi.fn().mockResolvedValue({
   agentToken: "comt_once",
 });
 const listOwnedAgentsMock = vi.fn().mockResolvedValue({ items: [] });
+const listIdentityCredentialsMock = vi.fn().mockResolvedValue({ items: [] });
 
 vi.mock("../api.js", () => ({
   boardClient: {
@@ -40,6 +41,8 @@ vi.mock("../api.js", () => ({
       ],
     }),
     listOwnedAgents: (...args: unknown[]) => listOwnedAgentsMock(...args),
+    listIdentityCredentials: (...args: unknown[]) =>
+      listIdentityCredentialsMock(...args),
     createAgent: (...args: unknown[]) => createAgentMock(...args),
   },
 }));
@@ -50,6 +53,8 @@ describe("SettingsPage", () => {
     createAgentMock.mockClear();
     listOwnedAgentsMock.mockClear();
     listOwnedAgentsMock.mockResolvedValue({ items: [] });
+    listIdentityCredentialsMock.mockClear();
+    listIdentityCredentialsMock.mockResolvedValue({ items: [] });
   });
 
   it("creates an agent and shows the token once", async () => {

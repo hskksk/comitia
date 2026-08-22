@@ -45,6 +45,10 @@ import {
   joinProjectByInvite,
   updateHumanProfile,
 } from "../domain/accounts.js";
+import {
+  listIdentityCredentials,
+  revokeIdentityCredential,
+} from "../domain/identity-credentials.js";
 import { archiveProposal, archiveThread } from "../domain/archive.js";
 import { buildMeResponse } from "../domain/identity.js";
 import {
@@ -134,6 +138,37 @@ export function registerHumanRoutes(
         displayName: updated.displayName,
       },
     });
+  });
+
+  app.get("/v1/me/credentials", auth, human, async (c) => {
+    const items = await listIdentityCredentials(
+      db,
+      c.get("participant").id,
+      c.get("credentialId"),
+    );
+    return c.json({ items });
+  });
+
+  app.delete("/v1/me/credentials/:id", auth, human, async (c) => {
+    try {
+      const result = await revokeIdentityCredential(db, {
+        participantId: c.get("participant").id,
+        credentialId: c.req.param("id"),
+      });
+      return c.json({
+        revoked: true,
+        revokedCredentialId: result.revokedCredentialId,
+        current: result.revokedCredentialId === c.get("credentialId"),
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      throw error;
+    }
   });
 
   app.get("/v1/me/agents", auth, human, async (c) => {

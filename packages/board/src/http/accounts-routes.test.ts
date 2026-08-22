@@ -233,4 +233,27 @@ describe("M13-1 accounts and membership", () => {
     });
     expect(wake.status).toBe(404);
   });
+
+  it("lists and revokes identity credentials for the current human", async () => {
+    const app = createBoardApp({ db });
+    const { owner } = await seedOwnerAgentProject(db);
+    const ownerToken = await humanAuth(owner.id, null);
+    const headers = { authorization: `Bearer ${ownerToken}` };
+
+    const listed = await app.request("/v1/me/credentials", { headers });
+    expect(listed.status).toBe(200);
+    const body = (await listed.json()) as {
+      items: Array<{ id: string; clientLabel: string; current: boolean }>;
+    };
+    expect(body.items.length).toBeGreaterThan(0);
+
+    const target = body.items.find((item) => !item.current) ?? body.items[0]!;
+    const revoked = await app.request(`/v1/me/credentials/${target.id}`, {
+      method: "DELETE",
+      headers,
+    });
+    expect(revoked.status).toBe(200);
+    const revokedBody = (await revoked.json()) as { current: boolean };
+    expect(revokedBody.current).toBe(target.current);
+  });
 });
