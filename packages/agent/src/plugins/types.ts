@@ -19,5 +19,8 @@ export interface EnginePlugin {
     remainingBudget: number | null;
   }>;
   report(): Promise<{ tokens: number }>;
+  /** End the current session; runtime dirs may survive until dispose(). */
   stop(): Promise<void>;
+  /** Tear down connect-scoped runtime state (e.g. isolated Claude HOME). */
+  dispose(): Promise<void>;
 }

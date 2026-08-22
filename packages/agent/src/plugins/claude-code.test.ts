@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -174,6 +174,7 @@ describe("createClaudeCodePlugin work dir ownership", () => {
     });
     await plugin.stop();
     expect(existsSync(workDir)).toBe(true);
+    await plugin.dispose();
     await rm(workDir, { recursive: true, force: true });
   });
 
@@ -188,6 +189,35 @@ describe("createClaudeCodePlugin work dir ownership", () => {
     });
     await plugin.stop();
     expect(existsSync(workDir)).toBe(false);
+    await plugin.dispose();
+  });
+
+  it("reuses isolated HOME across sessions until dispose()", async () => {
+    const countIsolatedHomes = async () => {
+      const entries = await readdir(tmpdir());
+      return entries.filter((name) => name.startsWith("comitia-claude-home-"))
+        .length;
+    };
+    const workDir = await mkdtemp(join(tmpdir(), "comitia-workdir-home-"));
+    const plugin = createClaudeCodePlugin();
+    const session = {
+      workDir,
+      workDirPersistent: true,
+      mcp: { command: process.execPath, args: [], env: {} },
+    };
+    const before = await countIsolatedHomes();
+
+    await plugin.start({ ...session, sessionId: "home-test-1" });
+    await plugin.stop();
+    expect(await countIsolatedHomes()).toBe(before + 1);
+
+    await plugin.start({ ...session, sessionId: "home-test-2" });
+    await plugin.stop();
+    expect(await countIsolatedHomes()).toBe(before + 1);
+
+    await plugin.dispose();
+    expect(await countIsolatedHomes()).toBe(before);
+    await rm(workDir, { recursive: true, force: true });
   });
 });
 
@@ -247,6 +277,7 @@ describe("Claude Code live CLI", () => {
         );
       } finally {
         await plugin.stop();
+        await plugin.dispose();
         await rm(workDir, { recursive: true, force: true });
         await new Promise<void>((resolve, reject) =>
           server.close((error) => (error ? reject(error) : resolve())),

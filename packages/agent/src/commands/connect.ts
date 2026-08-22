@@ -143,6 +143,7 @@ export async function connectCommand(
     });
   } catch (error) {
     await adapter.close();
+    await options.plugin?.dispose();
     throw error;
   }
 
@@ -166,6 +167,7 @@ export async function connectCommand(
   } catch (error) {
     tunnel.disconnect();
     await adapter.close();
+    await options.plugin?.dispose();
     throw error;
   }
 
@@ -175,6 +177,7 @@ export async function connectCommand(
       tunnel.disconnect();
       await loopChain.catch(() => undefined);
       await adapter.close();
+      await options.plugin?.dispose();
     },
   };
 }

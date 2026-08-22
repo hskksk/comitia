@@ -169,5 +169,8 @@ export function createFakeEnginePlugin(
     async stop() {
       // Fake never spawns a child process.
     },
+    async dispose() {
+      // No connect-scoped runtime state.
+    },
   };
 }
