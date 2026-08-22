@@ -665,6 +665,18 @@ button.back-link {
   cursor: pointer;
 }
 
+.github-app-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  margin: 0.35rem 0 0;
+}
+
+.github-app-status .back-link {
+  margin: 0;
+}
+
 .markdown-body {
   margin: 0.35rem 0 0;
   overflow-wrap: anywhere;

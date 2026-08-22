@@ -163,29 +163,21 @@ export function ProjectSettingsPage() {
 
       <section className="composer">
         <h2>GitHub App</h2>
-        {project.githubInstallationId ? (
-          <>
-            <p role="status">
-              このプロジェクトに接続済み
-              {project.githubOwner && project.githubRepo
-                ? `（${project.githubOwner}/${project.githubRepo}）`
-                : ""}
-            </p>
-            <p className="muted">
-              App 本体はボード全体で共通です。別リポジトリのプロジェクトでは、そちらでも接続が必要です。
-            </p>
-          </>
-        ) : (
-          <>
-            <p>このプロジェクトにはまだ接続されていません。</p>
-            <p className="muted">
-              GitHub App
-              本体の作成はボード全体で一度で足ります。接続はプロジェクト（リポジトリ）ごとです。
-            </p>
-          </>
-        )}
-        {owner ? (
-          <p>
+        <p className="github-app-status">
+          <span
+            className={`connection-badge ${
+              project.githubInstallationId ? "is-connected" : "is-never"
+            }`}
+            role="status"
+          >
+            {project.githubInstallationId ? "接続済み" : "未接続"}
+          </span>
+          {project.githubInstallationId && project.githubOwner && project.githubRepo ? (
+            <span className="muted">
+              {project.githubOwner}/{project.githubRepo}
+            </span>
+          ) : null}
+          {owner ? (
             <button
               type="button"
               className="back-link"
@@ -195,8 +187,8 @@ export function ProjectSettingsPage() {
                 ? "再接続する"
                 : "GitHub App をインストール"}
             </button>
-          </p>
-        ) : null}
+          ) : null}
+        </p>
       </section>
 
       <section className="composer">
