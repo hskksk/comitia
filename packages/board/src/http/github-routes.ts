@@ -130,6 +130,80 @@ export function mapWebhookPullRequestState(payload: Record<string, unknown>) {
   });
 }
 
+function githubRepoUrl(owner: string, repo: string) {
+  return `https://github.com/${owner}/${repo}`;
+}
+
+export async function findMatchingInstallation(
+  github: GitHubClient,
+  project: { repoUrl: string | null },
+): Promise<string | null> {
+  const installations = await github.listInstallations();
+  const singleRepoIds: string[] = [];
+  for (const installation of installations) {
+    const repos = await github.listInstallationRepos(installation.id);
+    if (project.repoUrl) {
+      const hit = repos.some(
+        (repo) => githubRepoUrl(repo.owner, repo.repo) === project.repoUrl,
+      );
+      if (hit) {
+        return installation.id;
+      }
+    } else if (repos.length === 1) {
+      singleRepoIds.push(installation.id);
+    }
+  }
+  if (
+    !project.repoUrl &&
+    installations.length === 1 &&
+    singleRepoIds.length === 1
+  ) {
+    return singleRepoIds[0]!;
+  }
+  return null;
+}
+
+export async function connectExistingOrInstallUrl(
+  db: Db,
+  github: GitHubClient,
+  input: {
+    projectId: string;
+    actorId: string;
+    appSlug: string;
+    repoUrl?: string | null;
+  },
+): Promise<{ connected: true } | { connected: false; url: string }> {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, input.projectId))
+    .limit(1);
+  if (!project) {
+    throw new GateViolation("プロジェクトが見つかりません");
+  }
+  const repoUrl =
+    input.repoUrl !== undefined ? input.repoUrl : project.repoUrl;
+  const installationId = await findMatchingInstallation(github, { repoUrl });
+  if (!installationId) {
+    return {
+      connected: false,
+      url: `https://github.com/apps/${input.appSlug}/installations/new`,
+    };
+  }
+  if (repoUrl && repoUrl !== project.repoUrl) {
+    await db
+      .update(projects)
+      .set({ repoUrl })
+      .where(eq(projects.id, input.projectId));
+  }
+  await connectInstallation(db, github, {
+    projectId: input.projectId,
+    installationId,
+    actorId: input.actorId,
+  });
+  return { connected: true };
+}
+
 export async function connectInstallation(
   db: Db,
   github: GitHubClient,

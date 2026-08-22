@@ -628,11 +628,13 @@ export class BoardClient {
     });
   }
 
-  async getGitHubInstallUrl(): Promise<string> {
-    const { url } = await this.request<{ url: string }>("/v1/github/install", {
-      headers: { accept: "application/json" },
+  async connectGitHubApp(input: { repoUrl?: string } = {}): Promise<
+    { connected: true } | { connected: false; url: string }
+  > {
+    return this.request("/v1/github/connect", {
+      method: "POST",
+      body: JSON.stringify(input),
     });
-    return url;
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {

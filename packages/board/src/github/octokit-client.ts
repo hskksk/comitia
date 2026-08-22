@@ -95,5 +95,12 @@ export function createOctokitGitHubClient(
         repo: repo.name,
       }));
     },
+
+    async listInstallations() {
+      const { data } = await app.octokit.request("GET /app/installations", {
+        per_page: 100,
+      });
+      return data.map((installation) => ({ id: String(installation.id) }));
+    },
   };
 }

@@ -1,11 +1,12 @@
 import "../test/helpers.js";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { agentCredentials, githubOauthStates, participants } from "../db/schema.js";
+import { agentCredentials, githubOauthStates, participants, projects } from "../db/schema.js";
 import { db } from "../test/helpers.js";
 import { seedOwnerAgentProject } from "../test/human-fixtures.js";
 import { createBoardApp } from "./app.js";
 import { createFakeGitHubClient } from "../github/fake-client.js";
+import { hashToken } from "../domain/credentials.js";
 
 const github = createFakeGitHubClient({
   oauthCodes: { "good-code": { accessToken: "user-token-1" } },
@@ -166,13 +167,88 @@ describe("GitHub installation setup", () => {
     await db.insert(agentCredentials).values({
       participantId: owner.id,
       projectId: project.id,
-      tokenHash: (await import("../domain/credentials.js")).hashToken(token),
+      tokenHash: hashToken(token),
     });
     const res = await board.request("/v1/github/install", {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      url: "https://github.com/apps/comitia-board/installations/new",
+    });
+  });
+
+  it("connects an existing installation that covers the project repo", async () => {
+    const githubInstalled = createFakeGitHubClient({
+      installationRepos: {
+        "inst-42": [
+          { owner: "hskksk", repo: "prism-data-labs-agent" },
+          { owner: "hskksk", repo: "comitia" },
+        ],
+      },
+    });
+    const board = createBoardApp({
+      db,
+      github: githubInstalled,
+      githubOAuth: {
+        enabled: true,
+        appSlug: "comitia-board",
+        clientId: "client-id",
+      },
+    });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    await db
+      .update(projects)
+      .set({ repoUrl: "https://github.com/hskksk/comitia" })
+      .where(eq(projects.id, project.id));
+    const token = "owner-token";
+    await db.insert(agentCredentials).values({
+      participantId: owner.id,
+      projectId: project.id,
+      tokenHash: hashToken(token),
+    });
+    const res = await board.request("/v1/github/connect", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ connected: true });
+    const [row] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, project.id));
+    expect(row?.githubInstallationId).toBe("inst-42");
+    expect(row?.githubOwner).toBe("hskksk");
+    expect(row?.githubRepo).toBe("comitia");
+  });
+
+  it("returns GitHub install url when no installation covers the repo", async () => {
+    const githubMissing = createFakeGitHubClient({
+      installationRepos: {},
+    });
+    const board = createBoardApp({
+      db,
+      github: githubMissing,
+      githubOAuth: {
+        enabled: true,
+        appSlug: "comitia-board",
+        clientId: "client-id",
+      },
+    });
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const token = "owner-token";
+    await db.insert(agentCredentials).values({
+      participantId: owner.id,
+      projectId: project.id,
+      tokenHash: hashToken(token),
+    });
+    const res = await board.request("/v1/github/connect", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      connected: false,
       url: "https://github.com/apps/comitia-board/installations/new",
     });
   });

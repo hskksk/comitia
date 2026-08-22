@@ -19,7 +19,7 @@ import {
   requireProjectMember,
   requireProjectOwner,
 } from "./auth.js";
-import { connectInstallation } from "./github-routes.js";
+import { connectExistingOrInstallUrl, connectInstallation } from "./github-routes.js";
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const LOCAL_DEV_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -216,6 +216,22 @@ export function registerGithubAuthRoutes(
     return c.json({
       url: `https://github.com/apps/${input.appSlug}/installations/new`,
     });
+  });
+
+  app.post("/v1/github/connect", auth, human, member, projectOwner, async (c) => {
+    if (!input.github || !input.appSlug) {
+      return c.json({ error: "GitHub App is not configured" }, 503);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as {
+      repoUrl?: string | null;
+    };
+    const result = await connectExistingOrInstallUrl(input.db, input.github, {
+      projectId: c.get("projectId"),
+      actorId: c.get("participant").id,
+      appSlug: input.appSlug,
+      repoUrl: body.repoUrl,
+    });
+    return c.json(result);
   });
 
   app.get("/v1/github/setup", auth, human, member, projectOwner, async (c) => {

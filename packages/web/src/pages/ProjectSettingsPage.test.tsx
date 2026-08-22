@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProjectSettingsPage } from "./ProjectSettingsPage.js";
@@ -6,12 +7,14 @@ import { ProjectSettingsPage } from "./ProjectSettingsPage.js";
 const getProjectMock = vi.fn();
 const meMock = vi.fn();
 const listMembersMock = vi.fn();
+const connectGitHubAppMock = vi.fn();
 
 vi.mock("../api.js", () => ({
   boardClient: {
     me: (...args: unknown[]) => meMock(...args),
     getProject: (...args: unknown[]) => getProjectMock(...args),
     listMembers: (...args: unknown[]) => listMembersMock(...args),
+    connectGitHubApp: (...args: unknown[]) => connectGitHubAppMock(...args),
   },
 }));
 
@@ -53,6 +56,7 @@ describe("ProjectSettingsPage", () => {
     getProjectMock.mockReset();
     meMock.mockReset();
     listMembersMock.mockReset();
+    connectGitHubAppMock.mockReset();
   });
 
   it("offers install when the project has no GitHub App connection", async () => {
@@ -71,7 +75,7 @@ describe("ProjectSettingsPage", () => {
     renderSettings();
 
     expect(
-      await screen.findByRole("button", { name: "GitHub App をインストール" }),
+      await screen.findByRole("button", { name: "GitHub App を接続" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("未接続");
     expect(screen.queryByText("接続済み")).not.toBeInTheDocument();
@@ -98,7 +102,42 @@ describe("ProjectSettingsPage", () => {
       screen.getByRole("button", { name: "再接続する" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "GitHub App をインストール" }),
+      screen.queryByRole("button", { name: "GitHub App を接続" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("connects an existing GitHub App installation without leaving the page", async () => {
+    const user = userEvent.setup();
+    const member = {
+      id: "p1",
+      kind: "human" as const,
+      displayName: "ハル",
+      engine: null,
+      ownerParticipantId: null,
+      roles: [],
+    };
+    meMock.mockResolvedValue({
+      participant: { id: "p1", kind: "human", displayName: "ハル" },
+      projectId: "proj-1",
+    });
+    getProjectMock
+      .mockResolvedValueOnce({
+        ...projectBase,
+        githubInstallationId: null,
+      })
+      .mockResolvedValueOnce({
+        ...projectBase,
+        githubInstallationId: "inst-42",
+      });
+    listMembersMock.mockResolvedValue({ items: [member] });
+    connectGitHubAppMock.mockResolvedValue({ connected: true });
+
+    renderSettings();
+    await user.click(
+      await screen.findByRole("button", { name: "GitHub App を接続" }),
+    );
+
+    expect(connectGitHubAppMock).toHaveBeenCalled();
+    expect(await screen.findByRole("status")).toHaveTextContent("接続済み");
   });
 });

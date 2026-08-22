@@ -88,6 +88,10 @@ export function createFakeGitHubClient(
     async listInstallationRepos(installationId) {
       return installationRepos.get(installationId) ?? [];
     },
+
+    async listInstallations() {
+      return [...installationRepos.keys()].map((id) => ({ id }));
+    },
   };
 
   return client;
