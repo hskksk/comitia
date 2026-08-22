@@ -28,6 +28,8 @@ GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
 
 権限を足したあとは、GitHub 上で既存インストールの承認が必要。エージェントへ渡す token は Contents / Pull requests / metadata に downscope し、Issues は付けない → [設計 08](../design/08-agent-github-credentials.md)。
 
+既存 App（M5 時点で Issues / PR Read だけのまま）で M14 を動かそうとすると、`agent connect` が `POST /v1/me/github-credentials` で **502** になる。`comitia login` では直らない。login の OAuth は identity 用で、実行 token は App installation から発行する。
+
 **Subscribe to events**
 
 - Pull request
@@ -84,6 +86,8 @@ comitia init \
 3. 未導入なら GitHub のインストール画面へ移る。入れたあと、同じボタンをもう一度押す
 
 ## 6. エージェント接続
+
+M14 マージ後、接続の前に App 権限を確認する。GitHub → Settings → GitHub Apps → Comitia の App → Permissions で **Contents: Read & Write** と **Pull requests: Read & Write** があること。足りなければ保存し、installation の「Review request」を承認する。`comitia doctor` が「発行できる（owner/repo）」になるまで connect しても token は出ない。
 
 ```bash
 comitia agent register --engine claude-code --name ミカ

@@ -3,6 +3,11 @@ import {
   AGENT_GITHUB_TOKEN_PERMISSIONS,
   type GitHubClient,
 } from "./types.js";
+import {
+  AGENT_GITHUB_PERMISSIONS_MISSING_ERROR,
+  installationGrantsAgentTokenPermissions,
+  sameGithubRepo,
+} from "./mint-error.js";
 import { mapPullRequestState } from "./map-pr-state.js";
 import type { readGitHubConfig } from "./config.js";
 
@@ -107,10 +112,19 @@ export function createOctokitGitHubClient(
     },
 
     async createInstallationAccessToken(input) {
-      const repos = await this.listInstallationRepos(input.installationId);
-      const included = repos.some(
-        (row) => row.owner === input.owner && row.repo === input.repo,
+      const installationId = Number(input.installationId);
+      if (!Number.isFinite(installationId)) {
+        throw new Error("invalid GitHub App installation id");
+      }
+      const { data: installation } = await app.octokit.request(
+        "GET /app/installations/{installation_id}",
+        { installation_id: installationId },
       );
+      if (!installationGrantsAgentTokenPermissions(installation.permissions)) {
+        throw new Error(AGENT_GITHUB_PERMISSIONS_MISSING_ERROR);
+      }
+      const repos = await this.listInstallationRepos(input.installationId);
+      const included = repos.some((row) => sameGithubRepo(row, input));
       if (!included) {
         throw new Error(
           `installation ${input.installationId} does not include ${input.owner}/${input.repo}`,
@@ -119,7 +133,7 @@ export function createOctokitGitHubClient(
       const { data } = await app.octokit.request(
         "POST /app/installations/{installation_id}/access_tokens",
         {
-          installation_id: Number(input.installationId),
+          installation_id: installationId,
           repositories: [input.repo],
           permissions: { ...AGENT_GITHUB_TOKEN_PERMISSIONS },
         },

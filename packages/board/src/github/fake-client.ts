@@ -3,6 +3,7 @@ import {
   type GitHubClient,
   type PullRequestSnapshot,
 } from "./types.js";
+import { sameGithubRepo } from "./mint-error.js";
 
 export type FakeGitHubIssueAction = {
   owner: string;
@@ -120,9 +121,7 @@ export function createFakeGitHubClient(
         throw new Error(seed.tokenMintError);
       }
       const repos = installationRepos.get(input.installationId) ?? [];
-      const included = repos.some(
-        (row) => row.owner === input.owner && row.repo === input.repo,
-      );
+      const included = repos.some((row) => sameGithubRepo(row, input));
       if (!included) {
         throw new Error(
           `installation ${input.installationId} does not include ${input.owner}/${input.repo}`,

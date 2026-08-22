@@ -1,6 +1,7 @@
 import "../test/helpers.js";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { AGENT_GITHUB_PERMISSIONS_MISSING_ERROR } from "../github/mint-error.js";
 import { AGENT_GITHUB_TOKEN_PERMISSIONS } from "../github/types.js";
 import { createFakeGitHubClient } from "../github/fake-client.js";
 import { addMembership } from "../domain/memberships.js";
@@ -267,6 +268,40 @@ describe("POST /v1/me/github-credentials", () => {
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({
       error: "failed to mint GitHub credentials",
+    });
+  });
+
+  it("returns the App permission hint when GitHub rejects the downscope", async () => {
+    const github = createFakeGitHubClient({
+      installationRepos: {
+        "inst-1": [{ owner: "hskksk", repo: "comitia" }],
+      },
+      tokenMintError: AGENT_GITHUB_PERMISSIONS_MISSING_ERROR,
+    });
+    const app = createBoardApp({ db, github });
+    const { initBody, agentBody } = await bootstrapOwnerAndAgent(app, {
+      repoUrl: "https://github.com/hskksk/comitia",
+    });
+    await db
+      .update(projects)
+      .set({
+        githubInstallationId: "inst-1",
+        githubOwner: "hskksk",
+        githubRepo: "comitia",
+      })
+      .where(eq(projects.id, initBody.projectId));
+
+    const res = await app.request("/v1/me/github-credentials", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({
+      error: AGENT_GITHUB_PERMISSIONS_MISSING_ERROR,
     });
   });
 });
