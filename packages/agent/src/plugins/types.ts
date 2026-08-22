@@ -28,7 +28,7 @@ export interface EnginePlugin {
   report(): Promise<{ tokens: number }>;
   /** End the current session; runtime dirs may survive until dispose(). */
   stop(): Promise<void>;
-  /** Tear down connect-scoped runtime state (e.g. isolated Claude HOME). */
+  /** Tear down connect-scoped runtime state (e.g. isolated gitconfig dir). */
   dispose(): Promise<void>;
   updateGithubAuth?(auth: EngineGithubAuth | null): Promise<void>;
 }

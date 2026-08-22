@@ -87,7 +87,7 @@ pnpm comitia agent connect facilitator
 
 アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`fake` ならターミナルにプロンプトとツール一覧を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。
 
-Claude Code は隔離した `HOME` で動きますが、ホスト環境の `claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）を引き継ぎます。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。子プロセスには `CLAUDE_CONFIG_DIR` を渡しません（渡すと macOS Keychain が別エントリになり、未ログインになります）。
+Claude Code はホストの `HOME` のまま起動するので、`claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）をそのまま使います。ユーザー設定の隔離は `--setting-sources project,local` と `--strict-mcp-config`、GitHub 資格の隔離は `GIT_CONFIG_GLOBAL` で行います。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。子プロセスには `CLAUDE_CONFIG_DIR` を渡しません（渡すと macOS Keychain が別エントリになり、未ログインになります）。
 
 `fake` エンジンの操作:
 

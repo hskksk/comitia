@@ -29,8 +29,9 @@ export function resolveHostHome(env: NodeJS.ProcessEnv = process.env): string {
  * CLAUDE_CONFIG_DIR into a different Keychain item and reports
  * `apiKeySource: none`. Leave both vars unset for the default login.
  * A non-empty host CLAUDE_CONFIG_DIR is passed through as the secure-storage
- * pin only — never as the child's CLAUDE_CONFIG_DIR, so session files stay
- * in the isolated HOME.
+ * pin only — never as the child's CLAUDE_CONFIG_DIR. The child keeps the
+ * host HOME so Keychain / ~/.claude credentials resolve the same way as an
+ * interactive `claude` session.
  */
 export function resolveClaudeSecureStoragePin(
   env: NodeJS.ProcessEnv = process.env,
@@ -72,7 +73,7 @@ export function resolveHostClaudeCredentialsDir(
 
 /**
  * Point the child at the host login without namespacing macOS Keychain.
- * Isolated HOME already relocates `~/.claude` files.
+ * The child keeps the host HOME; do not set CLAUDE_CONFIG_DIR.
  */
 export function applyClaudeCredentialEnv(
   env: NodeJS.ProcessEnv,
@@ -195,10 +196,9 @@ function stripHostMcpServers(raw: string): string {
 }
 
 /**
- * Copy host Claude login files into the isolated HOME so Linux
- * `.credentials.json` works even if the secure-storage pin is ignored.
- * macOS Keychain login is inherited by leaving CLAUDE_CONFIG_DIR unset.
- * Host hooks / plugins / session history are not copied.
+ * Copy host Claude login files into an isolated HOME. Unused by agent
+ * connect (that path keeps the real HOME). Kept for tests and any caller
+ * that still remaps HOME. Host hooks / plugins / session history are not copied.
  */
 export async function seedIsolatedClaudeAuth(
   isolatedHome: string,
