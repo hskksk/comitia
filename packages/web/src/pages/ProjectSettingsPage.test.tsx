@@ -73,8 +73,8 @@ describe("ProjectSettingsPage", () => {
     expect(
       await screen.findByRole("button", { name: "GitHub App をインストール" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/まだ接続されていません/)).toBeInTheDocument();
-    expect(screen.queryByText(/接続済み/)).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("未接続");
+    expect(screen.queryByText("接続済み")).not.toBeInTheDocument();
   });
 
   it("shows connected status instead of install when already linked", async () => {
@@ -92,9 +92,8 @@ describe("ProjectSettingsPage", () => {
 
     renderSettings();
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "このプロジェクトに接続済み（hskksk/comitia）",
-    );
+    expect(await screen.findByRole("status")).toHaveTextContent("接続済み");
+    expect(screen.getByText("hskksk/comitia")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "再接続する" }),
     ).toBeInTheDocument();
