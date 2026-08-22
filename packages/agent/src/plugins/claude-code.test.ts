@@ -144,18 +144,38 @@ describe("buildClaudeRunEnv", () => {
     expect(buildClaudeRunEnv("/tmp/isolated-home", null, { PATH: "/bin" })).toMatchObject({
       HOME: "/tmp/isolated-home",
       MCP_CONNECTION_NONBLOCKING: "0",
-      CLAUDE_CONFIG_DIR: "/tmp/isolated-home/.claude",
-      CLAUDE_SECURESTORAGE_CONFIG_DIR: "",
     });
   });
 
-  it("pins host CLAUDE_CONFIG_DIR as the credential store without writing config there", () => {
+  it("leaves CLAUDE_CONFIG_DIR unset so macOS Keychain stays on the host login", () => {
+    const env = buildClaudeRunEnv(
+      "/tmp/isolated-home",
+      null,
+      {
+        PATH: "/bin",
+        HOME: "/Users/haru",
+        CLAUDE_CONFIG_DIR: "/Users/haru/.claude",
+      },
+      "/Users/haru",
+    );
+    expect(env.HOME).toBe("/tmp/isolated-home");
+    expect(env.CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBeUndefined();
+  });
+
+  it("does not export an empty CLAUDE_SECURESTORAGE_CONFIG_DIR pin", () => {
+    const env = buildClaudeRunEnv("/tmp/isolated-home", null, { PATH: "/bin" });
+    expect(env.CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBeUndefined();
+  });
+
+  it("keeps a custom host profile as the secure-storage pin only", () => {
     const env = buildClaudeRunEnv("/tmp/isolated-home", null, {
       PATH: "/bin",
-      CLAUDE_CONFIG_DIR: "~/.claude-work",
+      CLAUDE_CONFIG_DIR: "/host/.claude-work",
     });
-    expect(env.CLAUDE_CONFIG_DIR).toBe("/tmp/isolated-home/.claude");
-    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe("~/.claude-work");
+    expect(env.CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe("/host/.claude-work");
   });
 
   it("keeps an explicit host CLAUDE_SECURESTORAGE_CONFIG_DIR", () => {

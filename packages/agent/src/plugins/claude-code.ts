@@ -6,8 +6,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 import {
-  resolveClaudeSecureStoragePin,
+  applyClaudeCredentialEnv,
   seedIsolatedClaudeAuth,
+  resolveHostHome,
 } from "../claude-auth.js";
 import { joinSystemPrompt } from "../environment-prompt.js";
 import type { EngineGithubAuth, EnginePlugin } from "./types.js";
@@ -94,13 +95,16 @@ export function buildClaudeRunEnv(
   isolatedHome: string,
   githubToken?: string | null,
   hostEnv: NodeJS.ProcessEnv = process.env,
+  hostHome?: string,
 ): NodeJS.ProcessEnv {
   const env = engineGithubEnv(githubToken ?? null, hostEnv);
   env.HOME = isolatedHome;
   env.MCP_CONNECTION_NONBLOCKING = "0";
-  env.CLAUDE_CONFIG_DIR = join(isolatedHome, ".claude");
-  env.CLAUDE_SECURESTORAGE_CONFIG_DIR = resolveClaudeSecureStoragePin(hostEnv);
-  return env;
+  return applyClaudeCredentialEnv(
+    env,
+    hostEnv,
+    hostHome ?? resolveHostHome(hostEnv),
+  );
 }
 
 export function resolveMcpStdioEntrypoint(fromUrl = import.meta.url): string {
@@ -319,7 +323,12 @@ export function createClaudeCodePlugin(options: {
         (resolve, reject) => {
           const running = spawn("claude", args, {
             cwd: workDir,
-            env: buildClaudeRunEnv(home, githubToken, options.hostEnv),
+            env: buildClaudeRunEnv(
+              home,
+              githubToken,
+              options.hostEnv,
+              options.hostHome,
+            ),
             stdio: ["ignore", "pipe", "pipe"],
           });
           child = running;

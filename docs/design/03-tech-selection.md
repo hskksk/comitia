@@ -21,7 +21,7 @@
 
 **PoC-1 実証結果（2026-08-15、`poc/01-tool-injection/`、実エンジン含め全 PASS）**。机上判定に加えて実測で分かったこと（M3 アダプタの必須要素）:
 
-- Claude Code: ヘッドレスでは **`--permission-mode bypassPermissions`**（MCP 権限プロンプトの回避）と **`HOME` の一時ディレクトリ隔離**（`~/.claude` 汚染防止）が必要。`--bare` は OAuth を読まないので使わず、ホストの `claude login` は `CLAUDE_SECURESTORAGE_CONFIG_DIR` のピンと資格ファイルのコピーで引き継ぐ
+- Claude Code: ヘッドレスでは **`--permission-mode bypassPermissions`**（MCP 権限プロンプトの回避）と **`HOME` の一時ディレクトリ隔離**（`~/.claude` 汚染防止）が必要。`--bare` は OAuth を読まないので使わない。`CLAUDE_CONFIG_DIR` は子に渡さない（macOS Keychain がパスのハッシュで名前空間化される）。ホストの `claude login` はデフォルト Keychain / コピーした `.credentials.json` で引き継ぐ
 - OpenCode: **`XDG_*` 環境変数を一時ディレクトリへ向けて** 標準設定を隔離する。無料モデル（`opencode/*-free`）でも検証可能
 - 両 CLI とも **npm devDependency として同梱できる**（`@anthropic-ai/claude-code` / `opencode-ai` + postinstall）— アダプタがエンジンを同梱配布する選択肢が開けた
 
