@@ -17,6 +17,7 @@ import {
   type AgentIdentity,
 } from "./environment-prompt.js";
 import {
+  engineGithubEnv,
   fetchGithubCredentials,
   gitEnvWithToken,
   githubAuthNeedsRefresh,
@@ -195,10 +196,14 @@ export async function runSessionLoop(
       const checkout = ensureRepoCheckout(
         workDir,
         repoUrl,
-        githubCreds ? gitEnvWithToken(githubCreds.token) : undefined,
+        githubCreds
+          ? gitEnvWithToken(githubCreds.token)
+          : engineGithubEnv(null),
       );
       if (!checkout.ok) {
-        const note = `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。作業ディレクトリの中身無しで続行する。`;
+        const note = githubCreds
+          ? `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。作業ディレクトリの中身無しで続行する。`
+          : `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。GitHub 実行資格が無い（プロジェクトに App 未接続のことが多い）。ホストの GH_TOKEN は使わない。作業ディレクトリの中身無しで続行する。`;
         console.error(note);
         await onChatLog(note);
       }

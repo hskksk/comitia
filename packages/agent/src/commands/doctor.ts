@@ -42,6 +42,42 @@ async function checkClaudeAvailability(): Promise<DoctorFinding> {
   };
 }
 
+async function checkProjectGithub(
+  fetchFn: typeof globalThis.fetch,
+  boardUrl: string,
+  config: ComitiaConfig,
+): Promise<DoctorFinding | null> {
+  if (!config.ownerToken) {
+    return null;
+  }
+  try {
+    const response = await fetchFn(new URL("/v1/project", boardUrl), {
+      headers: { authorization: `Bearer ${config.ownerToken}` },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as {
+      githubInstallationId?: string | null;
+      githubOwner?: string | null;
+      githubRepo?: string | null;
+    };
+    if (body.githubInstallationId && body.githubOwner && body.githubRepo) {
+      return {
+        ok: true,
+        message: `GitHub App: 接続済み（${body.githubOwner}/${body.githubRepo}）`,
+      };
+    }
+    return {
+      ok: false,
+      message:
+        "GitHub App: プロジェクト未接続。App 権限を足しただけでは足りない。ボードのプロジェクト設定で「GitHub App を接続」する（`comitia project` でも確認できる）",
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function checkGithubCredentials(
   fetchFn: typeof globalThis.fetch,
   boardUrl: string,
@@ -77,11 +113,26 @@ async function checkGithubCredentials(
         message: `GitHub 実行資格: 発行できる（${repo}）`,
       };
     }
-    if (response.status === 404 || response.status === 503) {
+    if (response.status === 503) {
       return {
-        ok: true,
+        ok: false,
         message:
-          "GitHub 実行資格: 未接続（App 未設定か、プロジェクトに installation が無い）。git / gh はホスト環境に依存する",
+          "GitHub 実行資格: ボードに GitHub App が設定されていない（GITHUB_APP_* 環境変数）。login では直らない",
+      };
+    }
+    if (response.status === 404) {
+      const detail = await readJsonErrorMessage(response);
+      if (detail === "project has no repoUrl") {
+        return {
+          ok: false,
+          message:
+            "GitHub 実行資格: プロジェクトに repoUrl が無い。`comitia project set --repo-url` で付ける",
+        };
+      }
+      return {
+        ok: false,
+        message:
+          "GitHub 実行資格: プロジェクトに GitHub App が未接続。権限変更ではなく、ボードのプロジェクト設定で「GitHub App を接続」が必要",
       };
     }
     const detail = await readJsonErrorMessage(response);
@@ -141,6 +192,14 @@ export async function doctorCommand(
       const health = await fetchFn(new URL("/healthz", config.boardUrl));
       if (health.ok) {
         findings.push({ ok: true, message: "ボード: 稼働中" });
+        const projectGithub = await checkProjectGithub(
+          fetchFn,
+          config.boardUrl,
+          config,
+        );
+        if (projectGithub) {
+          findings.push(projectGithub);
+        }
         findings.push(
           await checkGithubCredentials(fetchFn, config.boardUrl, config),
         );
