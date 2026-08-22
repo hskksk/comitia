@@ -6,6 +6,7 @@ import {
   engineGithubEnv,
   fetchGithubCredentials,
   gitEnvWithToken,
+  gitEnvWithoutHostCredentials,
   githubAuthNeedsRefresh,
   writeIsolatedGitHubAuth,
 } from "./github-auth.js";
@@ -44,17 +45,34 @@ describe("engineGithubEnv", () => {
 });
 
 describe("gitEnvWithToken", () => {
-  it("sets a GitHub Authorization extraHeader without dropping PATH", () => {
+  it("uses GitHub App basic extraheader and ignores host gitconfig", () => {
     const env = gitEnvWithToken("ghs_minted", {
+      PATH: "/bin",
+      GH_TOKEN: "github_pat_host",
+      GITHUB_TOKEN: "host-other",
+    });
+    expect(env.PATH).toBe("/bin");
+    expect(env.GH_TOKEN).toBeUndefined();
+    expect(env.GITHUB_TOKEN).toBeUndefined();
+    expect(env.GIT_CONFIG_NOSYSTEM).toBe("1");
+    expect(env.GIT_CONFIG_COUNT).toBe("1");
+    expect(env.GIT_CONFIG_KEY_0).toBe("http.https://github.com/.extraheader");
+    expect(env.GIT_CONFIG_VALUE_0).toBe(
+      `AUTHORIZATION: basic ${Buffer.from("x-access-token:ghs_minted", "utf8").toString("base64")}`,
+    );
+    expect(env.GIT_CONFIG_VALUE_0).not.toContain("Bearer");
+  });
+});
+
+describe("gitEnvWithoutHostCredentials", () => {
+  it("strips host GitHub tokens and ignores gitconfig", () => {
+    const env = gitEnvWithoutHostCredentials({
       PATH: "/bin",
       GH_TOKEN: "github_pat_host",
     });
     expect(env.PATH).toBe("/bin");
-    expect(env.GH_TOKEN).toBe("ghs_minted");
-    expect(env.GITHUB_TOKEN).toBe("ghs_minted");
-    expect(env.GIT_CONFIG_COUNT).toBe("1");
-    expect(env.GIT_CONFIG_KEY_0).toBe("http.https://github.com/.extraHeader");
-    expect(env.GIT_CONFIG_VALUE_0).toBe("Authorization: Bearer ghs_minted");
+    expect(env.GH_TOKEN).toBeUndefined();
+    expect(env.GIT_CONFIG_NOSYSTEM).toBe("1");
   });
 });
 
@@ -91,6 +109,7 @@ describe("fetchGithubCredentials", () => {
       );
     });
     vi.stubGlobal("fetch", fetchMock);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const creds = await fetchGithubCredentials("http://board.test", "agent-token");
     expect(creds).toEqual({
       token: "ghs_minted",
@@ -108,6 +127,11 @@ describe("fetchGithubCredentials", () => {
         }),
       }),
     );
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[github-auth] minted installation token for hskksk/comitia",
+    );
+    expect(errorSpy.mock.calls.flat().join("\n")).not.toContain("ghs_minted");
+    errorSpy.mockRestore();
   });
 
   it("returns null on 404 without throwing", async () => {

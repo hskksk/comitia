@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { devNull } from "node:os";
 
 export type GithubSessionCredentials = {
   token: string;
@@ -76,6 +77,9 @@ export async function fetchGithubCredentials(
       console.error("[github-auth] POST /v1/me/github-credentials returned an incomplete payload");
       return null;
     }
+    console.error(
+      `[github-auth] minted installation token for ${body.owner}/${body.repo}`,
+    );
     return {
       token: body.token,
       expiresAt: new Date(body.expiresAt),
@@ -91,16 +95,32 @@ export async function fetchGithubCredentials(
   }
 }
 
+function gitEnvIgnoringHostConfig(
+  base: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  const env = engineGithubEnv(null, base);
+  env.GIT_TERMINAL_PROMPT = "0";
+  env.GIT_CONFIG_NOSYSTEM = "1";
+  env.GIT_CONFIG_GLOBAL = devNull;
+  return env;
+}
+
+export function gitEnvWithoutHostCredentials(
+  base: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  return gitEnvIgnoringHostConfig(base);
+}
+
 export function gitEnvWithToken(
   token: string,
   base: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  return {
-    ...engineGithubEnv(token, base),
-    GIT_CONFIG_COUNT: "1",
-    GIT_CONFIG_KEY_0: "http.https://github.com/.extraHeader",
-    GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token}`,
-  };
+  const env = gitEnvIgnoringHostConfig(base);
+  const basic = Buffer.from(`x-access-token:${token}`, "utf8").toString("base64");
+  env.GIT_CONFIG_COUNT = "1";
+  env.GIT_CONFIG_KEY_0 = "http.https://github.com/.extraheader";
+  env.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${basic}`;
+  return env;
 }
 
 export function engineGithubEnv(
