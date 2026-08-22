@@ -202,6 +202,16 @@ export function DashboardPage() {
             {events.map((event) => (
               <li key={event.id} className="event-item">
                 <span className="event-kind">{eventKindLabel(event.kind)}</span>
+                {event.actorDisplayName ? (
+                  <span className="muted event-actor">
+                    by {event.actorDisplayName}
+                  </span>
+                ) : null}
+                {event.targetDisplayName ? (
+                  <span className="muted event-target">
+                    → 対象: {event.targetDisplayName}
+                  </span>
+                ) : null}
                 <time className="muted" dateTime={event.createdAt}>
                   {formatRelativeTimeJa(event.createdAt)}
                 </time>

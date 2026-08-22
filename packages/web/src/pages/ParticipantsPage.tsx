@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { boardClient, type MeResponse, type ParticipantItem } from "../api.js";
 import { engineLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
+import { formatRelativeTimeJa } from "../relativeTime.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 
@@ -108,6 +109,14 @@ export function ParticipantsPage() {
               <span className={`wake-badge is-${item.wake}`}>
                 {wakeLabel(item.wake)}
               </span>
+            </p>
+          ) : null}
+          {item.lastActionAt ? (
+            <p className="muted">
+              直近の行動:{" "}
+              <time dateTime={item.lastActionAt} title={item.lastActionAt}>
+                {formatRelativeTimeJa(item.lastActionAt)}
+              </time>
             </p>
           ) : null}
           {item.kind === "agent" || item.id === me?.participant.id ? (

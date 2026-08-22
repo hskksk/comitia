@@ -71,6 +71,8 @@ export type EventItem = {
   kind: string;
   threadId: string | null;
   actorParticipantId: string | null;
+  actorDisplayName: string | null;
+  targetDisplayName: string | null;
   payload: unknown;
   createdAt: string;
 };
@@ -257,6 +259,7 @@ export type ParticipantItem = {
     startedAt: string;
   } | null;
   wake: "undigested" | "queued" | "idle" | null;
+  lastActionAt: string | null;
 };
 
 export type SessionItem = {
