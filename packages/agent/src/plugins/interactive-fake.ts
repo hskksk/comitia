@@ -346,6 +346,10 @@ export function createInteractiveFakeEnginePlugin(
       ownedIo = false;
       sessionId = undefined;
     },
+
+    async dispose() {
+      await this.stop();
+    },
   };
 }
 
