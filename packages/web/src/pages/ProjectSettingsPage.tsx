@@ -161,20 +161,43 @@ export function ProjectSettingsPage() {
         )}
       </form>
 
-      {owner ? (
-        <section className="composer">
-          <h2>GitHub App</h2>
+      <section className="composer">
+        <h2>GitHub App</h2>
+        {project.githubInstallationId ? (
+          <>
+            <p role="status">
+              このプロジェクトに接続済み
+              {project.githubOwner && project.githubRepo
+                ? `（${project.githubOwner}/${project.githubRepo}）`
+                : ""}
+            </p>
+            <p className="muted">
+              App 本体はボード全体で共通です。別リポジトリのプロジェクトでは、そちらでも接続が必要です。
+            </p>
+          </>
+        ) : (
+          <>
+            <p>このプロジェクトにはまだ接続されていません。</p>
+            <p className="muted">
+              GitHub App
+              本体の作成はボード全体で一度で足ります。接続はプロジェクト（リポジトリ）ごとです。
+            </p>
+          </>
+        )}
+        {owner ? (
           <p>
             <button
               type="button"
               className="back-link"
               onClick={() => void onInstallGitHubApp()}
             >
-              GitHub App をインストール
+              {project.githubInstallationId
+                ? "再接続する"
+                : "GitHub App をインストール"}
             </button>
           </p>
-        </section>
-      ) : null}
+        ) : null}
+      </section>
 
       <section className="composer">
         <h2>メンバー</h2>
