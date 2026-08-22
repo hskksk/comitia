@@ -36,5 +36,5 @@ export function createEnginePlugin(options: {
       onInterrupt: options.onInterrupt,
     });
   }
-  return createClaudeCodePlugin();
+  return createClaudeCodePlugin({ stdout: options.stdout });
 }

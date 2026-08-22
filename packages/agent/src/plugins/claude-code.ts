@@ -238,7 +238,63 @@ export function parseClaudeStream(output: string, run: number) {
   };
 }
 
-export function createClaudeCodePlugin(): EnginePlugin {
+/**
+ * Append `chunk` to a pending line `buffer`, invoke `onLine` for every
+ * complete line found, and return the new (possibly non-empty) remainder.
+ * Kept pure/side-effect-free (besides `onLine`) so it is trivial to unit test
+ * without spawning a real child process.
+ */
+export function processClaudeStreamChunk(
+  buffer: string,
+  chunk: string,
+  onLine: (line: string) => void,
+): string {
+  const combined = buffer + chunk;
+  const lines = combined.split("\n");
+  const remainder = lines.pop() ?? "";
+  for (const line of lines) {
+    onLine(line);
+  }
+  return remainder;
+}
+
+/**
+ * Turn one line of `claude --output-format stream-json` output into a
+ * human-readable console line, or `null` if the line has nothing worth
+ * showing (tool results, non-assistant events, blank lines, ...).
+ */
+export function formatClaudeStreamLineForConsole(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  const event = parseJson(trimmed);
+  if (event === null || typeof event !== "object") return null;
+  const record = event as Record<string, unknown>;
+  if (record.type !== "assistant") return null;
+  const message = record.message;
+  if (!message || typeof message !== "object") return null;
+  const content = (message as Record<string, unknown>).content;
+  if (!Array.isArray(content)) return null;
+  const parts: string[] = [];
+  for (const block of content) {
+    if (block === null || typeof block !== "object") continue;
+    const item = block as Record<string, unknown>;
+    if (item.type === "thinking" && typeof item.thinking === "string") {
+      parts.push(`[thinking] ${item.thinking}`);
+    } else if (item.type === "text" && typeof item.text === "string") {
+      parts.push(item.text);
+    } else if (item.type === "tool_use" && typeof item.name === "string") {
+      const toolName = item.name.replace(/^mcp__[^_]+__/, "");
+      parts.push(`[tool] ${toolName}(${JSON.stringify(item.input ?? {})})`);
+    }
+  }
+  if (parts.length === 0) return null;
+  return parts.join("\n");
+}
+
+export function createClaudeCodePlugin(
+  options: { stdout?: NodeJS.WritableStream } = {},
+): EnginePlugin {
+  const consoleOut = options.stdout;
   let workDir: string | undefined;
   let workDirPersistent = false;
   let isolatedHome: string | undefined;
@@ -324,9 +380,17 @@ export function createClaudeCodePlugin(): EnginePlugin {
           child = running;
           let stdout = "";
           let stderr = "";
+          let liveBuffer = "";
           running.stdout.setEncoding("utf8");
           running.stderr.setEncoding("utf8");
-          running.stdout.on("data", (chunk: string) => { stdout += chunk; });
+          running.stdout.on("data", (chunk: string) => {
+            stdout += chunk;
+            if (!consoleOut) return;
+            liveBuffer = processClaudeStreamChunk(liveBuffer, chunk, (line) => {
+              const formatted = formatClaudeStreamLineForConsole(line);
+              if (formatted) consoleOut.write(`${formatted}\n`);
+            });
+          });
           running.stderr.on("data", (chunk: string) => { stderr += chunk; });
           running.once("error", (error) => {
             child = undefined;
