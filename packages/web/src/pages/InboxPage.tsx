@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type InboxItem } from "../api.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
 import { pullRequestStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 const KIND_LABEL = {
   merge_wait: "マージ待ち",
@@ -16,16 +17,19 @@ export function InboxPage() {
   const [error, setError] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
 
+  const reset = useCallback(() => {
+    setItems(null);
+    setError(null);
+  }, []);
+
   const reload = useCallback(() => {
     return boardClient
       .inbox()
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }, [projectId]);
+  }, []);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  useRouteLoad(reload, [projectId], reset);
 
   async function complete(threadId: string) {
     setError(null);

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   DEFAULT_SESSION_BUDGET,
   WIND_DOWN_RESERVE,
@@ -8,12 +8,15 @@ import {
   events,
   handovers,
   sessionGoals,
+  sessionProjectEngagements,
   sessions,
+  type HandoverProjectNote,
 } from "../db/schema.js";
 import type { Db, DbClient } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError } from "./errors.js";
 import { getProject } from "./helpers.js";
+import { listMemberParticipantIds, listMembershipsForParticipant } from "./memberships.js";
 
 function runInTransaction<T>(db: Db, fn: (tx: Db) => Promise<T>): Promise<T> {
   if (typeof (db as DbClient).transaction === "function") {
@@ -45,13 +48,14 @@ async function lockAgentConnectionIfPresent(db: Db, participantId: string) {
 
 async function insertOpenSession(
   db: Db,
-  input: { participantId: string; projectId: string },
+  input: { participantId: string },
 ) {
   const [session] = await db
     .insert(sessions)
     .values({
       participantId: input.participantId,
-      projectId: input.projectId,
+      projectId: null,
+      focusProjectId: null,
       briefingAt: null,
       budgetLimit: DEFAULT_SESSION_BUDGET,
       budgetUsed: 0,
@@ -60,7 +64,7 @@ async function insertOpenSession(
     .returning();
 
   await recordEvent(db, {
-    projectId: input.projectId,
+    projectId: null,
     actorParticipantId: input.participantId,
     kind: "session_started",
     payload: {
@@ -75,7 +79,7 @@ async function insertOpenSession(
 
 async function existingOrInsertOpenSession(
   db: Db,
-  input: { participantId: string; projectId: string },
+  input: { participantId: string },
 ) {
   const existing = await findOpenSession(db, input);
   if (existing) {
@@ -128,7 +132,7 @@ async function sessionLastActivityAt(
 
 export async function findOpenSession(
   db: Db,
-  input: { participantId: string; projectId: string },
+  input: { participantId: string; projectId?: string | null },
 ) {
   const [session] = await db
     .select()
@@ -136,7 +140,6 @@ export async function findOpenSession(
     .where(
       and(
         eq(sessions.participantId, input.participantId),
-        eq(sessions.projectId, input.projectId),
         isNull(sessions.endedAt),
       ),
     )
@@ -147,27 +150,25 @@ export async function findOpenSession(
 
 export async function openOrGetSession(
   db: Db,
-  input: { participantId: string; projectId: string },
+  input: { participantId: string; projectId?: string | null },
 ) {
-  await getProject(db, input.projectId);
-
-  return existingOrInsertOpenSession(db, input);
+  // Session identity is the participant. `projectId` is a legacy call-site hint
+  // and is not attached at open; focus is set by use_project / get_briefing.
+  return existingOrInsertOpenSession(db, { participantId: input.participantId });
 }
 
 export async function prepareSessionStart(
   db: Db,
-  input: { participantId: string; projectId: string },
+  input: { participantId: string; projectId?: string | null },
 ) {
-  await getProject(db, input.projectId);
-
   try {
     return await runInTransaction(db, async (tx) => {
       await lockAgentConnectionIfPresent(tx, input.participantId);
-      const existing = await findOpenSession(tx, input);
+      const existing = await findOpenSession(tx, { participantId: input.participantId });
       if (existing) {
         return existing;
       }
-      return insertOpenSession(tx, input);
+      return insertOpenSession(tx, { participantId: input.participantId });
     });
   } catch (error) {
     if (!isUniqueViolation(error)) {
@@ -183,7 +184,7 @@ export async function prepareSessionStart(
 
 export async function findUndigestedSession(
   db: Db,
-  input: { participantId: string; projectId: string },
+  input: { participantId: string; projectId?: string | null },
 ) {
   const [session] = await db
     .select()
@@ -191,7 +192,6 @@ export async function findUndigestedSession(
     .where(
       and(
         eq(sessions.participantId, input.participantId),
-        eq(sessions.projectId, input.projectId),
         isNull(sessions.endedAt),
         isNull(sessions.briefingAt),
       ),
@@ -199,6 +199,49 @@ export async function findUndigestedSession(
     .orderBy(desc(sessions.startedAt))
     .limit(1);
   return session ?? null;
+}
+
+export async function recordSessionProjectEngagement(
+  db: Db,
+  input: { sessionId: string; projectId: string },
+) {
+  await db
+    .insert(sessionProjectEngagements)
+    .values({
+      sessionId: input.sessionId,
+      projectId: input.projectId,
+    })
+    .onConflictDoNothing();
+}
+
+export async function listSessionProjectEngagements(db: Db, sessionId: string) {
+  return db
+    .select()
+    .from(sessionProjectEngagements)
+    .where(eq(sessionProjectEngagements.sessionId, sessionId));
+}
+
+export async function setSessionFocus(
+  db: Db,
+  input: { sessionId: string; projectId: string },
+) {
+  await getProject(db, input.projectId);
+  const [updated] = await db
+    .update(sessions)
+    .set({
+      focusProjectId: input.projectId,
+      projectId: input.projectId,
+    })
+    .where(eq(sessions.id, input.sessionId))
+    .returning();
+  if (!updated) {
+    throw new NotFoundError("セッションが見つかりません");
+  }
+  await recordSessionProjectEngagement(db, {
+    sessionId: input.sessionId,
+    projectId: input.projectId,
+  });
+  return updated;
 }
 
 export async function markSessionDigested(db: DbClient, sessionId: string) {
@@ -371,7 +414,11 @@ export async function completeGoal(
 
 export async function endSession(
   db: Db,
-  input: { sessionId: string; handover: string },
+  input: {
+    sessionId: string;
+    handover: string;
+    projects?: { projectId: string; summary: string }[];
+  },
 ) {
   const session = await getSessionById(db, input.sessionId);
   if (session.endedAt) {
@@ -380,6 +427,17 @@ export async function endSession(
   if (!input.handover.trim()) {
     throw new GateViolation("申し送り（handover）は必須です");
   }
+
+  const memberships = await listMembershipsForParticipant(
+    db,
+    session.participantId,
+  );
+  const engagements = await listSessionProjectEngagements(db, input.sessionId);
+  const notes = await resolveHandoverProjects(db, {
+    memberships,
+    engagements,
+    requested: input.projects,
+  });
 
   const endedAt = new Date();
   const [updated] = await db
@@ -391,6 +449,7 @@ export async function endSession(
   await db.insert(handovers).values({
     sessionId: input.sessionId,
     body: input.handover.trim(),
+    projects: notes,
   });
 
   await recordEvent(db, {
@@ -400,10 +459,67 @@ export async function endSession(
     payload: {
       sessionId: input.sessionId,
       endedAt: endedAt.toISOString(),
+      projects: notes,
     },
   });
 
   return updated!;
+}
+
+async function resolveHandoverProjects(
+  db: Db,
+  input: {
+    memberships: { id: string; name: string }[];
+    engagements: { projectId: string }[];
+    requested?: { projectId: string; summary: string }[];
+  },
+): Promise<HandoverProjectNote[]> {
+  if (input.requested && input.requested.length > 0) {
+    const notes: HandoverProjectNote[] = [];
+    for (const row of input.requested) {
+      const membership = input.memberships.find((item) => item.id === row.projectId);
+      if (!membership) {
+        throw new GateViolation(
+          "申し送りの projects は所属しているプロジェクトだけを書いてください",
+        );
+      }
+      notes.push({
+        projectId: membership.id,
+        name: membership.name,
+        summary: row.summary.trim(),
+      });
+    }
+    return notes;
+  }
+
+  if (input.memberships.length >= 2) {
+    throw new GateViolation(
+      "所属が複数あるので、申し送りの projects にプロジェクトごとの要約を書いてください",
+    );
+  }
+
+  if (input.memberships.length === 1) {
+    return [
+      {
+        projectId: input.memberships[0]!.id,
+        name: input.memberships[0]!.name,
+        summary: "",
+      },
+    ];
+  }
+
+  if (input.engagements.length === 1) {
+    const project = await getProject(db, input.engagements[0]!.projectId);
+    return [
+      {
+        projectId: project.id,
+        name: project.name,
+        summary: "",
+      },
+    ];
+  }
+
+  return [];
 }
 
 export async function getSessionById(db: Db, sessionId: string) {
@@ -419,15 +535,14 @@ export async function getSessionById(db: Db, sessionId: string) {
 
 export async function getLatestPreviousHandover(
   db: Db,
-  input: { participantId: string; projectId: string; beforeSessionId?: string },
-): Promise<string> {
+  input: { participantId: string; projectId?: string | null; beforeSessionId?: string },
+): Promise<{ body: string; projects: HandoverProjectNote[] }> {
   const endedSessions = await db
     .select()
     .from(sessions)
     .where(
       and(
         eq(sessions.participantId, input.participantId),
-        eq(sessions.projectId, input.projectId),
         isNotNull(sessions.endedAt),
       ),
     )
@@ -444,16 +559,29 @@ export async function getLatestPreviousHandover(
       .orderBy(desc(handovers.id))
       .limit(1);
     if (handover) {
-      return handover.body;
+      const stored = handover.projects ?? [];
+      if (stored.length > 0) {
+        return { body: handover.body, projects: stored };
+      }
+      if (session.projectId) {
+        const project = await getProject(db, session.projectId);
+        return {
+          body: handover.body,
+          projects: [
+            { projectId: project.id, name: project.name, summary: "" },
+          ],
+        };
+      }
+      return { body: handover.body, projects: [] };
     }
   }
 
-  return "";
+  return { body: "", projects: [] };
 }
 
 export async function wasLatestPreviousSessionInterrupted(
   db: Db,
-  input: { participantId: string; projectId: string; beforeSessionId?: string },
+  input: { participantId: string; projectId?: string | null; beforeSessionId?: string },
 ): Promise<boolean> {
   const endedSessions = await db
     .select()
@@ -461,7 +589,6 @@ export async function wasLatestPreviousSessionInterrupted(
     .where(
       and(
         eq(sessions.participantId, input.participantId),
-        eq(sessions.projectId, input.projectId),
         isNotNull(sessions.endedAt),
       ),
     )
@@ -478,7 +605,20 @@ export async function listParticipantsWithSessionSince(
   db: Db,
   input: { projectId: string; since: Date },
 ): Promise<string[]> {
-  const rows = await db
+  const memberIds = await listMemberParticipantIds(db, input.projectId);
+  const viaMemberSession =
+    memberIds.length === 0
+      ? []
+      : await db
+          .selectDistinct({ participantId: sessions.participantId })
+          .from(sessions)
+          .where(
+            and(
+              inArray(sessions.participantId, memberIds),
+              sql`${sessions.startedAt} >= ${input.since}`,
+            ),
+          );
+  const viaSession = await db
     .selectDistinct({ participantId: sessions.participantId })
     .from(sessions)
     .where(
@@ -487,5 +627,24 @@ export async function listParticipantsWithSessionSince(
         sql`${sessions.startedAt} >= ${input.since}`,
       ),
     );
-  return rows.map((row) => row.participantId);
+  const viaEngagement = await db
+    .selectDistinct({ participantId: sessions.participantId })
+    .from(sessionProjectEngagements)
+    .innerJoin(
+      sessions,
+      eq(sessionProjectEngagements.sessionId, sessions.id),
+    )
+    .where(
+      and(
+        eq(sessionProjectEngagements.projectId, input.projectId),
+        sql`${sessions.startedAt} >= ${input.since}`,
+      ),
+    );
+  return [
+    ...new Set([
+      ...viaMemberSession.map((row) => row.participantId),
+      ...viaSession.map((row) => row.participantId),
+      ...viaEngagement.map((row) => row.participantId),
+    ]),
+  ];
 }

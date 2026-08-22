@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { boardClient, type ProjectListItem } from "../api.js";
 import {
@@ -6,6 +6,7 @@ import {
   type SystemTemplateItem,
 } from "../components/TemplatePicker.js";
 import { projectPath, saveLastProjectId } from "../projectContext.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 function foundingInput(
   templateId: string,
@@ -39,25 +40,34 @@ export function ProjectsPage() {
   const [threadTemplateId, setThreadTemplateId] = useState("");
   const [threadContent, setThreadContent] = useState("");
 
-  function reload() {
+  const reset = useCallback(() => {
+    setProjects(null);
+    setError(null);
+  }, []);
+
+  const reload = useCallback(() => {
     return boardClient
       .listProjects()
       .then((res) => setProjects(res.items))
       .catch((err: Error) => setError(err.message));
-  }
-
-  useEffect(() => {
-    reload();
-    Promise.all([
-      boardClient.listSystemTemplates("project_rule"),
-      boardClient.listSystemTemplates("thread_template"),
-    ])
-      .then(([rules, threads]) => {
-        setRuleTemplates(rules.items);
-        setThreadTemplates(threads.items);
-      })
-      .catch((err: Error) => setError(err.message));
   }, []);
+
+  useRouteLoad(
+    () => {
+      void reload();
+      Promise.all([
+        boardClient.listSystemTemplates("project_rule"),
+        boardClient.listSystemTemplates("thread_template"),
+      ])
+        .then(([rules, threads]) => {
+          setRuleTemplates(rules.items);
+          setThreadTemplates(threads.items);
+        })
+        .catch((err: Error) => setError(err.message));
+    },
+    [],
+    reset,
+  );
 
   async function onCreate(event: FormEvent) {
     event.preventDefault();

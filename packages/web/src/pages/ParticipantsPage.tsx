@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type MeResponse, type ParticipantItem } from "../api.js";
 import { engineLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { useFocusPoll } from "../useFocusPoll.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 function connectionLabel(status: "connected" | "disconnected" | "never"): string {
   if (status === "connected") {
@@ -32,20 +33,24 @@ export function ParticipantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  function load() {
+  const reset = useCallback(() => {
+    setItems(null);
+    setMe(null);
+    setError(null);
+  }, []);
+
+  const load = useCallback(() => {
     boardClient
       .participants()
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }
-
-  useEffect(() => {
-    load();
     boardClient
       .me()
       .then((res) => setMe(res))
       .catch(() => undefined);
-  }, [projectId]);
+  }, []);
+
+  useRouteLoad(load, [projectId], reset);
   useFocusPoll(load, 15_000);
 
   async function onWake(id: string) {

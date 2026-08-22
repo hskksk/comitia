@@ -151,6 +151,7 @@ export const GATEWAY = {
 /** Explicit per-tool costs; mutating tools default to DEFAULT_MUTATING_TOOL_COST. */
 export const TOOL_COSTS = {
   get_briefing: 0,
+  use_project: 0,
   read_thread: 3,
   search_threads: 0,
   search_decisions: 0,

@@ -6,7 +6,7 @@ import type { Db } from "../db/types.js";
 import { authenticateToken } from "../domain/credentials.js";
 import { GateViolation, PermissionDenied } from "../domain/errors.js";
 import { getProject } from "../domain/helpers.js";
-import { resolveHumanProjectId } from "../domain/memberships.js";
+import { assertProjectMember, resolveHumanProjectId } from "../domain/memberships.js";
 
 export type BoardVariables = {
   participant: InferSelectModel<typeof participants>;
@@ -37,12 +37,9 @@ export function requireAuth(db: Db): MiddlewareHandler<BoardEnv> {
     if (auth.participant.kind === "agent" && auth.participant.archivedAt) {
       return c.json({ error: "unauthorized" }, 401);
     }
-    if (auth.participant.kind === "agent" && !auth.projectId) {
-      return c.json({ error: "agent credential missing project" }, 400);
-    }
     c.set("participant", auth.participant);
     c.set("credentialProjectId", auth.projectId);
-    if (auth.projectId) {
+    if (auth.participant.kind !== "agent" && auth.projectId) {
       c.set("projectId", auth.projectId);
     }
     await next();
@@ -75,18 +72,20 @@ export function requireProjectMember(
     const participant = c.get("participant");
     try {
       if (participant.kind === "agent") {
-        const projectId = c.get("credentialProjectId");
+        const requested = options?.fromParam
+          ? c.req.param(options.fromParam)
+          : undefined;
+        const projectId = requested || c.get("credentialProjectId");
         if (!projectId) {
-          return c.json({ error: "agent credential missing project" }, 400);
+          return c.json({ error: "project required" }, 400);
         }
-        if (options?.fromParam) {
-          const requested = c.req.param(options.fromParam);
-          if (requested && requested !== projectId) {
-            return c.json(
-              { error: "このプロジェクトのメンバーではありません" },
-              403,
-            );
+        try {
+          await assertProjectMember(db, projectId, participant.id);
+        } catch (error) {
+          if (error instanceof PermissionDenied) {
+            return c.json({ error: error.message }, 403);
           }
+          throw error;
         }
         c.set("projectId", projectId);
         await next();
@@ -120,6 +119,9 @@ export function requireProjectOwner(db: Db): MiddlewareHandler<BoardEnv> {
   return async (c, next) => {
     const participant = c.get("participant");
     const projectId = c.get("projectId");
+    if (!projectId) {
+      return c.json({ error: "project required" }, 400);
+    }
     try {
       const project = await getProject(db, projectId);
       if (project.ownerParticipantId !== participant.id) {

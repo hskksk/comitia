@@ -1,8 +1,11 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useState } from "react";
+import { useParams } from "react-router-dom";
 import { boardClient, type MemoryItem, type NoteItem } from "../api.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 export function NotesPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const [memory, setMemory] = useState<MemoryItem[] | null>(null);
   const [notes, setNotes] = useState<NoteItem[] | null>(null);
   const [query, setQuery] = useState("");
@@ -12,12 +15,24 @@ export function NotesPage() {
   const [body, setBody] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
 
-  function loadMemory() {
+  const reset = useCallback(() => {
+    setMemory(null);
+    setNotes(null);
+    setError(null);
+  }, []);
+
+  const loadAll = useCallback(() => {
     boardClient
       .memory()
       .then((res) => setMemory(res.items))
       .catch((err: Error) => setError(err.message));
-  }
+    boardClient
+      .notes()
+      .then((res) => setNotes(res.items))
+      .catch((err: Error) => setError(err.message));
+  }, []);
+
+  useRouteLoad(loadAll, [projectId], reset);
 
   function loadNotes(q?: string) {
     boardClient
@@ -25,11 +40,6 @@ export function NotesPage() {
       .then((res) => setNotes(res.items))
       .catch((err: Error) => setError(err.message));
   }
-
-  useEffect(() => {
-    loadMemory();
-    loadNotes();
-  }, []);
 
   function onSearch(event: FormEvent) {
     event.preventDefault();

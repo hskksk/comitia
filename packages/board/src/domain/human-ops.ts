@@ -126,10 +126,18 @@ export async function listProjectParticipants(db: Db, projectId: string) {
           .from(agentConnections)
           .where(inArray(agentConnections.participantId, agentIds));
 
-  const openRows = await db
-    .select()
-    .from(sessions)
-    .where(and(eq(sessions.projectId, projectId), isNull(sessions.endedAt)));
+  const openRows =
+    ids.length === 0
+      ? []
+      : await db
+          .select()
+          .from(sessions)
+          .where(
+            and(
+              inArray(sessions.participantId, ids),
+              isNull(sessions.endedAt),
+            ),
+          );
 
   const queuedStartTicks =
     agentIds.length === 0
@@ -264,10 +272,23 @@ async function serializeSession(db: Db, session: typeof sessions.$inferSelect) {
 }
 
 export async function listOpenSessions(db: Db, projectId: string) {
+  const memberRows = await db
+    .select({ participantId: projectMemberships.participantId })
+    .from(projectMemberships)
+    .where(eq(projectMemberships.projectId, projectId));
+  const memberIds = memberRows.map((row) => row.participantId);
+  if (memberIds.length === 0) {
+    return [];
+  }
   const rows = await db
     .select()
     .from(sessions)
-    .where(and(eq(sessions.projectId, projectId), isNull(sessions.endedAt)))
+    .where(
+      and(
+        inArray(sessions.participantId, memberIds),
+        isNull(sessions.endedAt),
+      ),
+    )
     .orderBy(desc(sessions.startedAt));
   return Promise.all(rows.map((row) => serializeSession(db, row)));
 }
@@ -286,12 +307,7 @@ export async function listAgentSessions(
   const rows = await db
     .select()
     .from(sessions)
-    .where(
-      and(
-        eq(sessions.participantId, input.agentId),
-        eq(sessions.projectId, input.projectId),
-      ),
-    )
+    .where(eq(sessions.participantId, input.agentId))
     .orderBy(desc(sessions.startedAt));
   return Promise.all(rows.map((row) => serializeSession(db, row)));
 }

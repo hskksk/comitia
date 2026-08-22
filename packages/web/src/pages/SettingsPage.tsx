@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useRef, useState } from "react";
 import {
   boardClient,
   type MeResponse,
@@ -6,6 +6,7 @@ import {
   type ProjectListItem,
 } from "../api.js";
 import { engineLabel } from "../labels.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 export function SettingsPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -34,8 +35,14 @@ export function SettingsPage() {
       .catch((err: Error) => setError(err.message));
   }
 
-  useEffect(() => {
-    Promise.all([boardClient.me(), boardClient.listProjects(), reloadAgents()])
+  const reset = useCallback(() => {
+    setMe(null);
+    setAgents(null);
+    setError(null);
+  }, []);
+
+  const reloadAll = useCallback(() => {
+    return Promise.all([boardClient.me(), boardClient.listProjects(), reloadAgents()])
       .then(([identity, projectRes]) => {
         setMe(identity);
         setDisplayName(identity.participant.displayName);
@@ -47,6 +54,8 @@ export function SettingsPage() {
       .catch((err: Error) => setError(err.message));
   }, []);
 
+  useRouteLoad(reloadAll, [], reset);
+
   async function onSaveProfile(event: FormEvent) {
     event.preventDefault();
     if (!displayName.trim()) {
@@ -55,17 +64,10 @@ export function SettingsPage() {
     setSaving(true);
     setError(null);
     try {
-      const updated = await boardClient.patchMe({
+      await boardClient.patchMe({
         displayName: displayName.trim(),
       });
-      setMe((prev) =>
-        prev
-          ? {
-              ...prev,
-              participant: { ...prev.participant, displayName: updated.participant.displayName },
-            }
-          : prev,
-      );
+      await reloadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
     } finally {

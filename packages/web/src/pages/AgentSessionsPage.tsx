@@ -1,14 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type SessionItem } from "../api.js";
 import { projectPath } from "../projectContext.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 export function AgentSessionsPage() {
   const { projectId, id } = useParams<{ projectId: string; id: string }>();
   const [items, setItems] = useState<SessionItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const reset = useCallback(() => {
+    setItems(null);
+    setError(null);
+  }, []);
+
+  const load = useCallback(() => {
     if (!id) {
       return;
     }
@@ -16,7 +22,9 @@ export function AgentSessionsPage() {
       .agentSessions(id)
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message));
-  }, [id, projectId]);
+  }, [id]);
+
+  useRouteLoad(load, [id, projectId], reset);
 
   if (!projectId) {
     return null;

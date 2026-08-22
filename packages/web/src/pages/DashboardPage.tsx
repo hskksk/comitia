@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type EventItem, type ProjectSummary } from "../api.js";
 import { CollapsibleMarkdown } from "../components/CollapsibleMarkdown.js";
@@ -6,6 +6,7 @@ import { judgmentNeedLabel, threadStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
 import { useFocusPoll } from "../useFocusPoll.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 function eventKindLabel(kind: string): string {
   const labels: Record<string, string> = {
@@ -29,6 +30,12 @@ export function DashboardPage() {
   const [events, setEvents] = useState<EventItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const reset = useCallback(() => {
+    setSummary(null);
+    setEvents(null);
+    setError(null);
+  }, []);
+
   const load = useCallback(() => {
     if (!projectId) {
       return;
@@ -41,9 +48,7 @@ export function DashboardPage() {
       .catch((err: Error) => setError(err.message));
   }, [projectId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useRouteLoad(load, [projectId], reset);
   useFocusPoll(load, 15_000);
 
   if (!projectId) {

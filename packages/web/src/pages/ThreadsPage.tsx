@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type ThreadListItem } from "../api.js";
 import { ThreadBadges } from "../components/Badges.js";
 import { projectPath } from "../projectContext.js";
+import { useFocusPoll } from "../useFocusPoll.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 type Filter = "all" | "mine" | "proposal" | "implementation";
 
@@ -13,14 +15,23 @@ export function ThreadsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const reset = useCallback(() => {
+    setItems(null);
+    setMeId(null);
+    setError(null);
+  }, []);
+
+  const load = useCallback(() => {
     Promise.all([boardClient.threads(), boardClient.me()])
       .then(([res, me]) => {
         setItems(res.items);
         setMeId(me.participant.id);
       })
       .catch((err: Error) => setError(err.message));
-  }, [projectId]);
+  }, []);
+
+  useRouteLoad(load, [projectId], reset);
+  useFocusPoll(load, 15_000);
 
   if (!projectId) {
     return null;

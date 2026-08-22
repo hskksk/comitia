@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
 import { sessions } from "../db/schema.js";
 import { getBriefing } from "./briefing.js";
-import { endSession, findOpenSession, openOrGetSession } from "./sessions.js";
+import { endSession, findOpenSession, openOrGetSession, prepareSessionStart } from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { adoptDefaultFounding } from "./founding.js";
@@ -51,6 +51,16 @@ describe("sessions", () => {
       projectId: project.id,
     });
     expect(open?.id).toBe(first.sessionId);
+  });
+
+  it("prepareSessionStart does not bind the session to a project", async () => {
+    const { agent, project } = await setupParticipants();
+    const session = await prepareSessionStart(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(session.projectId).toBeNull();
+    expect(session.focusProjectId).toBeNull();
   });
 
   it("end_session without handover fails; with handover succeeds", async () => {

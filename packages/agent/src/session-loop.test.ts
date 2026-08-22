@@ -500,9 +500,7 @@ describe("interactive fake engine through connect", () => {
       "",
       "",
       "done",
-      "end",
-      "",
-      "一日を体験した",
+      'json end_session {"handover":"一日を体験した"}',
     ]);
     const wrapped = wrapPlugin(
       createInteractiveFakeEnginePlugin({

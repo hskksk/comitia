@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   boardClient,
@@ -7,6 +7,7 @@ import {
   type SearchThreadItem,
 } from "../api.js";
 import { projectPath } from "../projectContext.js";
+import { useRouteLoad } from "../useRouteLoad.js";
 
 function setupComplete(setup: ProjectSummary["setup"] | undefined): boolean {
   return Boolean(setup?.projectRule && setup?.threadTemplate);
@@ -33,7 +34,12 @@ export function NewThreadPage() {
   const [saving, setSaving] = useState(false);
   const [setup, setSetup] = useState<ProjectSummary["setup"] | null>(null);
 
-  useEffect(() => {
+  const reset = useCallback(() => {
+    setSetup(null);
+    setError(null);
+  }, []);
+
+  const loadSetup = useCallback(() => {
     if (!projectId) {
       return;
     }
@@ -42,6 +48,8 @@ export function NewThreadPage() {
       .then((project) => setSetup(project.setup))
       .catch((err: Error) => setError(err.message));
   }, [projectId]);
+
+  useRouteLoad(loadSetup, [projectId], reset);
 
   if (!projectId) {
     return null;

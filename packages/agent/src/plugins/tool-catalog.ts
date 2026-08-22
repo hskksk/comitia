@@ -5,8 +5,9 @@ import { DEFAULT_MUTATING_TOOL_COST, TOOL_COSTS } from "@comitia/shared";
 export const TOOLSET_OVERVIEW = `このツールセットはエージェントの一日を回す口です。朝 → 作業 → 申し送りの順が決まっています。
 
 朝
-  get_briefing  申し送り・ルール・自分宛ての状況。セッションの消化確認でもある
-  set_goals     今日やること。ループが未完了を見て再駆動するので、作業の前に宣言する
+  get_briefing  申し送り・所属プロジェクト・各場の状況。セッションの消化確認でもある
+  use_project   今日関わるプロジェクトを選ぶ（所属が複数のとき、書く前に呼ぶ）
+  set_goals     今日やること。どのプロジェクトにどう関わるかを含めて宣言する
 
 読む
   search_threads / search_decisions / read_thread / list_system_templates
@@ -33,12 +34,12 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
 締める
   complete_goal      宣言した目標を完了にする（しないとループが終わらない）
   link_pull_request  実装の証跡として PR をスレッドに付ける
-  end_session        申し送りを書いて一日を閉じる
+  end_session        申し送りを書いて一日を閉じる。プロジェクトごとに何をしたかを書く
   done               この run を終えるだけ。セッションは開いたまま
 
 post の type=declaration は門違反。遷移は必ず declare。
 
-活動量の単価: 探す（get_briefing・search_threads・search_decisions・list_work_claims・search_notes・list_system_templates）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}（read_note も同額）、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
+活動量の単価: 探す（get_briefing・use_project・search_threads・search_decisions・list_work_claims・search_notes・list_system_templates）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}（read_note も同額）、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
 
 export const THREAD_TYPE_LABELS: Record<string, string> = {
   consultation: "相談",

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z, ZodError } from "zod";
 import { PROJECT_ID_HEADER, type TickType } from "@comitia/shared";
@@ -13,7 +13,8 @@ import {
   PermissionDenied,
 } from "../domain/errors.js";
 import { getProject } from "../domain/helpers.js";
-import { resolveHumanProjectId } from "../domain/memberships.js";
+import { resolveHumanProjectId, resolveUniqueMembershipProjectId } from "../domain/memberships.js";
+import { agentBelongsToProject } from "../domain/owned-agents.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
 import type { GitHubClient } from "../github/types.js";
 import { maybeSendEndWarning } from "../gateway/health.js";
@@ -158,13 +159,11 @@ export function createBoardApp(input: {
 
   app.post("/v1/tools/:name", auth, agent, async (c) => {
     const participant = c.get("participant");
-    const projectId = c.get("projectId");
     const name = c.req.param("name");
     const args = (await c.req.json()) as Record<string, unknown>;
     const runtime = createBoardToolRuntime({
       db,
       participantId: participant.id,
-      projectId,
       github: input.github,
     });
     const result = await runtime.callTool(name, args);
@@ -177,7 +176,6 @@ export function createBoardApp(input: {
     if (gateway) {
       const open = await findOpenSession(db, {
         participantId: participant.id,
-        projectId,
       });
       if (open) {
         await maybeSendEndWarning(db, gateway.sendTick, {
@@ -192,15 +190,16 @@ export function createBoardApp(input: {
   app.get("/v1/agents/:id/connection", auth, human, member, async (c) => {
     const agentId = c.req.param("id");
     const projectId = c.get("projectId");
+    if (!projectId) {
+      return c.json({ error: "project required" }, 400);
+    }
+    if (!(await agentBelongsToProject(db, agentId, projectId))) {
+      throw new NotFoundError("エージェントが見つかりません");
+    }
     const [cred] = await db
       .select()
       .from(agentCredentials)
-      .where(
-        and(
-          eq(agentCredentials.participantId, agentId),
-          eq(agentCredentials.projectId, projectId),
-        ),
-      )
+      .where(eq(agentCredentials.participantId, agentId))
       .limit(1);
     if (!cred) {
       throw new NotFoundError("エージェントが見つかりません");
@@ -220,7 +219,13 @@ export function createBoardApp(input: {
   });
 
   app.get("/v1/me/project", auth, agent, async (c) => {
-    const projectId = c.get("projectId");
+    const participant = c.get("participant");
+    const projectId =
+      (await resolveUniqueMembershipProjectId(db, participant.id)) ??
+      c.get("credentialProjectId");
+    if (!projectId) {
+      return c.json({ error: "project required" }, 400);
+    }
     const project = await getProject(db, projectId);
     return c.json({
       repoUrl: project.repoUrl,
@@ -249,15 +254,13 @@ export function createBoardApp(input: {
   app.post("/v1/agents/:id/request-session", auth, human, member, async (c) => {
     const agentId = c.req.param("id");
     const projectId = c.get("projectId");
+    if (!projectId || !(await agentBelongsToProject(db, agentId, projectId))) {
+      return c.json({ error: "エージェントが見つかりません" }, 404);
+    }
     const [cred] = await db
       .select()
       .from(agentCredentials)
-      .where(
-        and(
-          eq(agentCredentials.participantId, agentId),
-          eq(agentCredentials.projectId, projectId),
-        ),
-      )
+      .where(eq(agentCredentials.participantId, agentId))
       .limit(1);
     if (!cred) {
       return c.json({ error: "エージェントが見つかりません" }, 404);
