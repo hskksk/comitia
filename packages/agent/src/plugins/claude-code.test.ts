@@ -150,6 +150,45 @@ describe("buildClaudeRunEnv", () => {
       MCP_CONNECTION_NONBLOCKING: "0",
     });
   });
+
+  it("overrides a host GH_TOKEN with the minted installation token", () => {
+    const previous = process.env.GH_TOKEN;
+    process.env.GH_TOKEN = "github_pat_host";
+    try {
+      const env = buildClaudeRunEnv("/tmp/isolated-home", "ghs_minted");
+      expect(env.GH_TOKEN).toBe("ghs_minted");
+      expect(env.GITHUB_TOKEN).toBe("ghs_minted");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.GH_TOKEN;
+      } else {
+        process.env.GH_TOKEN = previous;
+      }
+    }
+  });
+
+  it("strips host GitHub tokens when none were minted", () => {
+    const previousGh = process.env.GH_TOKEN;
+    const previousGithub = process.env.GITHUB_TOKEN;
+    process.env.GH_TOKEN = "github_pat_host";
+    process.env.GITHUB_TOKEN = "host-other";
+    try {
+      const env = buildClaudeRunEnv("/tmp/isolated-home", null);
+      expect(env.GH_TOKEN).toBeUndefined();
+      expect(env.GITHUB_TOKEN).toBeUndefined();
+    } finally {
+      if (previousGh === undefined) {
+        delete process.env.GH_TOKEN;
+      } else {
+        process.env.GH_TOKEN = previousGh;
+      }
+      if (previousGithub === undefined) {
+        delete process.env.GITHUB_TOKEN;
+      } else {
+        process.env.GITHUB_TOKEN = previousGithub;
+      }
+    }
+  });
 });
 
 

@@ -1,5 +1,8 @@
-import type { PullRequestSnapshot } from "./types.js";
-import type { GitHubClient } from "./types.js";
+import {
+  AGENT_GITHUB_TOKEN_PERMISSIONS,
+  type GitHubClient,
+  type PullRequestSnapshot,
+} from "./types.js";
 
 export type FakeGitHubIssueAction = {
   owner: string;
@@ -9,16 +12,26 @@ export type FakeGitHubIssueAction = {
   closed: boolean;
 };
 
+export type FakeGitHubMintCall = {
+  installationId: string;
+  owner: string;
+  repo: string;
+  repositories: string[];
+  permissions: typeof AGENT_GITHUB_TOKEN_PERMISSIONS;
+};
+
 export type FakeGitHubClientSeed = {
   pullRequests?: PullRequestSnapshot[];
   installationRepos?: Record<string, Array<{ owner: string; repo: string }>>;
   oauthCodes?: Record<string, { accessToken: string }>;
   users?: Record<string, { id: string; login: string }>;
+  tokenMintError?: string;
 };
 
 export type FakeGitHubClient = GitHubClient & {
   pullRequests: Map<string, PullRequestSnapshot>;
   issueActions: FakeGitHubIssueAction[];
+  mintCalls: FakeGitHubMintCall[];
   setPullRequest(pr: PullRequestSnapshot): void;
 };
 
@@ -40,10 +53,12 @@ export function createFakeGitHubClient(
   const oauthCodes = seed?.oauthCodes ?? {};
   const users = seed?.users ?? {};
   const issueActions: FakeGitHubIssueAction[] = [];
+  const mintCalls: FakeGitHubMintCall[] = [];
 
   const client: FakeGitHubClient = {
     pullRequests,
     issueActions,
+    mintCalls,
 
     setPullRequest(pr) {
       pullRequests.set(prKey(pr.owner, pr.repo, pr.number), { ...pr });
@@ -91,6 +106,32 @@ export function createFakeGitHubClient(
 
     async listInstallations() {
       return [...installationRepos.keys()].map((id) => ({ id }));
+    },
+
+    async createInstallationAccessToken(input) {
+      mintCalls.push({
+        installationId: input.installationId,
+        owner: input.owner,
+        repo: input.repo,
+        repositories: [input.repo],
+        permissions: { ...AGENT_GITHUB_TOKEN_PERMISSIONS },
+      });
+      if (seed?.tokenMintError) {
+        throw new Error(seed.tokenMintError);
+      }
+      const repos = installationRepos.get(input.installationId) ?? [];
+      const included = repos.some(
+        (row) => row.owner === input.owner && row.repo === input.repo,
+      );
+      if (!included) {
+        throw new Error(
+          `installation ${input.installationId} does not include ${input.owner}/${input.repo}`,
+        );
+      }
+      return {
+        token: `ghs_fake_${input.installationId}_${input.owner}_${input.repo}`,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      };
     },
   };
 

@@ -29,4 +29,18 @@ export interface GitHubClient {
     Array<{ owner: string; repo: string }>
   >;
   listInstallations(): Promise<Array<{ id: string }>>;
+  createInstallationAccessToken(input: {
+    installationId: string;
+    owner: string;
+    repo: string;
+  }): Promise<{
+    token: string;
+    expiresAt: Date;
+  }>;
 }
+
+export const AGENT_GITHUB_TOKEN_PERMISSIONS = {
+  contents: "write",
+  pull_requests: "write",
+  metadata: "read",
+} as const;

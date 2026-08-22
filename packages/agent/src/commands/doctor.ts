@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { loadConfig } from "../config.js";
+import { loadConfig, type ComitiaConfig } from "../config.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -39,6 +39,60 @@ async function checkClaudeAvailability(): Promise<DoctorFinding> {
     message:
       "Claude Code CLI が見つかりません（PATH に claude がありません）。エージェント接続には必要です。",
   };
+}
+
+async function checkGithubCredentials(
+  fetchFn: typeof globalThis.fetch,
+  boardUrl: string,
+  config: ComitiaConfig,
+): Promise<DoctorFinding> {
+  const agent = Object.values(config.agents)[0];
+  if (!agent) {
+    return {
+      ok: true,
+      message: "GitHub 実行資格: エージェント未登録のためスキップ",
+    };
+  }
+  try {
+    const response = await fetchFn(new URL("/v1/me/github-credentials", boardUrl), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agent.token}`,
+      },
+      body: JSON.stringify({}),
+    });
+    if (response.status === 200) {
+      const body = (await response.json()) as {
+        token?: string;
+        owner?: string;
+        repo?: string;
+        expiresAt?: string;
+      };
+      const repo =
+        body.owner && body.repo ? `${body.owner}/${body.repo}` : "repo";
+      return {
+        ok: true,
+        message: `GitHub 実行資格: 発行できる（${repo}）`,
+      };
+    }
+    if (response.status === 404 || response.status === 503) {
+      return {
+        ok: true,
+        message:
+          "GitHub 実行資格: 未接続（App 未設定か、プロジェクトに installation が無い）。git / gh はホスト環境に依存する",
+      };
+    }
+    return {
+      ok: false,
+      message: `GitHub 実行資格: 発行に失敗（${response.status}）`,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "GitHub 実行資格: ボードに到達できません",
+    };
+  }
 }
 
 export async function doctorCommand(
@@ -85,6 +139,9 @@ export async function doctorCommand(
       const health = await fetchFn(new URL("/healthz", config.boardUrl));
       if (health.ok) {
         findings.push({ ok: true, message: "ボード: 稼働中" });
+        findings.push(
+          await checkGithubCredentials(fetchFn, config.boardUrl, config),
+        );
       } else {
         findings.push({
           ok: false,

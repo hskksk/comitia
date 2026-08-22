@@ -6,7 +6,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 import { joinSystemPrompt } from "../environment-prompt.js";
-import type { EnginePlugin } from "./types.js";
+import type { EngineGithubAuth, EnginePlugin } from "./types.js";
+import { engineGithubEnv, writeIsolatedGitHubAuth } from "../github-auth.js";
 
 const RM_OPTS = {
   recursive: true,
@@ -86,9 +87,12 @@ export function buildMcpConfig(mcp: {
   };
 }
 
-export function buildClaudeRunEnv(isolatedHome: string): NodeJS.ProcessEnv {
+export function buildClaudeRunEnv(
+  isolatedHome: string,
+  githubToken?: string | null,
+): NodeJS.ProcessEnv {
   return {
-    ...process.env,
+    ...engineGithubEnv(githubToken ?? null),
     HOME: isolatedHome,
     MCP_CONNECTION_NONBLOCKING: "0",
   };
@@ -245,6 +249,17 @@ export function createClaudeCodePlugin(): EnginePlugin {
   let runIndex = 0;
   let lastTokens = 0;
   let environmentPrompt = "";
+  let githubToken: string | null = null;
+
+  async function applyGithubAuth(auth: EngineGithubAuth | null) {
+    githubToken = auth?.token ?? null;
+    if (isolatedHome && auth) {
+      await writeIsolatedGitHubAuth(isolatedHome, {
+        token: auth.token,
+        committerName: auth.committerName,
+      });
+    }
+  }
 
   return {
     async start(session) {
@@ -278,6 +293,11 @@ export function createClaudeCodePlugin(): EnginePlugin {
       hasBare = claudeHasBare();
       runIndex = 0;
       lastTokens = 0;
+      await applyGithubAuth(session.github ?? null);
+    },
+
+    async updateGithubAuth(auth) {
+      await applyGithubAuth(auth);
     },
 
     async run(prompt) {
@@ -298,7 +318,7 @@ export function createClaudeCodePlugin(): EnginePlugin {
         (resolve, reject) => {
           const running = spawn("claude", args, {
             cwd: workDir,
-            env: buildClaudeRunEnv(home),
+            env: buildClaudeRunEnv(home, githubToken),
             stdio: ["ignore", "pipe", "pipe"],
           });
           child = running;
@@ -364,6 +384,7 @@ export function createClaudeCodePlugin(): EnginePlugin {
       workDir = undefined;
       workDirPersistent = false;
       mcpConfigPath = undefined;
+      githubToken = null;
     },
   };
 }

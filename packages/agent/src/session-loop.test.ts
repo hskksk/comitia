@@ -12,9 +12,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   adoptDefaultFounding,
   bootstrapBoard,
+  createFakeGitHubClient,
   registerAgent,
   schema,
   startBoardServer,
+  type GitHubClient,
 } from "@comitia/board";
 import { connectCommand } from "./commands/connect.js";
 import { saveConfig } from "./config.js";
@@ -24,7 +26,7 @@ import {
   createInteractiveFakeEnginePlugin,
   createScriptedIo,
 } from "./plugins/interactive-fake.js";
-import type { EnginePlugin } from "./plugins/types.js";
+import type { EngineGithubAuth, EnginePlugin } from "./plugins/types.js";
 import { ensureRepoCheckout, runSessionLoop } from "./session-loop.js";
 
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -48,9 +50,13 @@ async function createDb() {
 
 async function bootAgent(
   db: Awaited<ReturnType<typeof createDb>>,
-  options?: { repoUrl?: string },
+  options?: { repoUrl?: string; github?: GitHubClient },
 ) {
-  const server = await startBoardServer({ db, port: 0 });
+  const server = await startBoardServer({
+    db,
+    port: 0,
+    github: options?.github,
+  });
   cleanups.push(() => server.close());
   const boot = await bootstrapBoard(db, {
     ownerDisplayName: "ハル",
@@ -83,6 +89,7 @@ async function bootAgent(
     registered,
     configDir,
     boardUrl: server.baseUrl,
+    projectId: boot.project.id,
   };
 }
 
@@ -91,17 +98,20 @@ function wrapPlugin(inner: EnginePlugin): {
   stopped: () => boolean;
   workDir: () => string | undefined;
   workDirPersistent: () => boolean | undefined;
+  github: () => EngineGithubAuth | null | undefined;
   prompts: () => string[];
 } {
   let stopped = false;
   let workDir: string | undefined;
   let workDirPersistent: boolean | undefined;
+  let github: EngineGithubAuth | null | undefined;
   const prompts: string[] = [];
   return {
     plugin: {
       start: async (session) => {
         workDir = session.workDir;
         workDirPersistent = session.workDirPersistent;
+        github = session.github;
         await inner.start(session);
       },
       run: (prompt) => {
@@ -114,10 +124,15 @@ function wrapPlugin(inner: EnginePlugin): {
         stopped = true;
       },
       dispose: () => inner.dispose(),
+      updateGithubAuth: async (auth) => {
+        github = auth;
+        await inner.updateGithubAuth?.(auth);
+      },
     },
     stopped: () => stopped,
     workDir: () => workDir,
     workDirPersistent: () => workDirPersistent,
+    github: () => github,
     prompts: () => prompts,
   };
 }
@@ -351,6 +366,107 @@ describe("session loop with fake engine", () => {
         expect(readFileSync(join(persistentDir, "README.md"), "utf8")).toContain(
           "hello from the fixture repo",
         );
+      },
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  it("passes minted GitHub credentials into plugin.start", async () => {
+    const github = createFakeGitHubClient({
+      installationRepos: {
+        "inst-1": [{ owner: "hskksk", repo: "comitia" }],
+      },
+    });
+    const { db, registered, configDir, boardUrl, projectId } = await bootAgent(
+      await createDb(),
+      {
+        repoUrl: "https://github.com/hskksk/comitia",
+        github,
+      },
+    );
+    await db
+      .update(schema.projects)
+      .set({
+        githubInstallationId: "inst-1",
+        githubOwner: "hskksk",
+        githubRepo: "comitia",
+      })
+      .where(eq(schema.projects.id, projectId));
+
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const wrapped = wrapPlugin(
+      createFakeEnginePlugin({
+        callTool: (name, args) => runtime.callTool(name, args),
+        script: [
+          { tool: "get_briefing", args: {} },
+          { tool: "set_goals", args: { goals: ["README を読む"] } },
+          { tool: "complete_goal", args: {} },
+        ],
+        handover: "完了",
+      }),
+    );
+    const handle = await connectCommand({
+      name: "mika",
+      configDir,
+      plugin: wrapped.plugin,
+    });
+    cleanups.push(() => handle.close());
+
+    await vi.waitFor(
+      async () => {
+        const [session] = await db
+          .select()
+          .from(schema.sessions)
+          .where(eq(schema.sessions.participantId, registered.agent.id));
+        expect(session?.endedReason).toBe("completed");
+        expect(wrapped.github()).toEqual({
+          token: "ghs_fake_inst-1_hskksk_comitia",
+          expiresAt: expect.any(String),
+          committerName: "mika@ハル",
+        });
+      },
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  it("starts with github null when credentials are unavailable", async () => {
+    const { db, registered, configDir, boardUrl } = await bootAgent(
+      await createDb(),
+      { repoUrl: "https://github.com/hskksk/comitia" },
+    );
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const wrapped = wrapPlugin(
+      createFakeEnginePlugin({
+        callTool: (name, args) => runtime.callTool(name, args),
+        script: [
+          { tool: "get_briefing", args: {} },
+          { tool: "set_goals", args: { goals: ["README を読む"] } },
+          { tool: "complete_goal", args: {} },
+        ],
+        handover: "完了",
+      }),
+    );
+    const handle = await connectCommand({
+      name: "mika",
+      configDir,
+      plugin: wrapped.plugin,
+    });
+    cleanups.push(() => handle.close());
+
+    await vi.waitFor(
+      async () => {
+        const [session] = await db
+          .select()
+          .from(schema.sessions)
+          .where(eq(schema.sessions.participantId, registered.agent.id));
+        expect(session?.endedReason).toBe("completed");
+        expect(wrapped.github()).toBeNull();
       },
       { timeout: 15_000 },
     );
