@@ -11,7 +11,9 @@ import {
   buildMcpConfig,
   commandExists,
   createClaudeCodePlugin,
+  formatClaudeStreamLineForConsole,
   parseClaudeStream,
+  processClaudeStreamChunk,
   resolveMcpStdioEntrypoint,
 } from "./claude-code.js";
 import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
@@ -120,6 +122,99 @@ describe("parseClaudeStream", () => {
   });
 });
 
+
+describe("processClaudeStreamChunk", () => {
+  it("emits complete lines and carries the remainder forward", () => {
+    const lines: string[] = [];
+    let buffer = processClaudeStreamChunk("", "line-1\nline-2\npart", (line) =>
+      lines.push(line),
+    );
+    expect(lines).toEqual(["line-1", "line-2"]);
+    expect(buffer).toBe("part");
+
+    buffer = processClaudeStreamChunk(buffer, "ial\nline-4\n", (line) =>
+      lines.push(line),
+    );
+    expect(lines).toEqual(["line-1", "line-2", "partial", "line-4"]);
+    expect(buffer).toBe("");
+  });
+
+  it("keeps buffering when no newline has arrived yet", () => {
+    const lines: string[] = [];
+    const buffer = processClaudeStreamChunk("no-newline-yet", "-still-none", (line) =>
+      lines.push(line),
+    );
+    expect(lines).toEqual([]);
+    expect(buffer).toBe("no-newline-yet-still-none");
+  });
+});
+
+describe("formatClaudeStreamLineForConsole", () => {
+  it("returns null for blank lines and non-JSON noise", () => {
+    expect(formatClaudeStreamLineForConsole("")).toBeNull();
+    expect(formatClaudeStreamLineForConsole("   ")).toBeNull();
+    expect(formatClaudeStreamLineForConsole("not json")).toBeNull();
+  });
+
+  it("returns null for non-assistant events", () => {
+    expect(
+      formatClaudeStreamLineForConsole(
+        JSON.stringify({ type: "user", message: { content: [] } }),
+      ),
+    ).toBeNull();
+  });
+
+  it("formats thinking blocks with a [thinking] prefix", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [{ type: "thinking", thinking: "considering the options" }],
+      },
+    });
+    expect(formatClaudeStreamLineForConsole(line)).toBe(
+      "[thinking] considering the options",
+    );
+  });
+
+  it("formats plain assistant text as-is", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "text", text: "hello there" }] },
+    });
+    expect(formatClaudeStreamLineForConsole(line)).toBe("hello there");
+  });
+
+  it("formats tool_use with a normalized tool name and args", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            name: "mcp__comitia-board__get_briefing",
+            input: { foo: "bar" },
+          },
+        ],
+      },
+    });
+    expect(formatClaudeStreamLineForConsole(line)).toBe(
+      '[tool] get_briefing({"foo":"bar"})',
+    );
+  });
+
+  it("joins multiple content blocks with newlines", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          { type: "thinking", thinking: "hmm" },
+          { type: "text", text: "ok" },
+        ],
+      },
+    });
+    expect(formatClaudeStreamLineForConsole(line)).toBe("[thinking] hmm\nok");
+  });
+});
 
 describe("buildMcpConfig", () => {
   it("marks the board proxy as alwaysLoad so tools are present on the first turn", () => {
