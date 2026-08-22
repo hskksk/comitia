@@ -363,6 +363,43 @@ describe("human REST", () => {
     });
   });
 
+  it("marks threads with an active work claim in GET /v1/threads", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const seeded = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const headers = {
+      ...(await ownerAuthHeader(owner.id, project.id)),
+      "content-type": "application/json",
+    };
+
+    const before = await app.request("/v1/threads", { headers });
+    const beforeBody = (await before.json()) as {
+      items: Array<{ id: string; hasActiveWorkClaim: boolean }>;
+    };
+    expect(
+      beforeBody.items.find((item) => item.id === seeded.thread.id)
+        ?.hasActiveWorkClaim,
+    ).toBe(false);
+
+    await app.request(`/v1/threads/${seeded.thread.id}/work-claims`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ paths: ["docs/"] }),
+    });
+
+    const after = await app.request("/v1/threads", { headers });
+    const afterBody = (await after.json()) as {
+      items: Array<{ id: string; hasActiveWorkClaim: boolean }>;
+    };
+    expect(
+      afterBody.items.find((item) => item.id === seeded.thread.id)
+        ?.hasActiveWorkClaim,
+    ).toBe(true);
+  });
+
   it("rejects releasing another participant's claim", async () => {
     const app = createBoardApp({ db });
     const { owner, agent, project } = await seedOwnerAgentProject(db);

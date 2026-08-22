@@ -336,6 +336,7 @@ export function ThreadPage() {
         type={view.thread.type}
         state={view.thread.state}
         consensusType={view.thread.consensusType}
+        hasActiveWorkClaim={view.workClaims.length > 0}
       />
       <SynthesisCard
         synthesis={view.synthesis}

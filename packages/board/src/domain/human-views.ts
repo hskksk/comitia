@@ -17,7 +17,11 @@ import { getMainParticipants, getThreadRow } from "./helpers.js";
 import { getThreadApprovals, getThreadObjections } from "./posts.js";
 import { listProjectPullRequestsForThreads, listThreadPullRequests } from "./pull-requests.js";
 import { listParticipantsWithSessionSince } from "./sessions.js";
-import { listActiveThreadClaims, type ThreadWorkClaim } from "./work-claims.js";
+import {
+  listActiveProjectClaims,
+  listActiveThreadClaims,
+  type ThreadWorkClaim,
+} from "./work-claims.js";
 
 export type JudgmentQueueItem = {
   threadId: string;
@@ -436,19 +440,27 @@ export async function listProjectThreads(
   db: Db,
   input: { projectId: string },
 ) {
-  return db
-    .select({
-      id: threads.id,
-      title: threads.title,
-      type: threads.type,
-      state: threads.state,
-      consensusType: threads.consensusType,
-      ownerParticipantId: threads.ownerParticipantId,
-      createdAt: threads.createdAt,
-    })
-    .from(threads)
-    .where(
-      and(eq(threads.projectId, input.projectId), isNull(threads.archivedAt)),
-    )
-    .orderBy(desc(threads.createdAt));
+  const [rows, activeClaims] = await Promise.all([
+    db
+      .select({
+        id: threads.id,
+        title: threads.title,
+        type: threads.type,
+        state: threads.state,
+        consensusType: threads.consensusType,
+        ownerParticipantId: threads.ownerParticipantId,
+        createdAt: threads.createdAt,
+      })
+      .from(threads)
+      .where(
+        and(eq(threads.projectId, input.projectId), isNull(threads.archivedAt)),
+      )
+      .orderBy(desc(threads.createdAt)),
+    listActiveProjectClaims(db, input.projectId),
+  ]);
+  const claimedThreadIds = new Set(activeClaims.map((claim) => claim.threadId));
+  return rows.map((row) => ({
+    ...row,
+    hasActiveWorkClaim: claimedThreadIds.has(row.id),
+  }));
 }
