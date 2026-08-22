@@ -170,6 +170,11 @@ describe("login command", () => {
     expect(after.ownerId).toBe(bootstrapped.owner.id);
     expect(chunks.join("")).toContain("ログインしました");
 
+    const staleMeRes = await fetchImpl(`${boardUrl}/v1/me`, {
+      headers: { authorization: `Bearer ${staleToken}` },
+    });
+    expect(staleMeRes.status).toBe(200);
+
     const listOut: string[] = [];
     const listStdout = new PassThrough();
     listStdout.on("data", (chunk: Buffer | string) => {

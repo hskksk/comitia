@@ -7,7 +7,7 @@ import {
   bindGithubIdentity,
   findHumanByGithubUserId,
   findUnboundSingleHuman,
-  issueOrRotateIdentityToken,
+  issueIdentityToken,
   registerHuman,
 } from "../domain/accounts.js";
 import { recordEvent } from "../domain/events.js";
@@ -202,7 +202,7 @@ export function registerGithubAuthRoutes(
       }
     }
 
-    const token = await issueOrRotateIdentityToken(input.db, humanRow.id);
+    const token = await issueIdentityToken(input.db, humanRow.id);
     return c.redirect(
       loginCallbackLocation(token, state, input.publicBaseUrl, c.req.url),
       302,

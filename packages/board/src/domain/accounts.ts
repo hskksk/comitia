@@ -20,31 +20,18 @@ export function issueInviteToken() {
   return `comt_inv_${issueToken().slice("comt_".length)}`;
 }
 
-export async function issueOrRotateIdentityToken(
-  db: Db,
-  participantId: string,
-) {
+export async function issueIdentityToken(db: Db, participantId: string) {
   const token = issueToken();
-  const tokenHash = hashToken(token);
-  const [existing] = await db
-    .select()
-    .from(agentCredentials)
-    .where(eq(agentCredentials.participantId, participantId))
-    .limit(1);
-  if (existing) {
-    await db
-      .update(agentCredentials)
-      .set({ tokenHash, revokedAt: null })
-      .where(eq(agentCredentials.id, existing.id));
-  } else {
-    await db.insert(agentCredentials).values({
-      participantId,
-      projectId: null,
-      tokenHash,
-    });
-  }
+  await db.insert(agentCredentials).values({
+    participantId,
+    projectId: null,
+    tokenHash: hashToken(token),
+  });
   return token;
 }
+
+/** @deprecated Use issueIdentityToken. Kept as an alias for existing imports. */
+export const issueOrRotateIdentityToken = issueIdentityToken;
 
 export async function registerHuman(
   db: Db,
@@ -71,7 +58,7 @@ export async function registerHuman(
       })
       .where(eq(participants.id, human.id));
   }
-  const token = await issueOrRotateIdentityToken(db, human.id);
+  const token = await issueIdentityToken(db, human.id);
   return { human: { ...human, githubUserId: input.githubUserId ?? null, githubLogin: input.githubLogin ?? null }, token };
 }
 

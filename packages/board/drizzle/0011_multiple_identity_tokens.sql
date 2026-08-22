@@ -1,0 +1,1 @@
+ALTER TABLE "agent_credentials" DROP CONSTRAINT "agent_credentials_participant_id_unique";

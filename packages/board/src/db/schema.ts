@@ -490,8 +490,7 @@ export const agentCredentials = pgTable("agent_credentials", {
   id: uuid("id").primaryKey().defaultRandom(),
   participantId: uuid("participant_id")
     .notNull()
-    .references(() => participants.id)
-    .unique(),
+    .references(() => participants.id),
   projectId: uuid("project_id").references(() => projects.id),
   tokenHash: text("token_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -534,7 +533,7 @@ export const ticks = pgTable(
 
 export const participantsRelations = relations(participants, ({ one, many }) => ({
   projects: many(projects),
-  agentCredential: one(agentCredentials),
+  agentCredentials: many(agentCredentials),
   agentConnection: one(agentConnections),
   ticks: many(ticks),
 }));

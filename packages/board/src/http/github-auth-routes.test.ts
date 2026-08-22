@@ -6,7 +6,7 @@ import { db } from "../test/helpers.js";
 import { seedOwnerAgentProject } from "../test/human-fixtures.js";
 import { createBoardApp } from "./app.js";
 import { createFakeGitHubClient } from "../github/fake-client.js";
-import { hashToken } from "../domain/credentials.js";
+import { hashToken, authenticateToken } from "../domain/credentials.js";
 
 const github = createFakeGitHubClient({
   oauthCodes: { "good-code": { accessToken: "user-token-1" } },
@@ -58,6 +58,37 @@ describe("GitHub OAuth", () => {
       .where(eq(participants.id, owner.id));
     expect(human?.githubUserId).toBe("1001");
     expect(human?.githubLogin).toBe("hskksk");
+  });
+
+  it("keeps the previous human token valid after OAuth login", async () => {
+    const board = app();
+    const state = "oauth-state-keep-old";
+    await db.insert(githubOauthStates).values({
+      state,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const { owner } = await seedOwnerAgentProject(db);
+    const previousToken = "owner-token-before-oauth";
+    await db.insert(agentCredentials).values({
+      participantId: owner.id,
+      projectId: null,
+      tokenHash: hashToken(previousToken),
+    });
+
+    const res = await board.request(
+      `/v1/auth/github/callback?code=good-code&state=${state}`,
+    );
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.get("location") ?? "");
+    const newToken = location.searchParams.get("token");
+    expect(newToken).toMatch(/^comt_/);
+
+    expect(await authenticateToken(db, previousToken)).toMatchObject({
+      participant: { id: owner.id },
+    });
+    expect(await authenticateToken(db, newToken!)).toMatchObject({
+      participant: { id: owner.id },
+    });
   });
 
   it("creates a second human for a different GitHub user", async () => {
