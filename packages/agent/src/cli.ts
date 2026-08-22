@@ -6,6 +6,7 @@ import { agentListCommand } from "./commands/agent-list.js";
 import { connectCommand } from "./commands/connect.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { initCommand } from "./commands/init.js";
+import { loginCommand } from "./commands/login.js";
 import {
   projectCreateCommand,
   projectListCommand,
@@ -36,6 +37,11 @@ type ParsedCommand =
       name: string;
       project: string;
       repoUrl?: string;
+    }
+  | {
+      command: "login";
+      boardUrl?: string;
+      noOpen: boolean;
     }
   | {
       command: "token";
@@ -136,6 +142,15 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       name: requireOption(options, "name"),
       project: requireOption(options, "project"),
       repoUrl: options.get("repo-url"),
+    };
+  }
+  if (args[0] === "login") {
+    const rest = args.slice(1).filter((arg) => arg !== "--no-open");
+    const options = parseOptions(rest);
+    return {
+      command: "login",
+      boardUrl: options.get("board-url"),
+      noOpen: args.includes("--no-open"),
     };
   }
   if (args[0] === "token") {
@@ -315,6 +330,10 @@ export async function runCli(
   }
   if (command.command === "init") {
     await initCommand({ ...command, configDir: options.configDir });
+    return;
+  }
+  if (command.command === "login") {
+    await loginCommand({ ...command, ...io });
     return;
   }
   if (command.command === "token") {
