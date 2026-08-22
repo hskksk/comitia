@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -548,6 +548,46 @@ describe("operator commands", () => {
     const output = chunks.join("");
     expect(output).toContain("エンジン: fake");
     expect(output).not.toContain("Claude Code CLI が見つかりません");
+    expect(output).not.toContain("Claude 認証:");
+  });
+
+  it("reports that a host claude login will be inherited", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    const hostHome = await mkdtemp(join(tmpdir(), "comitia-doctor-home-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    cleanups.push(() => rm(hostHome, { recursive: true }));
+    await writeConfig(configDir);
+    await mkdir(join(hostHome, ".claude"), { recursive: true });
+    await writeFile(
+      join(hostHome, ".claude", ".credentials.json"),
+      '{"claudeAiOauth":{}}',
+      { mode: 0o600 },
+    );
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "GitHub App is not configured" }),
+          { status: 503 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+      env: {},
+      hostHome,
+    });
+    expect(chunks.join("")).toContain("Claude 認証: ホストの claude login を引き継ぎます");
   });
 
   it("surfaces a missing GitHub App installation as a doctor failure", async () => {

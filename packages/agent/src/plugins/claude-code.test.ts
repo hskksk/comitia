@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +22,6 @@ describe("buildClaudeArgs", () => {
       buildClaudeArgs({
         prompt: "work on the briefing",
         mcpConfigPath: "/tmp/mcp-config.json",
-        hasBare: false,
       }),
     ).toEqual([
       "-p",
@@ -40,21 +39,19 @@ describe("buildClaudeArgs", () => {
     ]);
   });
 
-  it("uses --bare when the installed Claude CLI supports it", () => {
+  it("does not pass --bare so a host claude login can be inherited", () => {
     expect(
       buildClaudeArgs({
         prompt: "continue",
         mcpConfigPath: "/tmp/mcp-config.json",
-        hasBare: true,
       }),
-    ).toContain("--bare");
+    ).not.toContain("--bare");
   });
 
   it("appends a system prompt when given one", () => {
     const args = buildClaudeArgs({
       prompt: "continue",
       mcpConfigPath: "/tmp/mcp-config.json",
-      hasBare: false,
       appendSystemPrompt: TOOLSET_OVERVIEW,
     });
     const flagIndex = args.indexOf("--append-system-prompt");
@@ -67,7 +64,6 @@ describe("buildClaudeArgs", () => {
       buildClaudeArgs({
         prompt: "continue",
         mcpConfigPath: "/tmp/mcp-config.json",
-        hasBare: false,
       }),
     ).not.toContain("--append-system-prompt");
   });
@@ -145,49 +141,49 @@ describe("buildMcpConfig", () => {
 
 describe("buildClaudeRunEnv", () => {
   it("forces a blocking MCP connect before the first prompt", () => {
-    expect(buildClaudeRunEnv("/tmp/isolated-home")).toMatchObject({
+    expect(buildClaudeRunEnv("/tmp/isolated-home", null, { PATH: "/bin" })).toMatchObject({
       HOME: "/tmp/isolated-home",
       MCP_CONNECTION_NONBLOCKING: "0",
+      CLAUDE_CONFIG_DIR: "/tmp/isolated-home/.claude",
+      CLAUDE_SECURESTORAGE_CONFIG_DIR: "",
     });
   });
 
+  it("pins host CLAUDE_CONFIG_DIR as the credential store without writing config there", () => {
+    const env = buildClaudeRunEnv("/tmp/isolated-home", null, {
+      PATH: "/bin",
+      CLAUDE_CONFIG_DIR: "~/.claude-work",
+    });
+    expect(env.CLAUDE_CONFIG_DIR).toBe("/tmp/isolated-home/.claude");
+    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe("~/.claude-work");
+  });
+
+  it("keeps an explicit host CLAUDE_SECURESTORAGE_CONFIG_DIR", () => {
+    const env = buildClaudeRunEnv("/tmp/isolated-home", null, {
+      PATH: "/bin",
+      CLAUDE_SECURESTORAGE_CONFIG_DIR: "/custom-store",
+    });
+    expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe("/custom-store");
+  });
+
   it("overrides a host GH_TOKEN with the minted installation token", () => {
-    const previous = process.env.GH_TOKEN;
-    process.env.GH_TOKEN = "github_pat_host";
-    try {
-      const env = buildClaudeRunEnv("/tmp/isolated-home", "ghs_minted");
-      expect(env.GH_TOKEN).toBe("ghs_minted");
-      expect(env.GITHUB_TOKEN).toBe("ghs_minted");
-    } finally {
-      if (previous === undefined) {
-        delete process.env.GH_TOKEN;
-      } else {
-        process.env.GH_TOKEN = previous;
-      }
-    }
+    const env = buildClaudeRunEnv("/tmp/isolated-home", "ghs_minted", {
+      GH_TOKEN: "github_pat_host",
+      GITHUB_TOKEN: "host-other",
+      PATH: "/bin",
+    });
+    expect(env.GH_TOKEN).toBe("ghs_minted");
+    expect(env.GITHUB_TOKEN).toBe("ghs_minted");
   });
 
   it("strips host GitHub tokens when none were minted", () => {
-    const previousGh = process.env.GH_TOKEN;
-    const previousGithub = process.env.GITHUB_TOKEN;
-    process.env.GH_TOKEN = "github_pat_host";
-    process.env.GITHUB_TOKEN = "host-other";
-    try {
-      const env = buildClaudeRunEnv("/tmp/isolated-home", null);
-      expect(env.GH_TOKEN).toBeUndefined();
-      expect(env.GITHUB_TOKEN).toBeUndefined();
-    } finally {
-      if (previousGh === undefined) {
-        delete process.env.GH_TOKEN;
-      } else {
-        process.env.GH_TOKEN = previousGh;
-      }
-      if (previousGithub === undefined) {
-        delete process.env.GITHUB_TOKEN;
-      } else {
-        process.env.GITHUB_TOKEN = previousGithub;
-      }
-    }
+    const env = buildClaudeRunEnv("/tmp/isolated-home", null, {
+      GH_TOKEN: "github_pat_host",
+      GITHUB_TOKEN: "host-other",
+      PATH: "/bin",
+    });
+    expect(env.GH_TOKEN).toBeUndefined();
+    expect(env.GITHUB_TOKEN).toBeUndefined();
   });
 });
 
@@ -204,7 +200,7 @@ describe("resolveMcpStdioEntrypoint", () => {
 describe("createClaudeCodePlugin work dir ownership", () => {
   it("keeps a persistent work dir after stop()", async () => {
     const workDir = await mkdtemp(join(tmpdir(), "comitia-workdir-persist-"));
-    const plugin = createClaudeCodePlugin();
+    const plugin = createClaudeCodePlugin({ hostEnv: {}, hostHome: workDir });
     await plugin.start({
       sessionId: "persist-test",
       workDir,
@@ -219,7 +215,7 @@ describe("createClaudeCodePlugin work dir ownership", () => {
 
   it("deletes a non-persistent work dir after stop()", async () => {
     const workDir = await mkdtemp(join(tmpdir(), "comitia-workdir-temp-"));
-    const plugin = createClaudeCodePlugin();
+    const plugin = createClaudeCodePlugin({ hostEnv: {}, hostHome: workDir });
     await plugin.start({
       sessionId: "temp-test",
       workDir,
@@ -238,7 +234,7 @@ describe("createClaudeCodePlugin work dir ownership", () => {
         .length;
     };
     const workDir = await mkdtemp(join(tmpdir(), "comitia-workdir-home-"));
-    const plugin = createClaudeCodePlugin();
+    const plugin = createClaudeCodePlugin({ hostEnv: {}, hostHome: workDir });
     const session = {
       workDir,
       workDirPersistent: true,
@@ -258,6 +254,41 @@ describe("createClaudeCodePlugin work dir ownership", () => {
     expect(await countIsolatedHomes()).toBe(before);
     await rm(workDir, { recursive: true, force: true });
   });
+
+  it("copies host claude credentials into isolated HOME on start", async () => {
+    const hostHome = await mkdtemp(join(tmpdir(), "comitia-host-claude-"));
+    const workDir = await mkdtemp(join(tmpdir(), "comitia-workdir-auth-"));
+    await mkdir(join(hostHome, ".claude"), { recursive: true });
+    await writeFile(
+      join(hostHome, ".claude", ".credentials.json"),
+      '{"claudeAiOauth":{"accessToken":"from-host"}}',
+      { mode: 0o600 },
+    );
+    const plugin = createClaudeCodePlugin({ hostEnv: {}, hostHome });
+    const before = new Set(await readdir(tmpdir()));
+
+    await plugin.start({
+      sessionId: "auth-seed-test",
+      workDir,
+      workDirPersistent: true,
+      mcp: { command: process.execPath, args: [], env: {} },
+    });
+
+    const created = (await readdir(tmpdir())).filter(
+      (name) => name.startsWith("comitia-claude-home-") && !before.has(name),
+    );
+    expect(created).toHaveLength(1);
+    expect(
+      await readFile(
+        join(tmpdir(), created[0]!, ".claude", ".credentials.json"),
+        "utf8",
+      ),
+    ).toContain("from-host");
+
+    await plugin.dispose();
+    await rm(workDir, { recursive: true, force: true });
+    await rm(hostHome, { recursive: true, force: true });
+  });
 });
 
 describe("Claude Code live CLI", () => {
@@ -265,7 +296,6 @@ describe("Claude Code live CLI", () => {
     "calls get_briefing through the real Claude CLI",
     async (context) => {
       if (!commandExists("claude")) context.skip();
-      if (!process.env.ANTHROPIC_API_KEY) context.skip();
 
       execFileSync("pnpm", ["--filter", "@comitia/agent", "build"], {
         cwd: join(import.meta.dirname, "../../../.."),
