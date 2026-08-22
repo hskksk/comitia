@@ -153,8 +153,8 @@ On `start` (and `updateGithubAuth`):
 - `buildClaudeRunEnv(isolatedHome, githubToken: string | undefined)`
   - spread `process.env`
   - `HOME` = isolated home (unchanged)
-  - `CLAUDE_CONFIG_DIR` = isolated `~/.claude` so host settings / history are not written
-  - `CLAUDE_SECURESTORAGE_CONFIG_DIR` pins the host `claude login` store (empty string = default Keychain / `~/.claude/.credentials.json`)
+  - do **not** set `CLAUDE_CONFIG_DIR` (it namespaces macOS Keychain away from the host `claude login`; isolated HOME already relocates `~/.claude` files)
+  - if the host has a non-empty `CLAUDE_CONFIG_DIR` / `CLAUDE_SECURESTORAGE_CONFIG_DIR`, pass that string only as `CLAUDE_SECURESTORAGE_CONFIG_DIR`
   - if `githubToken`: `GH_TOKEN` = that value, `GITHUB_TOKEN` = that value (some tools read this)
   - else: omit `GH_TOKEN` and `GITHUB_TOKEN` from the child env (do not inherit host)
 

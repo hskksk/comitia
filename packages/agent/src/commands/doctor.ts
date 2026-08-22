@@ -70,6 +70,12 @@ async function checkClaudeAuth(
       message: "Claude 認証: ホストの claude login を引き継ぎます",
     };
   }
+  if (source.kind === "keychain") {
+    return {
+      ok: true,
+      message: "Claude 認証: macOS Keychain の claude login を引き継ぎます",
+    };
+  }
   return {
     ok: true,
     message:
