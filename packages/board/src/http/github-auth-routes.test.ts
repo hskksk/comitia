@@ -99,10 +99,67 @@ describe("GitHub OAuth", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("uses BOARD_PUBLIC_URL for GitHub redirect_uri and returns to Vite", async () => {
+    const board = createBoardApp({
+      db,
+      github,
+      githubPublicBaseUrl: "http://localhost:8787",
+      githubOAuth: {
+        enabled: true,
+        appSlug: "comitia-board",
+        clientId: "client-id",
+      },
+    });
+    await seedOwnerAgentProject(db);
+    const start = await board.request(
+      "http://localhost:5173/v1/auth/github?return_origin=http://localhost:5173",
+    );
+    expect(start.status).toBe(302);
+    const authorize = new URL(start.headers.get("location") ?? "");
+    expect(authorize.searchParams.get("redirect_uri")).toBe(
+      "http://localhost:8787/v1/auth/github/callback",
+    );
+    const state = authorize.searchParams.get("state");
+    expect(state).toBeTruthy();
+
+    const callback = await board.request(
+      `http://localhost:8787/v1/auth/github/callback?code=good-code&state=${state}`,
+    );
+    expect(callback.status).toBe(302);
+    expect(callback.headers.get("location")).toMatch(
+      /^http:\/\/localhost:5173\/login\/callback\?token=/,
+    );
+  });
+
+  it("ignores an untrusted return_origin", async () => {
+    const board = createBoardApp({
+      db,
+      github,
+      githubPublicBaseUrl: "http://localhost:8787",
+      githubOAuth: {
+        enabled: true,
+        clientId: "client-id",
+      },
+    });
+    await seedOwnerAgentProject(db);
+    const start = await board.request(
+      "http://localhost:5173/v1/auth/github?return_origin=https://evil.example",
+    );
+    const state = new URL(start.headers.get("location") ?? "").searchParams.get(
+      "state",
+    );
+    const callback = await board.request(
+      `http://localhost:8787/v1/auth/github/callback?code=good-code&state=${state}`,
+    );
+    expect(callback.headers.get("location")).toMatch(
+      /^http:\/\/localhost:8787\/login\/callback\?token=/,
+    );
+  });
 });
 
 describe("GitHub installation setup", () => {
-  it("redirects owner to app install page", async () => {
+  it("returns install url as json", async () => {
     const board = app();
     const { owner, project } = await seedOwnerAgentProject(db);
     const token = "owner-token";
@@ -113,27 +170,6 @@ describe("GitHub installation setup", () => {
     });
     const res = await board.request("/v1/github/install", {
       headers: { authorization: `Bearer ${token}` },
-    });
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toContain(
-      "github.com/apps/comitia-board/installations/new",
-    );
-  });
-
-  it("returns install url as json for SPA clients", async () => {
-    const board = app();
-    const { owner, project } = await seedOwnerAgentProject(db);
-    const token = "owner-token";
-    await db.insert(agentCredentials).values({
-      participantId: owner.id,
-      projectId: project.id,
-      tokenHash: (await import("../domain/credentials.js")).hashToken(token),
-    });
-    const res = await board.request("/v1/github/install", {
-      headers: {
-        authorization: `Bearer ${token}`,
-        accept: "application/json",
-      },
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({

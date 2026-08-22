@@ -177,7 +177,7 @@ Env (production):
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 - `GITHUB_WEBHOOK_SECRET`
-- `BOARD_PUBLIC_URL` — used in Issue redirect links. OAuth redirect URI is `{origin}/v1/auth/github/callback` from the request, so the App's callback URL must match the board (not the Vite port).
+- `BOARD_PUBLIC_URL` — used in Issue redirect links and the GitHub OAuth `redirect_uri` (`{BOARD_PUBLIC_URL}/v1/auth/github/callback`). The App's callback URL must match this, not the Vite origin. After login, `return_origin` (localhost / the public origin only) sends the browser back to the SPA that started OAuth.
 
 If GitHub env is missing, OAuth is off, webhook returns 503, `link_pull_request` fails with a clear gate error. Tests inject the client into `createBoardApp`.
 
