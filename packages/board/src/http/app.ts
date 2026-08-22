@@ -72,6 +72,7 @@ export function createBoardApp(input: {
     oauthEnabled: input.githubOAuth?.enabled ?? false,
     appSlug: input.githubOAuth?.appSlug,
     clientId: input.githubOAuth?.clientId,
+    publicBaseUrl: input.githubPublicBaseUrl,
   });
 
   app.onError((error, c) => {

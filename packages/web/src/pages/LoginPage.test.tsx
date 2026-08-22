@@ -39,6 +39,10 @@ describe("LoginPage", () => {
         <LoginPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("GitHub で入る")).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: "GitHub で入る" });
+    expect(link).toHaveAttribute(
+      "href",
+      `/v1/auth/github?return_origin=${encodeURIComponent(window.location.origin)}`,
+    );
   });
 });

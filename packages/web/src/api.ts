@@ -628,36 +628,11 @@ export class BoardClient {
     });
   }
 
-  async beginAuthenticatedRedirect(path: string): Promise<string> {
-    const token = getToken();
-    const headers = new Headers();
-    if (token) {
-      headers.set("authorization", `Bearer ${token}`);
-    }
-    if (currentProjectId && needsProjectHeader(path)) {
-      headers.set(PROJECT_ID_HEADER, currentProjectId);
-    }
-    const res = await fetch(path, {
-      redirect: "manual",
-      headers: Object.fromEntries(headers),
+  async getGitHubInstallUrl(): Promise<string> {
+    const { url } = await this.request<{ url: string }>("/v1/github/install", {
+      headers: { accept: "application/json" },
     });
-    if (res.status === 401) {
-      clearToken();
-      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
-      throw new ApiError(401, "unauthorized");
-    }
-    if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get("location");
-      if (!location) {
-        throw new ApiError(res.status, "missing redirect location");
-      }
-      return location;
-    }
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new ApiError(res.status, body.error ?? `request failed: ${res.status}`);
-    }
-    throw new ApiError(res.status, "expected redirect response");
+    return url;
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {

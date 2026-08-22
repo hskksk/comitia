@@ -22,6 +22,77 @@ import {
 import { connectInstallation } from "./github-routes.js";
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const LOCAL_DEV_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function stripTrailingSlash(url: string): string {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+export function sanitizeLoginOrigin(
+  candidate: string | null | undefined,
+  publicBaseUrl?: string,
+): string | null {
+  if (!candidate) {
+    return null;
+  }
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    if (publicBaseUrl && url.origin === new URL(publicBaseUrl).origin) {
+      return url.origin;
+    }
+    if (LOCAL_DEV_HOSTS.has(url.hostname)) {
+      return url.origin;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function encodeOauthState(returnOrigin: string | null): string {
+  const nonce = randomBytes(24).toString("hex");
+  if (!returnOrigin) {
+    return nonce;
+  }
+  return `${nonce}.${Buffer.from(returnOrigin).toString("base64url")}`;
+}
+
+export function decodeOauthReturnOrigin(state: string): string | null {
+  const separator = state.indexOf(".");
+  if (separator === -1) {
+    return null;
+  }
+  try {
+    return Buffer.from(state.slice(separator + 1), "base64url").toString("utf8") || null;
+  } catch {
+    return null;
+  }
+}
+
+function oauthCallbackBase(
+  publicBaseUrl: string | undefined,
+  requestUrl: string,
+): string {
+  return publicBaseUrl
+    ? stripTrailingSlash(publicBaseUrl)
+    : new URL(requestUrl).origin;
+}
+
+function loginCallbackLocation(
+  token: string,
+  state: string,
+  publicBaseUrl: string | undefined,
+  requestUrl: string,
+): string {
+  const fallback = oauthCallbackBase(publicBaseUrl, requestUrl);
+  const origin =
+    sanitizeLoginOrigin(decodeOauthReturnOrigin(state), publicBaseUrl) ??
+    fallback;
+  return `${origin}/login/callback?token=${token}`;
+}
 
 export function registerGithubAuthRoutes(
   app: Hono<BoardEnv>,
@@ -31,6 +102,7 @@ export function registerGithubAuthRoutes(
     oauthEnabled: boolean;
     appSlug?: string;
     clientId?: string;
+    publicBaseUrl?: string;
   },
 ) {
   const auth = requireAuth(input.db);
@@ -46,11 +118,14 @@ export function registerGithubAuthRoutes(
     if (!input.oauthEnabled || !input.clientId) {
       return c.json({ error: "GitHub OAuth is not configured" }, 503);
     }
-    const state = randomBytes(24).toString("hex");
+    const returnOrigin = sanitizeLoginOrigin(
+      c.req.query("return_origin"),
+      input.publicBaseUrl,
+    );
+    const state = encodeOauthState(returnOrigin);
     const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS);
     await input.db.insert(githubOauthStates).values({ state, expiresAt });
-    const origin = new URL(c.req.url).origin;
-    const redirectUri = `${origin}/v1/auth/github/callback`;
+    const redirectUri = `${oauthCallbackBase(input.publicBaseUrl, c.req.url)}/v1/auth/github/callback`;
     const url = new URL("https://github.com/login/oauth/authorize");
     url.searchParams.set("client_id", input.clientId);
     url.searchParams.set("state", state);
@@ -115,24 +190,32 @@ export function registerGithubAuthRoutes(
           githubLogin: user.login,
           ignoreSignupGate: true,
         });
-        const origin = new URL(c.req.url).origin;
-        return c.redirect(`${origin}/login/callback?token=${created.token}`, 302);
+        return c.redirect(
+          loginCallbackLocation(
+            created.token,
+            state,
+            input.publicBaseUrl,
+            c.req.url,
+          ),
+          302,
+        );
       }
     }
 
     const token = await issueOrRotateIdentityToken(input.db, humanRow.id);
-    const origin = new URL(c.req.url).origin;
-    return c.redirect(`${origin}/login/callback?token=${token}`, 302);
+    return c.redirect(
+      loginCallbackLocation(token, state, input.publicBaseUrl, c.req.url),
+      302,
+    );
   });
 
   app.get("/v1/github/install", auth, human, member, projectOwner, (c) => {
     if (!input.appSlug) {
       return c.json({ error: "GitHub App is not configured" }, 503);
     }
-    return c.redirect(
-      `https://github.com/apps/${input.appSlug}/installations/new`,
-      302,
-    );
+    return c.json({
+      url: `https://github.com/apps/${input.appSlug}/installations/new`,
+    });
   });
 
   app.get("/v1/github/setup", auth, human, member, projectOwner, async (c) => {

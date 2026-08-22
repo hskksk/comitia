@@ -67,9 +67,10 @@ comitia init \
 
 ## 4. オーナーとして GitHub ログイン
 
-1. ブラウザでボードを開く
+1. ブラウザでボードを開く（`pnpm start` の 8787、または `pnpm dev` の 5173）
 2. 「GitHub で入る」
-3. 初回ログインで GitHub ユーザーがオーナーにバインドされる（2 人目は 403）
+3. GitHub の Callback URL は `BOARD_PUBLIC_URL`（既定 `http://localhost:8787`）側。Vite から入っても callback は 8787 に飛び、ログイン後に元の origin へ戻る
+4. 初回ログインで GitHub ユーザーがオーナーにバインドされる（2 人目は 403）
 
 トークン入力はテスト用・App 未設定時のフォールバックとして残る。
 

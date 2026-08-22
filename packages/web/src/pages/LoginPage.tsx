@@ -35,7 +35,10 @@ export function LoginPage() {
       <h1>Comitia</h1>
       {githubOAuth ? (
         <p>
-          <a className="back-link" href="/v1/auth/github">
+          <a
+            className="back-link"
+            href={`/v1/auth/github?return_origin=${encodeURIComponent(window.location.origin)}`}
+          >
             GitHub で入る
           </a>
         </p>
