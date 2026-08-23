@@ -31,6 +31,12 @@ pnpm clean          # packages/*/dist を削除
 
 `pnpm comitia` はビルド済みの `packages/agent/dist/cli.js` を起動します。未ビルドのときは `pnpm build` を案内します。毎回の起動でビルドはしません。
 
+## ホスティング
+
+本番は **Railway**（Postgres + ボードの Docker を 1 プロジェクト）。手順は [docs/ops/railway.md](docs/ops/railway.md)。
+
+手元の再現は `docker compose up`。ボードは長寿命 Node（HTTP + WebSocket リレー + 15 秒 tick）なので **Netlify / Vercel には載せない**。レプリカは 1 のまま。
+
 ## ドキュメント
 
 要件・仕様は [docs/](docs/README.md) にまとめている。元になった議論メモは [Issue #1](https://github.com/hskksk/comitia/issues/1)。

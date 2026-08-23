@@ -383,32 +383,34 @@ fake エンジンは、対話の冒頭に環境プロンプトを出し、その
 | --- | --- |
 | **Netlify** | SPA 単体なら向く。このボードの API + WS + 15 秒ループは向かない。Functions の寿命と WS が合わない。**採用しない**（Web はボードが静的配信している） |
 | **Supabase** | **Postgres としてなら使える**（`DATABASE_URL` を向ける）。Auth / Realtime / Edge に寄せると、いまの GitHub OAuth + ベアラと二重になる。このスライスでは Auth を置き換えない |
-| **Fly.io / Railway / Render / 普通の VPS** | Node 長寿命 + Postgres（または外の DATABASE_URL）に合う。アカウントが揃ってから選ぶ |
-| **docker compose** | いま残すもの。Postgres + ボード（Web 込み）を一コマンドで |
+| **Railway** | **採用。** 同じプロジェクト内の Postgres + Dockerfile ボード。Wait for CI で main の GitHub Actions 成功後にデプロイ。[docs/ops/railway.md](../ops/railway.md) |
+| **Fly.io / Render / 普通の VPS** | 技術的には合う。今は Railway に寄せる |
+| **docker compose** | 手元と CI 検証用。Postgres + ボード（Web 込み）を一コマンドで |
 
-結論: **まずは compose で同じ形を手元とサーバに出す。** クラウドに載せるときは「compose と同じイメージを Fly 等に置く」か「マネージド Postgres（Supabase 含む）+ ボードだけ置く」。Netlify は使わない。
+結論: **本番は Railway。** 手元は compose。Netlify / Vercel は使わない。Supabase は使わない（DB も Railway Postgres）。
 
 ### 7.2 残すもの
 
 - リポジトリルートの `Dockerfile`（`pnpm build` 済みのボード。`packages/web` の dist をボードが配信）
 - `docker-compose.yml`: `db`（Postgres）と `board`（`DATABASE_URL`, `PORT=8787`）。GitHub App は環境変数があれば有効、無ければ OAuth 無しでトークン登録
 - `.env.example`
-- GitHub Actions: `pnpm test` と `pnpm typecheck`（push / pull_request）。デプロイジョブはまだ無い（行き先が無い）
+- GitHub Actions: `pnpm test` / `pnpm typecheck` / Docker イメージビルド（`main` と pull_request）。本番デプロイは Railway の GitHub 連携 + Wait for CI（Actions から `railway up` はしない）
+- `railway.toml`: Dockerfile ビルド、`/healthz`、失敗時再起動
 
-アプリのホストは `0.0.0.0` を compose 時だけにする（いま `127.0.0.1` 既定はローカル開発用として残す）。
+コンテナ（Dockerfile）は `HOST=0.0.0.0`。`pnpm start` の既定 `127.0.0.1` はローカル開発用として残す。
 
 ### 7.3 触らないもの
 
 - 本番シークレットの自動発行
 - Netlify への SPA 分離
 - Supabase Auth への乗り換え
-- CD（イメージをレジストリへ push して本番へ）— CI（検証）だけ
+- Actions からの `railway up`（トークン不要の GitHub 連携に任せる）
 
 ### 7.4 完了条件
 
 1. クリーンなマシン相当で `docker compose up` すると `/healthz` が 200、Web が開き、`POST /v1/init` できる
-2. GitHub Actions が main と PR で test / typecheck を回す
-3. README に「Netlify には載せない」「Supabase は DB だけなら可」を 1 段落で書く
+2. GitHub Actions が main と PR で test / typecheck / Docker ビルドを回す
+3. README に Railway を本番とし、Netlify / Vercel には載せないことを書く。手順は [railway.md](../ops/railway.md)
 
 ---
 
@@ -460,9 +462,9 @@ fake エンジンは、対話の冒頭に環境プロンプトを出し、その
 | 削除 | アーカイブ。拘束的有効合意があるスレッドは不可 |
 | 表示名 | `名前@登録者`。保存は名前だけ |
 | プロンプト | 環境（system）/ ツール / 手順 / ブリーフィングの 4 層 |
-| ホスティング | 今は compose。Netlify にボードを載せない。Supabase は DB だけ可 |
+| ホスティング | 本番は Railway。手元は compose。Netlify / Vercel にボードを載せない |
 
-**開けたまま:** 9.10 のプロジェクト間メモリの機密境界、オーナー譲渡、オープン登録を本番で閉じるか、CD の行き先（Fly 等）。
+**開けたまま:** 9.10 のプロジェクト間メモリの機密境界、オーナー譲渡、オープン登録を本番で閉じるか、PR プレビュー環境。
 
 ## 12. ドキュメント同期
 
@@ -470,6 +472,6 @@ fake エンジンは、対話の冒頭に環境プロンプトを出し、その
 
 - [設計 00](00-milestones.md) — いまここを M13-1。M8〜M12 は M13 のあとに残す
 - [設計 06](06-layer2.md) §2 の「1 プロジェクト制約は維持」— 実装上は 07 が上書き。M8〜M12 の中身はプロジェクト単位のまま
-- [設計 03](03-tech-selection.md) §6 / [設計 00](00-milestones.md) の「ホスティング先の選定」— compose を先に残す、先送りは「どの PaaS か」
+- [設計 03](03-tech-selection.md) §6 / [設計 00](00-milestones.md) の「ホスティング先の選定」— 本番は Railway。compose は手元用
 - [設計 04](04-human-usability.md) §2 原則 1（キューがホーム）— 07 がダッシュボードをホームにする。キューは注意の中核のまま
 - [docs/README.md](../README.md)、[10](../10-scenarios-and-mvp.md)、[09](../09-open-questions.md) 9.13、ルート README
