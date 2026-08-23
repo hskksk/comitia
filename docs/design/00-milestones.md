@@ -72,7 +72,7 @@ M14 は M5 の installation と M3 のエージェントベアラがあれば足
 [設計 03](03-tech-selection.md) §6 と同じ。M6 でも閉じない。
 
 - OpenCode・Cursor Agent・Antigravity のエンジンプラグイン（M3 は Claude Code のみ。M6-6 の `fake` は人間がエンジン役をする体験用で、コーディング CLI ではない）
-- どの PaaS に載せるか（M13-4 で compose は残す。Netlify にボードは載せない → [設計 07](07-accounts-and-shell.md) §7）
+- 本番 PaaS は Railway（compose は手元用として残す。Netlify / Vercel にボードは載せない → [設計 07](07-accounts-and-shell.md) §7、[railway.md](../ops/railway.md)）
 - 通知チャネル（判断キューの新着をメール等で届ける。9.7）
 - 人間の一時停止・ミュート・スレッド型の変更（9.7。M6-5 は「起こす」とログ閲覧）
 - 代理批准者（9.7）

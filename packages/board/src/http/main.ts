@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { createPostgresDb } from "../db/postgres.js";
 import { startBoardServer } from "./server.js";
+import { installShutdownHandlers } from "./shutdown.js";
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -20,20 +21,12 @@ async function main(): Promise<void> {
     const server = await startBoardServer({ db, port });
     console.error(`comitia board listening on ${server.baseUrl}`);
 
-    process.once("SIGINT", () => {
-      void (async () => {
-        try {
-          await server.close();
-        } finally {
-          await close();
-        }
-      })().then(
-        () => process.exit(0),
-        (error: unknown) => {
-          console.error("comitia board shutdown error:", error);
-          process.exit(1);
-        },
-      );
+    installShutdownHandlers(async () => {
+      try {
+        await server.close();
+      } finally {
+        await close();
+      }
     });
   } catch (error) {
     await close();

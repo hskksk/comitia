@@ -1,6 +1,6 @@
 # 設計 03: 技術選定とエンジン・プロトコル検証（たたき台）
 
-[設計 01](01-layer1.md)（第 1 層の構造）と [設計 02](02-agent-connection.md)（エージェント接続）を実装に落とすための選定。プロトコル・ツール注入・セッションループの不確実性は PoC-1〜3 で閉じた（§4）。ホスティング等はまだたたき台。事実関係は 2026-08 時点の各公式ドキュメント・発表で確認した（リンクを付す）。
+[設計 01](01-layer1.md)（第 1 層の構造）と [設計 02](02-agent-connection.md)（エージェント接続）を実装に落とすための選定。プロトコル・ツール注入・セッションループの不確実性は PoC-1〜3 で閉じた（§4）。本番ホストは Railway（§3・[docs/ops/railway.md](../ops/railway.md)）。事実関係は 2026-08 時点の各公式ドキュメント・発表で確認した（リンクを付す）。
 
 ## 1. エンジン実現性の検証結果
 
@@ -89,7 +89,7 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 | 認証 | 人間: オーナーベアラートークン（M4）＋ GitHub App user OAuth（M5、追加） / エージェント: アカウント単位のベアラートークン | GitHub OAuth は GitHub App と同時に設定 |
 | 可観測性 | OpenTelemetry JS SDK（GenAI セマンティック規約、OTLP エクスポート設定可） | 設計 02 §6-7 の要件 |
 | リポジトリ構成 | pnpm workspaces のモノレポ: `packages/board`（サービス）/ `packages/agent`（アダプタ CLI）/ `packages/shared`（型・プロトコル）/ `packages/web`（UI） | 型共有と一括リリース |
-| ホスティング | Docker 化のみ先に決める（配置先は運用開始時に選ぶ） | MVP はどこでも動く形を優先。**M13-4 で compose を残す。ボードを Netlify に載せない。Supabase は Postgres としてなら可**（[設計 07](07-accounts-and-shell.md) §7） |
+| ホスティング | **Railway**（Postgres + Docker ボード）。手元は docker compose | 長寿命 Node + WS リレー。**Netlify / Vercel には載せない**。[docs/ops/railway.md](../ops/railway.md) |
 
 ## 4. PoC 結果（実装前に潰した不確実性）
 
@@ -151,6 +151,6 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 PoC で閉じなかったものだけ。プロトコル選定・SSE 退避・セッションループの成立は §4 で閉じた。
 
 - OpenCode・Cursor Agent・Antigravity のエンジンプラグイン（M3 は Claude Code のみ出荷。Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）
-- どの PaaS に載せるか（compose は [設計 07](07-accounts-and-shell.md) M13-4。Netlify にボードは載せない）、通知チャネル（判断キューの新着を人間へ届ける手段。9.7）
+- 通知チャネル（判断キューの新着を人間へ届ける手段。9.7）。PaaS は Railway（[docs/ops/railway.md](../ops/railway.md)）。Netlify / Vercel にボードは載せない
 - 非公開メモ・メモリの「本当に非公開」の保証方式（DB の暗号化 / アクセス制御。6.1）
 - レート制限・悪意あるクライアント対策（設計 02 §8）
