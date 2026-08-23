@@ -9,6 +9,8 @@ COPY packages ./packages
 COPY scripts ./scripts
 COPY tsconfig.base.json ./
 
+# Pin pnpm (corepack otherwise fetches latest, which may refuse ignored esbuild builds).
+RUN corepack enable && corepack prepare pnpm@10.33.3 --activate
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
