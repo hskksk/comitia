@@ -3,43 +3,54 @@
 ボード（API + SPA + エージェント WebSocket）と Postgres を **Railway 1 プロジェクト**で動かす。
 静的ホスト（Netlify / Vercel）には載せない。レプリカは **1** のまま（tick ループと WS リレーがプロセス内）。
 
+設定の正本は **Infrastructure as Code**（[`.railway/railway.ts`](../../.railway/railway.ts)）。
+非推奨の Config as Code（`railway.toml` / `railway.json`）は使わない。同じサービスを両方で管理できない。
+
 デプロイの流れ:
 
 ```
+railway config apply   … プロジェクトの形（Postgres / board / 変数 / ヘルスチェック）
 main へマージ
   → GitHub Actions（test / typecheck / Docker ビルド）
-  → 成功後、Railway が Dockerfile から本番をビルド（Wait for CI）
+  → 成功後、Railway が Dockerfile から本番をビルド（Wait for CI = checkSuites）
   → /healthz が 200 になってから切替
 ```
 
 マイグレーションはボード起動時に Drizzle が適用する。別ジョブは不要。
 
-## 初回セットアップ（ダッシュボード）
+## 初回セットアップ
 
-コードからは Railway プロジェクトを作れない。初回だけ人手。
+コードは **リンク済みプロジェクト** に対して `plan` / `apply` する。プロジェクトそのものは CLI かダッシュボードで一度作る。
 
-1. [Railway](https://railway.app) で新規プロジェクト `comitia`
-2. **Add PostgreSQL**
-3. **New Service** → この GitHub リポジトリ。ルートの `Dockerfile` / `railway.toml` を使う
-4. 生成ドメインを付ける（Settings → Networking → Generate Domain）
-5. 変数:
+1. [Railway CLI](https://docs.railway.com/cli) を入れる（`railway version` が IaC 対応であること）
+2. `railway login`
+3. [Railway](https://railway.app) でプロジェクト `comitia` を作るか、`railway init` する
+4. リポジトリルートで `railway link`（プロジェクトと `production` を選ぶ）
+5. 既存サービスが `railway.toml` を読んでいる場合は、サービス Settings の Config File パスを空にする
+6. `railway config plan` で差分を確認する
+7. `railway config apply`（初回は Postgres と `board` が増える想定）。既存 DB の名前が `Postgres` 以外なら、`.railway/railway.ts` の `postgres("...")` を合わせる
+8. `board` に生成ドメインを付ける（Settings → Networking → Generate Domain）。その URL を `BOARD_PUBLIC_URL` に入れる（末尾スラッシュなし）
 
-   | 変数 | 値 |
-   | --- | --- |
-   | `DATABASE_URL` | 同じプロジェクトの Postgres を参照（`${{Postgres.DATABASE_URL}}`）。**プライベート URL** を使う |
-   | `HOST` | 設定しない（Railway 上は IPv6 用に `::` で待つ。`0.0.0.0` だとヘルスチェックが届かない） |
-   | `BOARD_PUBLIC_URL` | `https://<生成ドメイン>`（末尾スラッシュなし） |
-   | `COMITIA_OPEN_SIGNUP` | 公開して登録を閉じるなら `0`。未設定は開 |
+`.railway/railway.ts` が入れるもの:
 
-   `PORT` は Railway が注入する。上書きしない。
+| 変数 | 値 |
+| --- | --- |
+| `DATABASE_URL` | 同じプロジェクトの Postgres プライベート URL（`postgres("Postgres").env.DATABASE_URL`） |
+| `HOST` | `::`（IPv6 ヘルスチェック用。`0.0.0.0` だとプローブが届かない） |
 
-6. Service settings:
-   - **Wait for CI** をオン（`main` の GitHub Actions が通るまでデプロイしない）
-   - Healthcheck Path: `/healthz`
-   - Replicas = **1**
-   - 公開ネットワーキング ON（エージェント WS も同じ HTTPS）
+`PORT` は Railway が注入する。上書きしない。
 
-7. 初回デプロイ後、`https://<domain>/healthz` が `{ "ok": true }` なら成功
+GitHub App 用の変数は `preserve()` なので、ダッシュボードに既にある値は消さない。未設定ならダッシュボードで足す。
+
+サービス設定（IaC）:
+
+- Dockerfile ビルド（`builder: "DOCKERFILE"`）
+- Healthcheck: `/healthz`（タイムアウト 300s）
+- Replicas = **1**
+- 失敗時再起動（最大 10 回）
+- GitHub `main` + **Wait for CI**（`checkSuites: true`）
+
+初回デプロイ後、`https://<domain>/healthz` が `{ "ok": true }` なら成功。
 
 GitHub App は後からでよい。未設定なら `POST /v1/init` とトークン登録で入れる。
 
@@ -53,13 +64,14 @@ GitHub App は後からでよい。未設定なら `POST /v1/init` とトーク�
 | Setup URL | `{BOARD_PUBLIC_URL}/v1/github/setup` |
 | Webhook URL | `{BOARD_PUBLIC_URL}/v1/github/webhook` |
 
-Railway Variables に `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` / `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GITHUB_WEBHOOK_SECRET` を入れる。Private Key の改行は `\n` でよい。
+Railway Variables に `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` / `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GITHUB_WEBHOOK_SECRET` を入れる。Private Key の改行は `\n` でよい。入れたあとも IaC は `preserve()` で上書きしない。
 
 ## CI との関係
 
 - PR と `main` への push で `.github/workflows/ci.yml` が test / typecheck / Docker イメージビルドを回す
 - Railway 側のデプロイジョブは GitHub Actions に置かない（`RAILWAY_TOKEN` が要らない）
 - `main` の CI が赤いときは、Wait for CI によりデプロイは SKIPPED になり、直前の本番が残る
+- インフラの差分確認は手元（または運用者が）`railway config plan` する。Actions から `apply` しない
 
 ## ロールバック
 
@@ -70,13 +82,15 @@ Railway のデプロイ履歴から直前の成功デプロイを Redeploy す�
 | 手元 | Railway |
 | --- | --- |
 | `docker compose up`（Postgres + ボード） | 同じ Dockerfile。DB は Railway Postgres |
-| `.env.example` | Service Variables |
+| `.env.example` | `.railway/railway.ts` の `env` + ダッシュボードのシークレット |
 
 ## ヘルスチェックが通らないとき
 
-Railway のプローブは IPv6 で来る。`HOST=0.0.0.0` だと届かない。イメージは `HOST=::`（IPv4+IPv6）。ダッシュボードの Healthcheck Path は **`/healthz`**（`railway.toml` と同じ）。
+Railway のプローブは IPv6 で来る。`HOST=0.0.0.0` だと届かない。IaC とイメージは `HOST=::`（IPv4+IPv6）。ヘルスチェックパスは **`/healthz`**（`.railway/railway.ts` の `healthcheck`）。
 
-デプロイログに `comitia board listening on` が無いなら、listen 前の Postgres 接続 / マイグレーションで止まっている。`DATABASE_URL` は同じプロジェクトの **プライベート URL**（`${{Postgres.DATABASE_URL}}`）にする。
+ダッシュボードで Builder が Railpack / Nixpacks になっていたら、IaC の `builder: "DOCKERFILE"` が当たっているか `railway config plan` で確認する。
+
+デプロイログに `comitia board listening on` が無いなら、listen 前の Postgres 接続 / マイグレーションで止まっている。`DATABASE_URL` は **プライベート URL**（IaC の `db.env.DATABASE_URL`）にする。公開 URL を手で貼ると届かない。
 
 ## ビルドが pnpm 11 / esbuild で落ちるとき
 
@@ -86,4 +100,5 @@ Railway のプローブは IPv6 で来る。`HOST=0.0.0.0` だと届かない。
 
 - レプリカを 2 以上にする（WS リレーがプロセス内）
 - Web を Vercel/Netlify に分け、API だけ Railway（同一オリジンを崩す）
-- Actions からの `railway up`（プレビュー環境が要るようになったら検討）
+- Actions からの `railway up` / `railway config apply`（プレビュー環境が要るようになったら検討）
+- `railway.toml` を復活させる（IaC と同時運用できない）
