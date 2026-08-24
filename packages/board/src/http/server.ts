@@ -25,6 +25,7 @@ import { createBoardApp, type BoardGateway } from "./app.js";
 import { readGitHubConfig } from "../github/config.js";
 import { createOctokitGitHubClient } from "../github/octokit-client.js";
 import type { GitHubClient } from "../github/types.js";
+import { resolveListenHost } from "./listen-host.js";
 import { attachSpaFallback, resolveWebDist } from "./static-web.js";
 
 export function startLoops(input: {
@@ -205,10 +206,13 @@ export async function startBoardServer(input: {
     attachSpaFallback(server, webDist);
   }
 
-  const host = process.env.HOST ?? "127.0.0.1";
+  const host = resolveListenHost();
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(input.port ?? 0, host, () => resolve());
+    server.listen(
+      { port: input.port ?? 0, host, ipv6Only: false },
+      () => resolve(),
+    );
   });
 
   const addr = server.address();
