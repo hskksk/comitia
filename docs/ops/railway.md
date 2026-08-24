@@ -71,6 +71,10 @@ Railway のデプロイ履歴から直前の成功デプロイを Redeploy す�
 | `docker compose up`（Postgres + ボード） | 同じ Dockerfile。DB は Railway Postgres |
 | `.env.example` | Service Variables |
 
+## ビルドが pnpm 11 / esbuild で落ちるとき
+
+ログに `Corepack is about to download ... pnpm-11` や `ERR_PNPM_IGNORED_BUILDS` が出る場合、corepack が最新 pnpm を取っている。このリポジトリの Dockerfile は `npm install -g pnpm@10.33.3` で固定する。古い失敗ビルドが残っているときは Railway で **Redeploy**（Clear build cache あり）。
+
 ## やらないこと
 
 - レプリカを 2 以上にする（WS リレーがプロセス内）
