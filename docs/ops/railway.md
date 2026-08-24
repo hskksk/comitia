@@ -71,9 +71,11 @@ Railway のデプロイ履歴から直前の成功デプロイを Redeploy す�
 | `docker compose up`（Postgres + ボード） | 同じ Dockerfile。DB は Railway Postgres |
 | `.env.example` | Service Variables |
 
-## ビルドが pnpm 11 / esbuild で落ちるとき
+## ビルドが `pnpm install --frozen-lockfile` で落ちるとき
 
-ログに `Corepack is about to download ... pnpm-11` や `ERR_PNPM_IGNORED_BUILDS` が出る場合、corepack が最新 pnpm を取っている。このリポジトリの Dockerfile は `npm install -g pnpm@10.33.3` で固定する。古い失敗ビルドが残っているときは Railway で **Redeploy**（Clear build cache あり）。
+`ERR_PNPM_IGNORED_BUILDS` や `pnpm-11.x.tgz` は、corepack の pnpm 11 か、root で esbuild の postinstall が無視されたとき。Dockerfile は corepack を切って `pnpm@10.33.3` を入れ、`.npmrc` で `unsafe-perm=true` / `strict-dep-builds=false`、workspace で esbuild を許可する。
+
+Railway のビルドログで `pnpm --version` が **10.33.3** と出ること。11 なら Builder が Dockerfile ではない（Railpack）。Service → Settings → Build を Dockerfile、Root Directory は空（リポジトリルート）。Redeploy 時は **Clear build cache**。
 
 ## やらないこと
 
