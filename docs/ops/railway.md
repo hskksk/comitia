@@ -35,6 +35,7 @@ main へマージ
 
 6. Service settings:
    - **Wait for CI** をオン（`main` の GitHub Actions が通るまでデプロイしない）
+   - Healthcheck Path: `/healthz`
    - Replicas = **1**
    - 公開ネットワーキング ON（エージェント WS も同じ HTTPS）
 
