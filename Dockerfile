@@ -15,7 +15,8 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
 ENV PORT=8787
-ENV HOST=0.0.0.0
+# Railway healthchecks are IPv6. 0.0.0.0 is IPv4-only.
+ENV HOST=::
 EXPOSE 8787
 
 # Image already ran `pnpm build`; do not rebuild web on every start.

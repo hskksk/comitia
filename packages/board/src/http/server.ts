@@ -25,6 +25,7 @@ import { createBoardApp, type BoardGateway } from "./app.js";
 import { readGitHubConfig } from "../github/config.js";
 import { createOctokitGitHubClient } from "../github/octokit-client.js";
 import type { GitHubClient } from "../github/types.js";
+import { listenBoardHttpServer, resolveListenHost } from "./listen-host.js";
 import { attachSpaFallback, resolveWebDist } from "./static-web.js";
 
 export function startLoops(input: {
@@ -135,33 +136,37 @@ export async function startBoardServer(input: {
       );
     },
     onConnect: async ({ agentId }) => {
-      const [cred] = await db
-        .select()
-        .from(agentCredentials)
-        .where(eq(agentCredentials.participantId, agentId))
-        .limit(1);
-      if (!cred) {
-        return;
-      }
-      await db
-        .update(agentConnections)
-        .set({ status: "connected", lastSeenAt: new Date() })
-        .where(eq(agentConnections.participantId, agentId));
-      await recordEvent(db, {
-        projectId: cred.projectId,
-        actorParticipantId: agentId,
-        kind: "agent_connected",
-        payload: { participantId: agentId },
-      });
-      await flushMailbox(db, relay, agentId);
-      const undigested = await findUndigestedSession(db, {
-        participantId: agentId,
-      });
-      if (undigested) {
-        await sendTick(db, relay, {
-          participantId: agentId,
-          type: "session.start",
+      try {
+        const [cred] = await db
+          .select()
+          .from(agentCredentials)
+          .where(eq(agentCredentials.participantId, agentId))
+          .limit(1);
+        if (!cred) {
+          return;
+        }
+        await db
+          .update(agentConnections)
+          .set({ status: "connected", lastSeenAt: new Date() })
+          .where(eq(agentConnections.participantId, agentId));
+        await recordEvent(db, {
+          projectId: cred.projectId,
+          actorParticipantId: agentId,
+          kind: "agent_connected",
+          payload: { participantId: agentId },
         });
+        await flushMailbox(db, relay, agentId);
+        const undigested = await findUndigestedSession(db, {
+          participantId: agentId,
+        });
+        if (undigested) {
+          await sendTick(db, relay, {
+            participantId: agentId,
+            type: "session.start",
+          });
+        }
+      } catch (error) {
+        console.error("board agent onConnect failed", { agentId, error });
       }
     },
     onDisconnect: async ({ agentId }) => {
@@ -205,11 +210,8 @@ export async function startBoardServer(input: {
     attachSpaFallback(server, webDist);
   }
 
-  const host = process.env.HOST ?? "127.0.0.1";
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(input.port ?? 0, host, () => resolve());
-  });
+  const host = resolveListenHost();
+  await listenBoardHttpServer(server, input.port ?? 0, host);
 
   const addr = server.address();
   if (!addr || typeof addr === "string") {

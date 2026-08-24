@@ -27,7 +27,7 @@ main へマージ
    | 変数 | 値 |
    | --- | --- |
    | `DATABASE_URL` | 同じプロジェクトの Postgres を参照（`${{Postgres.DATABASE_URL}}`）。**プライベート URL** を使う |
-   | `HOST` | `0.0.0.0`（イメージ側でも設定済み） |
+   | `HOST` | 設定しない（Railway 上は IPv6 用に `::` で待つ。`0.0.0.0` だとヘルスチェックが届かない） |
    | `BOARD_PUBLIC_URL` | `https://<生成ドメイン>`（末尾スラッシュなし） |
    | `COMITIA_OPEN_SIGNUP` | 公開して登録を閉じるなら `0`。未設定は開 |
 
@@ -35,6 +35,7 @@ main へマージ
 
 6. Service settings:
    - **Wait for CI** をオン（`main` の GitHub Actions が通るまでデプロイしない）
+   - Healthcheck Path: `/healthz`
    - Replicas = **1**
    - 公開ネットワーキング ON（エージェント WS も同じ HTTPS）
 
@@ -70,6 +71,12 @@ Railway のデプロイ履歴から直前の成功デプロイを Redeploy す�
 | --- | --- |
 | `docker compose up`（Postgres + ボード） | 同じ Dockerfile。DB は Railway Postgres |
 | `.env.example` | Service Variables |
+
+## ヘルスチェックが通らないとき
+
+Railway のプローブは IPv6 で来る。`HOST=0.0.0.0` だと届かない。イメージは `HOST=::`（IPv4+IPv6）。ダッシュボードの Healthcheck Path は **`/healthz`**（`railway.toml` と同じ）。
+
+デプロイログに `comitia board listening on` が無いなら、listen 前の Postgres 接続 / マイグレーションで止まっている。`DATABASE_URL` は同じプロジェクトの **プライベート URL**（`${{Postgres.DATABASE_URL}}`）にする。
 
 ## ビルドが pnpm 11 / esbuild で落ちるとき
 

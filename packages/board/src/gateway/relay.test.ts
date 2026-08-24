@@ -144,7 +144,7 @@ describe("WS relay mailbox and A2A tick send", () => {
       );
       expect(flushOrder).toEqual([tick2.tickId, tick3.tickId]);
 
-      // 7. Delivered tick ids have no gaps
+      // 7. Delivered tick ids have no gaps (ignore in-flight undigested resend)
       const sentIds = [tick1.tickId, tick2.tickId, tick3.tickId];
       const receivedIds = adapter.getReceivedTickIds();
       for (const id of sentIds) {
@@ -152,10 +152,22 @@ describe("WS relay mailbox and A2A tick send", () => {
       }
       expect(receivedIds.slice(0, 3)).toEqual(sentIds);
 
-      const deliveredRows = await db
-        .select()
-        .from(ticks)
-        .where(eq(ticks.participantId, agentId));
+      await waitFor(async () => {
+        const rows = await db
+          .select()
+          .from(ticks)
+          .where(eq(ticks.participantId, agentId));
+        return sentIds.every(
+          (id) => rows.find((row) => row.id === id)?.status === "delivered",
+        );
+      });
+
+      const deliveredRows = (
+        await db
+          .select()
+          .from(ticks)
+          .where(eq(ticks.participantId, agentId))
+      ).filter((row) => sentIds.includes(row.id));
       const sequences = deliveredRows
         .map((row) => row.sequence)
         .sort((a, b) => a - b);
