@@ -395,9 +395,9 @@ fake エンジンは、対話の冒頭に環境プロンプトを出し、その
 - `docker-compose.yml`: `db`（Postgres）と `board`（`DATABASE_URL`, `PORT=8787`）。GitHub App は環境変数があれば有効、無ければ OAuth 無しでトークン登録
 - `.env.example`
 - GitHub Actions: `pnpm test` / `pnpm typecheck` / Docker イメージビルド（`main` と pull_request）。本番デプロイは Railway の GitHub 連携 + Wait for CI（Actions から `railway up` はしない）
-- `railway.toml`: Dockerfile ビルド、`/healthz`、失敗時再起動
+- `.railway/railway.ts`: Infrastructure as Code。Postgres + Dockerfile ボード、`/healthz`、失敗時再起動、`HOST=::`
 
-コンテナ（Dockerfile）は `HOST=0.0.0.0`。`pnpm start` の既定 `127.0.0.1` はローカル開発用として残す。
+コンテナ（Dockerfile / Railway）は `HOST=::`（IPv6 ヘルスチェック）。compose は `HOST=0.0.0.0`。`pnpm start` の既定 `127.0.0.1` はローカル開発用として残す。
 
 ### 7.3 触らないもの
 
