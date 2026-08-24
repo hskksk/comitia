@@ -1,14 +1,24 @@
 #!/usr/bin/env node
-import { evaluateRailwayFile } from "railway/iac";
-
-const { graph, desiredConfig } = await evaluateRailwayFile(".railway/railway.ts", {
-  context: { environment: "production", projectName: "comitia" },
-});
+import {
+  createRailwayContext,
+  graphToEnvironmentConfig,
+  project,
+  projectDefinitionToGraph,
+} from "railway/iac";
+import defineRailwayProject from "../.railway/railway.ts";
 
 function fail(message) {
   console.error(message);
   process.exit(1);
 }
+
+const context = { environment: "production", projectName: "comitia" };
+const definition = await defineRailwayProject(
+  createRailwayContext(context),
+  project,
+);
+const graph = projectDefinitionToGraph(definition);
+const desiredConfig = graphToEnvironmentConfig(graph, { context });
 
 const board = desiredConfig?.services?.board;
 if (!board) {
