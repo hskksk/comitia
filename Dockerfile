@@ -1,6 +1,8 @@
 FROM node:22-bookworm-slim
 
-RUN corepack enable
+# Do not let corepack fetch latest pnpm (11+ fails on unapproved esbuild scripts).
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN npm install -g pnpm@10.33.3
 
 WORKDIR /app
 
@@ -9,8 +11,6 @@ COPY packages ./packages
 COPY scripts ./scripts
 COPY tsconfig.base.json ./
 
-# Pin pnpm (corepack otherwise fetches latest, which may refuse ignored esbuild builds).
-RUN corepack enable && corepack prepare pnpm@10.33.3 --activate
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
