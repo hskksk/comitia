@@ -76,6 +76,7 @@ mise exec -- pnpm railway:push-secrets -- --deploy    # 設定後に redeploy
 ```
 
 `SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
+`BOARD_PUBLIC_URL` も同期対象。`SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
 
 ## CI との関係
 
