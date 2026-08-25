@@ -66,6 +66,16 @@ GitHub App は後からでよい。未設定なら `POST /v1/init` とトーク�
 
 Railway Variables に `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` / `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GITHUB_WEBHOOK_SECRET` を入れる。Private Key の改行は `\n` でよい。入れたあとも IaC は `preserve()` で上書きしない。
 
+ローカルの mise 環境（通常 `.mise.toml`）に同じ変数があるなら、まとめて Railway に流し込める:
+
+```bash
+mise exec -- pnpm railway:sync-secrets
+mise exec -- pnpm railway:sync-secrets -- --dry-run   # 確認だけ
+mise exec -- pnpm railway:sync-secrets -- --deploy    # 設定後に redeploy
+```
+
+`BOARD_PUBLIC_URL` も同期対象。`SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
+
 ## CI との関係
 
 - PR と `main` への push で `.github/workflows/ci.yml` が test / typecheck / Docker イメージビルドを回す
