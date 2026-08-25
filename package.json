@@ -12,6 +12,7 @@
     "dogfood": "bash scripts/dogfood/start.sh",
     "dogfood:stop": "bash scripts/dogfood/stop.sh",
     "dogfood:scenario1": "node scripts/dogfood/run-scenario1.mjs",
+    "railway:push-secrets": "bash scripts/railway/push-secrets.sh",
     "seed": "pnpm --filter @comitia/board run seed",
     "seed:reset": "pnpm --filter @comitia/board run seed:reset"
   },
