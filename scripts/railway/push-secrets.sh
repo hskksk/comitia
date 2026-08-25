@@ -7,9 +7,9 @@
 #   - Secrets defined in local mise env (typically `.mise.toml`, gitignored)
 #
 # Usage:
-#   mise exec -- pnpm railway:sync-secrets
-#   mise exec -- pnpm railway:sync-secrets -- --dry-run
-#   mise exec -- pnpm railway:sync-secrets -- --deploy
+#   mise exec -- pnpm railway:push-secrets
+#   mise exec -- pnpm railway:push-secrets -- --dry-run
+#   mise exec -- pnpm railway:push-secrets -- --deploy
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -43,7 +43,7 @@ usage() {
 Sync mise-managed env vars to Railway service variables.
 
 Run under mise so local secrets are loaded, for example:
-  mise exec -- pnpm railway:sync-secrets
+  mise exec -- pnpm railway:push-secrets
 
 Options:
   --dry-run          Print actions without calling Railway
@@ -184,7 +184,7 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     echo "  - $key" >&2
   done
   echo >&2
-  echo "Example: mise exec -- pnpm railway:sync-secrets" >&2
+  echo "Example: mise exec -- pnpm railway:push-secrets" >&2
   exit 1
 fi
 
@@ -228,5 +228,5 @@ if [[ "$DEPLOY" == true ]]; then
   echo "Redeploy requested."
 else
   echo "Redeploy to pick up changes: railway redeploy --service ${SERVICE}"
-  echo "Or rerun with: mise exec -- pnpm railway:sync-secrets -- --deploy"
+  echo "Or rerun with: mise exec -- pnpm railway:push-secrets -- --deploy"
 fi

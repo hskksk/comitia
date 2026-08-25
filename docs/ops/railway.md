@@ -69,9 +69,9 @@ Railway Variables に `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_S
 ローカルの mise 環境（通常 `.mise.toml`）に同じ変数があるなら、まとめて Railway に流し込める:
 
 ```bash
-mise exec -- pnpm railway:sync-secrets
-mise exec -- pnpm railway:sync-secrets -- --dry-run   # 確認だけ
-mise exec -- pnpm railway:sync-secrets -- --deploy    # 設定後に redeploy
+mise exec -- pnpm railway:push-secrets
+mise exec -- pnpm railway:push-secrets -- --dry-run   # 確認だけ
+mise exec -- pnpm railway:push-secrets -- --deploy    # 設定後に redeploy
 ```
 
 `BOARD_PUBLIC_URL` も同期対象。`SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
