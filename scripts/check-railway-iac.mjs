@@ -51,6 +51,11 @@ if (board.variables?.DATABASE_URL?.value !== "${{Postgres.DATABASE_URL}}") {
     `expected private Postgres DATABASE_URL ref, got ${JSON.stringify(board.variables?.DATABASE_URL)}`,
   );
 }
+if (board.variables?.BOARD_PUBLIC_URL?.value !== "https://${{RAILWAY_PUBLIC_DOMAIN}}") {
+  fail(
+    `expected BOARD_PUBLIC_URL from RAILWAY_PUBLIC_DOMAIN, got ${JSON.stringify(board.variables?.BOARD_PUBLIC_URL)}`,
+  );
+}
 
 const graphBoard = graph?.resources?.find((resource) => resource.name === "board");
 if (graphBoard?.source?.repo !== "hskksk/comitia") {

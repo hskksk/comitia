@@ -43,7 +43,8 @@ export default defineRailway(() => {
       DATABASE_URL: db.env.DATABASE_URL,
       // Railway healthchecks probe over IPv6. 0.0.0.0 is IPv4-only.
       HOST: "::",
-      BOARD_PUBLIC_URL: preserve(),
+      // Networking で付与された公開ドメイン（Generate Domain / カスタムドメイン）。
+      BOARD_PUBLIC_URL: "https://${{RAILWAY_PUBLIC_DOMAIN}}",
       GITHUB_APP_ID: preserve(),
       GITHUB_APP_PRIVATE_KEY: preserve(),
       GITHUB_APP_SLUG: preserve(),

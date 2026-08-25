@@ -29,7 +29,7 @@ main へマージ
 5. 既存サービスが `railway.toml` を読んでいる場合は、サービス Settings の Config File パスを空にする
 6. `railway config plan` で差分を確認する
 7. `railway config apply`（初回は Postgres と `board` が増える想定）。既存 DB の名前が `Postgres` 以外なら、`.railway/railway.ts` の `postgres("...")` を合わせる
-8. `board` に生成ドメインを付ける（Settings → Networking → Generate Domain）。その URL を `BOARD_PUBLIC_URL` に入れる（末尾スラッシュなし）
+8. `board` に生成ドメインを付ける（Settings → Networking → Generate Domain）。`BOARD_PUBLIC_URL` は IaC が `https://${{RAILWAY_PUBLIC_DOMAIN}}` で自動設定する
 
 `.railway/railway.ts` が入れるもの:
 
@@ -37,6 +37,7 @@ main へマージ
 | --- | --- |
 | `DATABASE_URL` | 同じプロジェクトの Postgres プライベート URL（`postgres("Postgres").env.DATABASE_URL`） |
 | `HOST` | `::`（IPv6 ヘルスチェック用。`0.0.0.0` だとプローブが届かない） |
+| `BOARD_PUBLIC_URL` | `https://${{RAILWAY_PUBLIC_DOMAIN}}`（Networking の公開ドメインから自動） |
 
 `PORT` は Railway が注入する。上書きしない。
 
@@ -74,7 +75,7 @@ mise exec -- pnpm railway:push-secrets -- --dry-run   # 確認だけ
 mise exec -- pnpm railway:push-secrets -- --deploy    # 設定後に redeploy
 ```
 
-`BOARD_PUBLIC_URL` も同期対象。`SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
+`SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
 
 ## CI との関係
 
