@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sync mise-managed environment variables to Railway service variables.
+# Push mise-managed environment variables to Railway service variables.
 #
 # Prerequisites:
 #   - Railway CLI installed and authenticated (`railway login`)
@@ -40,7 +40,7 @@ SECRET_VARS=(
 
 usage() {
   cat <<'EOF'
-Sync mise-managed env vars to Railway service variables.
+Push mise-managed env vars to Railway service variables.
 
 Run under mise so local secrets are loaded, for example:
   mise exec -- pnpm railway:push-secrets
@@ -48,7 +48,7 @@ Run under mise so local secrets are loaded, for example:
 Options:
   --dry-run          Print actions without calling Railway
   --deploy           Redeploy the service once after all variables are set
-  --include-smee     Also sync SMEE_WEBHOOK_URL (local dogfood only; not in IaC)
+  --include-smee     Also push SMEE_WEBHOOK_URL (local dogfood only; not in IaC)
   --service <name>   Railway service name (default: board)
   --environment <n>  Railway environment name (default: linked environment)
   --project <id>     Railway project id (default: linked project)
@@ -57,7 +57,7 @@ Options:
 Environment overrides:
   RAILWAY_SERVICE, RAILWAY_ENVIRONMENT, RAILWAY_PROJECT
 
-Variables synced (must be set in the current shell):
+Variables pushed (must be set in the current shell):
   BOARD_PUBLIC_URL, GITHUB_APP_ID, GITHUB_APP_SLUG, GITHUB_CLIENT_ID
   GITHUB_APP_PRIVATE_KEY, GITHUB_CLIENT_SECRET, GITHUB_WEBHOOK_SECRET
 EOF
@@ -188,7 +188,7 @@ if [[ ${#missing[@]} -gt 0 ]]; then
   exit 1
 fi
 
-echo "Syncing ${#vars_to_sync[@]} variable(s) to Railway service '${SERVICE}'..."
+echo "Pushing ${#vars_to_sync[@]} variable(s) to Railway service '${SERVICE}'..."
 if [[ -n "$ENVIRONMENT" ]]; then
   echo "  environment: $ENVIRONMENT"
 fi
