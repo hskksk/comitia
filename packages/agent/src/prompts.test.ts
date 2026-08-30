@@ -23,10 +23,17 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).not.toContain("typo");
     expect(INITIAL_PROMPT).toContain("get_briefing");
     expect(INITIAL_PROMPT).toContain("set_goals");
-    expect(INITIAL_PROMPT).toContain("オープンなスレッドもコメントも無いのは空きではなく");
     expect(INITIAL_PROMPT).toContain("検討の材料である");
     expect(INITIAL_PROMPT).toContain("完成した提案まで書き切らなくてよい");
+    expect(INITIAL_PROMPT).toContain("今日の立ち位置を 1 つ決め");
+    expect(INITIAL_PROMPT).toContain("situation.unclaimed_decided");
     expect(INITIAL_PROMPT).toContain("環境プロンプトの各ロール指針");
+    const unclaimedAt = INITIAL_PROMPT.indexOf("situation.unclaimed_decided");
+    const emptyBoardAt = INITIAL_PROMPT.indexOf(
+      "オープンなスレッドもコメントも、未着手の決定済み実装も無い → 検討",
+    );
+    expect(unclaimedAt).toBeGreaterThan(-1);
+    expect(emptyBoardAt).toBeGreaterThan(unclaimedAt);
     expect(INITIAL_PROMPT).not.toContain("コンセンサスを作る場");
     expect(INITIAL_PROMPT).not.toContain("タスクキューではない");
   });
@@ -55,6 +62,7 @@ describe("buildRedrivePrompt", () => {
     });
     expect(prompt).toContain("目標がまだ宣言されていない");
     expect(prompt).toContain("set_goals");
+    expect(prompt).toContain("未着手の決定済み実装があれば実行");
     expect(prompt).not.toContain("続きに取り組め");
   });
 
