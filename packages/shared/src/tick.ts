@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 export const TICK_TYPES = [
   "session.start",
   "nudge",
@@ -19,7 +17,8 @@ export function createTick(
   options: { sessionId?: string } = {},
 ): Tick {
   return {
-    id: randomUUID(),
+    // Web Crypto (Node 19+ and browsers) — avoid node:crypto so Vite can bundle shared.
+    id: crypto.randomUUID(),
     type,
     issuedAt: new Date().toISOString(),
     ...(options.sessionId ? { sessionId: options.sessionId } : {}),

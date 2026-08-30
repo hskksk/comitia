@@ -10,7 +10,7 @@ import {
 import { clearToken } from "../auth.js";
 import { credentialClientLabel, engineLabel } from "../labels.js";
 import { useRouteLoad } from "../useRouteLoad.js";
-import { PERSONALITY_MAX_LENGTH } from "@comitia/shared";
+import { PERSONALITY_MAX_LENGTH } from "@comitia/shared/constants";
 
 export function SettingsPage() {
   const navigate = useNavigate();
