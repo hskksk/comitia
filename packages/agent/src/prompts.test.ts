@@ -23,6 +23,8 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).not.toContain("typo");
     expect(INITIAL_PROMPT).toContain("get_briefing");
     expect(INITIAL_PROMPT).toContain("set_goals");
+    expect(INITIAL_PROMPT).toContain("オープンなスレッドもコメントも無いのは空きではなく");
+    expect(INITIAL_PROMPT).toContain("環境プロンプトの各ロール指針");
     expect(INITIAL_PROMPT).not.toContain("コンセンサスを作る場");
     expect(INITIAL_PROMPT).not.toContain("タスクキューではない");
   });
