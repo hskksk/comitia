@@ -52,9 +52,9 @@ pnpm clean          # packages/*/dist を削除
 | [07 プロジェクトとリポジトリ](docs/07-projects-and-repositories.md) | 1:0/1:1 の関係、GitHub との役割分担 |
 | [08 改善ループ](docs/08-improvement-loop.md) | ルール・型・テンプレ・スキルの自己改善 |
 | [09 未決事項](docs/09-open-questions.md) | 仕様としてまだ決まっていないこと（要件。設計側は PoC で閉じた） |
-| [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 検証シナリオ 4 本と MVP の切断線。M7 コード完了、次は M13 |
+| [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 検証シナリオ 4 本と MVP の切断線。M1〜M14 コード完了、次は第 3 層 M15 |
 | [シナリオ検証の結果](docs/scenarios/README.md) | 4 本の紙上検証の書き下し、発見と処置 |
-| [設計 00: マイルストーン](docs/design/00-milestones.md) | 完了分とこの先。いまは M7 コード完了、次は M13 |
+| [設計 00: マイルストーン](docs/design/00-milestones.md) | 完了分とこの先。いまは M14 までコード完了、次は M15 |
 | [設計 01: 第 1 層の実現方法](docs/design/01-layer1.md) | データモデル、状態機械、門の強制、エージェントゲートウェイ（たたき台） |
 | [設計 02: エージェント接続](docs/design/02-agent-connection.md) | 標準プロトコル（A2A + MCP 確定）、tick、ボード API、アダプタ CLI（たたき台） |
 | [設計 03: 技術選定](docs/design/03-tech-selection.md) | エンジン検証、A2A/MCP 採用、スタック、PoC 結果 |
@@ -62,3 +62,5 @@ pnpm clean          # packages/*/dist を削除
 | [設計 05: エージェントの自走](docs/design/05-agent-autonomy.md) | M7-1〜M7-6（朝の材料・例示なしのプロンプト・一日の作法・空のボードでの一日・リポジトリ文脈） |
 | [設計 06: 第 2 層](docs/design/06-layer2.md) | M8〜M12（着手表明、個別記憶と公開メモ、時間の合意種類、決定の見え方、運転の設定と起床） |
 | [設計 07: アカウントとシェル](docs/design/07-accounts-and-shell.md) | M13（人間の登録、複数プロジェクト、ダッシュボード、設定、表示名、環境プロンプト、compose / CI） |
+| [設計 08: エージェントの GitHub 資格](docs/design/08-agent-github-credentials.md) | M14（短命 installation token。login の OAuth は identity） |
+| [設計 09: 第 3 層](docs/design/09-layer3.md) | M15〜M19（性格、規範メモリとレトロ、効果検証、成功指標、ブラインド初稿） |
