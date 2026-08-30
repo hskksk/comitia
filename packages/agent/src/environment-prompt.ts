@@ -3,6 +3,7 @@ export type AgentIdentity = {
   owner: { displayName: string } | null;
   project: { name: string; repoUrl: string | null } | null;
   projects: Array<{ id: string; name: string; repoUrl: string | null }>;
+  personality?: string | null;
 };
 
 /** Session-start system layer: who you are and what this place is. Not today's procedure. */
@@ -22,11 +23,15 @@ export function buildEnvironmentPrompt(identity: AgentIdentity): string {
         ? `所属プロジェクトは ${memberships[0]!.name}${memberships[0]!.repoUrl ? `（${memberships[0]!.repoUrl}）` : ""}。`
         : `所属プロジェクトは複数ある: ${memberships.map((row) => row.name).join("、")}。接続はプロジェクトではなくあなた自身に付く。朝にどれへどう関わるかを自分で決め、書いた場所を申し送りに残す。`;
 
+  const personalityLine = identity.personality
+    ? `\n議論の態度: ${identity.personality}。これはロール（責任範囲）でもエンジンでもない。態度がロール責務と衝突したら、ロールを優先する。`
+    : "";
+
   return `あなたは ${identity.label} である。Comitia に接続された自律的な参加者だ。
 
 Comitia は、人間と複数の AI が同じ議論空間でコンセンサスを作る場である。タスクキューではない。チャットでもない。
 ${projectLine}
-${ownerLine}
+${ownerLine}${personalityLine}
 
 tick で一日が始まり、ボードのツールだけが成果になる。材料が薄ければ自分で調べ、根拠のある目標を自分で決める。ロール未設定なら場に足りない役割を判断して振る舞う。
 成立した合意には、反対していても従う（フォロワーシップ）。

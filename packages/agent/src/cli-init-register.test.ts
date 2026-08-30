@@ -145,6 +145,40 @@ describe("init and agent register commands", () => {
       command: "agent-update",
       name: "mika",
       engine: "fake",
+      personality: undefined,
+    });
+    expect(
+      parseCliArgs([
+        "agent",
+        "update",
+        "mika",
+        "--personality",
+        "慎重にリスクを先に出す",
+      ]),
+    ).toEqual({
+      command: "agent-update",
+      name: "mika",
+      engine: undefined,
+      personality: "慎重にリスクを先に出す",
+    });
+    expect(
+      parseCliArgs([
+        "agent",
+        "register",
+        "--engine",
+        "fake",
+        "--name",
+        "walker",
+        "--personality",
+        "対立する案を残す",
+      ]),
+    ).toEqual({
+      command: "agent-register",
+      engine: "fake",
+      name: "walker",
+      role: undefined,
+      project: undefined,
+      personality: "対立する案を残す",
     });
   });
 

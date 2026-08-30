@@ -16,7 +16,7 @@ import { z } from "zod";
 import type { Db } from "../db/types.js";
 import { assignRole } from "../domain/roles.js";
 import { declare } from "../domain/declare.js";
-import { NotFoundError, PermissionDenied } from "../domain/errors.js";
+import { GateViolation, NotFoundError, PermissionDenied } from "../domain/errors.js";
 import {
   getHumanThreadView,
   listJudgmentQueue,
@@ -86,6 +86,9 @@ function jsonErrorStatus(error: unknown) {
   if (error instanceof NotFoundError) {
     return { status: 404 as const, message: error.message };
   }
+  if (error instanceof GateViolation) {
+    return { status: 400 as const, message: error.message };
+  }
   return null;
 }
 
@@ -126,7 +129,14 @@ export function registerHumanRoutes(
   });
 
   app.patch("/v1/me", auth, human, async (c) => {
-    const body = z.object({ displayName: z.string().min(1) }).parse(await c.req.json());
+    const raw = (await c.req.json()) as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(raw, "personality")) {
+      return c.json(
+        { error: "性格は登録オーナーがエージェントにだけ付けられます" },
+        403,
+      );
+    }
+    const body = z.object({ displayName: z.string().min(1) }).parse(raw);
     const updated = await updateHumanProfile(db, {
       participantId: c.get("participant").id,
       displayName: body.displayName,
@@ -178,6 +188,7 @@ export function registerHumanRoutes(
         id: agent.id,
         displayName: agent.displayName,
         engine: agent.engine,
+        personality: agent.personality,
         ownerParticipantId: agent.ownerParticipantId,
       })),
     });
@@ -188,6 +199,7 @@ export function registerHumanRoutes(
       .object({
         displayName: z.string().min(1).optional(),
         engine: z.string().optional(),
+        personality: z.string().nullable().optional(),
       })
       .parse(await c.req.json());
     try {
@@ -196,11 +208,13 @@ export function registerHumanRoutes(
         agentId: c.req.param("agentId"),
         displayName: body.displayName,
         engine: body.engine,
+        personality: body.personality,
       });
       return c.json({
         id: updated.id,
         displayName: updated.displayName,
         engine: updated.engine,
+        personality: updated.personality,
       });
     } catch (error) {
       const mapped = jsonErrorStatus(error);

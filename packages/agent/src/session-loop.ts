@@ -88,7 +88,7 @@ async function fetchIdentity(
     }
     const body = (await response.json()) as {
       label?: string;
-      participant?: { displayName?: string };
+      participant?: { displayName?: string; personality?: string | null };
       owner?: { displayName: string } | null;
       project?: { name: string; repoUrl: string | null } | null;
       projects?: Array<{ id: string; name: string; repoUrl: string | null }>;
@@ -98,6 +98,7 @@ async function fetchIdentity(
       owner: body.owner ?? null,
       project: body.project ?? null,
       projects: body.projects ?? [],
+      personality: body.participant?.personality ?? null,
     };
   } catch (error) {
     console.error(
@@ -219,6 +220,7 @@ export async function runSessionLoop(
           owner: null,
           project: null,
           projects: [],
+          personality: null,
         },
       ),
       github: githubCreds

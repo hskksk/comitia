@@ -6,6 +6,7 @@ export interface RegisterCommandOptions {
   engine: string;
   role?: string;
   project?: string;
+  personality?: string;
   configDir?: string;
 }
 
@@ -29,6 +30,9 @@ export async function registerCommand(
       displayName: options.name,
       engine: options.engine,
       ...(options.role ? { role: options.role } : {}),
+      ...(options.personality !== undefined
+        ? { personality: options.personality }
+        : {}),
       ...(options.project || config.projectId
         ? { projectId: options.project ?? config.projectId }
         : {}),

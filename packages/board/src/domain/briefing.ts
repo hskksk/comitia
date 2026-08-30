@@ -224,6 +224,9 @@ export async function getBriefing(
       }),
       roles: sole?.roles ?? [],
       engine: participant.engine,
+      ...(participant.personality
+        ? { personality: participant.personality }
+        : {}),
     },
     project: sole
       ? {

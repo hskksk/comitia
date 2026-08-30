@@ -67,6 +67,7 @@ describe("SettingsPage", () => {
             id: "a1",
             displayName: "ウォーカー",
             engine: "fake",
+            personality: null,
             ownerParticipantId: "p1",
           },
         ],
@@ -78,12 +79,17 @@ describe("SettingsPage", () => {
     );
     await user.type(await screen.findByLabelText("名前"), "ウォーカー");
     await user.selectOptions(screen.getByLabelText("エンジン"), "fake");
+    await user.type(
+      screen.getByLabelText("性格（任意）"),
+      "慎重にリスクを先に出す",
+    );
     await user.click(screen.getByRole("button", { name: "登録する" }));
     expect(createAgentMock).toHaveBeenCalledWith({
       displayName: "ウォーカー",
       engine: "fake",
       projectId: "proj-1",
       role: undefined,
+      personality: "慎重にリスクを先に出す",
     });
     expect(await screen.findByText("トークン（一度だけ表示）")).toBeInTheDocument();
     expect(screen.getByText("comt_once")).toBeInTheDocument();
