@@ -249,7 +249,7 @@ describe("session loop with fake engine", () => {
         expect(handover?.body).toBe("目標を完了した");
         expect(wrapped.stopped()).toBe(true);
         expect(wrapped.environmentPrompt()).toContain("ロールは未設定");
-        expect(wrapped.environmentPrompt()).toContain("提案（調べて議題を起票する）");
+        expect(wrapped.environmentPrompt()).toContain("検討が足りていないことが多い");
         const dir = wrapped.workDir();
         expect(dir).toBeTruthy();
         expect(existsSync(dir!)).toBe(false);

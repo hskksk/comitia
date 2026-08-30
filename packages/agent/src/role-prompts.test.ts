@@ -7,7 +7,9 @@ describe("buildRoleGuidance", () => {
     expect(text).toContain("ロールは未設定");
     expect(text).toContain("いま足りない 1〜2 を選ぶ");
     expect(text).toContain("オープンなスレッドもコメントも無ければ");
-    expect(text).toContain("提案（調べて議題を起票する）");
+    expect(text).toContain("検討が足りていないことが多い");
+    expect(text).toContain("完成した提案まで書き切らない");
+    expect(text).not.toContain("提案（調べて議題を起票する）");
     for (const playbook of Object.values(ROLE_PLAYBOOKS)) {
       expect(text).toContain(playbook);
     }

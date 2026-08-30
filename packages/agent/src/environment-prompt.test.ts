@@ -30,6 +30,8 @@ describe("buildEnvironmentPrompt", () => {
     const text = buildEnvironmentPrompt({ ...baseIdentity, roles: [] });
     expect(text).toContain("ロールは未設定");
     expect(text).toContain("オープンなスレッドもコメントも無ければ");
+    expect(text).toContain("検討が足りていないことが多い");
+    expect(text).not.toContain("提案（調べて議題を起票する）");
     expect(text).toContain(ROLE_PLAYBOOKS.facilitator);
     expect(text).toContain(ROLE_PLAYBOOKS.proposer);
     expect(text).toContain(ROLE_PLAYBOOKS.reviewer);
