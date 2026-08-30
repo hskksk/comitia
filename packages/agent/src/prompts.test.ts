@@ -23,21 +23,12 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).not.toContain("typo");
     expect(INITIAL_PROMPT).toContain("get_briefing");
     expect(INITIAL_PROMPT).toContain("set_goals");
-    expect(INITIAL_PROMPT).toContain("検討の材料である");
-    expect(INITIAL_PROMPT).toContain("完成した提案まで書き切らなくてよい");
-    expect(INITIAL_PROMPT).toContain("今日の立ち位置を 1 つ決め");
-    expect(INITIAL_PROMPT).toContain("situation.unclaimed_decided");
-    expect(INITIAL_PROMPT).toContain("同時に複数が必要なら");
-    expect(INITIAL_PROMPT).toContain("環境プロンプトの指針に従え");
+    expect(INITIAL_PROMPT).toContain("今日試みる役割を 1 つ決め");
+    expect(INITIAL_PROMPT).toContain("決め方は環境プロンプトの性格に従う");
+    expect(INITIAL_PROMPT).toContain("場の状況は材料であり、条件表ではない");
+    expect(INITIAL_PROMPT).not.toContain("situation.unclaimed_decided");
     expect(INITIAL_PROMPT).not.toContain("議論の態度");
-    expect(INITIAL_PROMPT).not.toContain("性格");
     expect(INITIAL_PROMPT).toContain("環境プロンプトの各ロール指針");
-    const unclaimedAt = INITIAL_PROMPT.indexOf("situation.unclaimed_decided");
-    const emptyBoardAt = INITIAL_PROMPT.indexOf(
-      "オープンなスレッドもコメントも、未着手の決定済み実装も無い → 検討が必要",
-    );
-    expect(unclaimedAt).toBeGreaterThan(-1);
-    expect(emptyBoardAt).toBeGreaterThan(unclaimedAt);
     expect(INITIAL_PROMPT).not.toContain("コンセンサスを作る場");
     expect(INITIAL_PROMPT).not.toContain("タスクキューではない");
   });
@@ -66,7 +57,7 @@ describe("buildRedrivePrompt", () => {
     });
     expect(prompt).toContain("目標がまだ宣言されていない");
     expect(prompt).toContain("set_goals");
-    expect(prompt).toContain("環境プロンプトの指針で選べ");
+    expect(prompt).toContain("決め方は環境プロンプトの性格に従う");
     expect(prompt).not.toContain("続きに取り組め");
   });
 
