@@ -112,6 +112,11 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   project           プロジェクトのリポジトリ紐づけを表示
   project set       リポジトリ紐づけを設定・解除（--repo-url <url> | --clear-repo）
 
+性格:
+  --personality 慎重            パッケージ資源（名前だけ。拡張子・パスなし）
+  --personality ./attitude.txt  ファイル（パスと拡張子が必要）
+  --personality ""              性格を外す（update）
+
 例:
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
   comitia login --board-url http://127.0.0.1:8787
@@ -123,7 +128,8 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia agent register --engine claude-code --name mika
   comitia agent register --engine fake --name walker --project <projectId>
   comitia agent register --engine claude-code --name walker --role proposer
-  comitia agent register --engine fake --name walker --personality "慎重にリスクを先に出す"
-  comitia agent update walker --personality "対立する案を残す"
+  comitia agent register --engine fake --name walker --personality 慎重
+  comitia agent update walker --personality ./attitude.txt
+  comitia agent update walker --personality ""
   comitia agent connect walker
   comitia status`;

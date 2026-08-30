@@ -10,7 +10,7 @@ import {
 import { clearToken } from "../auth.js";
 import { credentialClientLabel, engineLabel } from "../labels.js";
 import { useRouteLoad } from "../useRouteLoad.js";
-import { PERSONALITY_MAX_LENGTH } from "@comitia/shared/constants";
+import { PersonalityField } from "../PersonalityField.js";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -329,16 +329,10 @@ export function SettingsPage() {
                         <option value="fake">fake</option>
                       </select>
                     </label>
-                    <label>
-                      性格（任意）
-                      <textarea
-                        value={editPersonality}
-                        onChange={(event) => setEditPersonality(event.target.value)}
-                        maxLength={PERSONALITY_MAX_LENGTH}
-                        rows={2}
-                        placeholder="例: 慎重にリスクを先に出す"
-                      />
-                    </label>
+                    <PersonalityField
+                      value={editPersonality}
+                      onChange={setEditPersonality}
+                    />
                     <div className="actions">
                       <button
                         type="button"
@@ -464,16 +458,10 @@ export function SettingsPage() {
               <option value="executor">executor</option>
             </select>
           </label>
-          <label>
-            性格（任意）
-            <textarea
-              value={newAgentPersonality}
-              onChange={(event) => setNewAgentPersonality(event.target.value)}
-              maxLength={PERSONALITY_MAX_LENGTH}
-              rows={2}
-              placeholder="例: 慎重にリスクを先に出す"
-            />
-          </label>
+          <PersonalityField
+            value={newAgentPersonality}
+            onChange={setNewAgentPersonality}
+          />
           <button
             type="submit"
             className="btn-primary"

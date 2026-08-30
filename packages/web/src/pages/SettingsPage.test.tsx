@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PERSONALITY_PRESETS } from "@comitia/shared/constants";
 import { SettingsPage } from "./SettingsPage.js";
 
 const createAgentMock = vi.fn().mockResolvedValue({
@@ -94,5 +95,38 @@ describe("SettingsPage", () => {
     expect(await screen.findByText("トークン（一度だけ表示）")).toBeInTheDocument();
     expect(screen.getByText("comt_once")).toBeInTheDocument();
     expect(await screen.findByText("ウォーカー")).toBeInTheDocument();
+  });
+
+  it("fills personality from a packaged preset chip", async () => {
+    const user = userEvent.setup();
+    const cautious = PERSONALITY_PRESETS.find((preset) => preset.id === "慎重");
+    listOwnedAgentsMock
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: "a1",
+            displayName: "ウォーカー",
+            engine: "fake",
+            personality: cautious?.body ?? null,
+            ownerParticipantId: "p1",
+          },
+        ],
+      });
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+    await user.type(await screen.findByLabelText("名前"), "ウォーカー");
+    await user.click(await screen.findByRole("button", { name: "慎重" }));
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    expect(createAgentMock).toHaveBeenCalledWith({
+      displayName: "ウォーカー",
+      engine: "claude-code",
+      projectId: "proj-1",
+      role: undefined,
+      personality: cautious?.body,
+    });
   });
 });

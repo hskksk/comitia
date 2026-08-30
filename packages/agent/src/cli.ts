@@ -264,7 +264,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
   if (args[0] === "agent" && args[1] === "update") {
     if (!args[2]) {
       throw new UsageError(
-        "Usage: comitia agent update <name> [--engine <engine>] [--personality <text>]",
+        "Usage: comitia agent update <name> [--engine <engine>] [--personality <name|path>]",
       );
     }
     const options = parseOptions(args.slice(3));
@@ -274,7 +274,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       : undefined;
     if (!engine && personality === undefined) {
       throw new UsageError(
-        "Usage: comitia agent update <name> [--engine <engine>] [--personality <text>]",
+        "Usage: comitia agent update <name> [--engine <engine>] [--personality <name|path>]",
       );
     }
     return {

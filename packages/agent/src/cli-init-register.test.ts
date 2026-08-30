@@ -153,13 +153,13 @@ describe("init and agent register commands", () => {
         "update",
         "mika",
         "--personality",
-        "慎重にリスクを先に出す",
+        "慎重",
       ]),
     ).toEqual({
       command: "agent-update",
       name: "mika",
       engine: undefined,
-      personality: "慎重にリスクを先に出す",
+      personality: "慎重",
     });
     expect(
       parseCliArgs([
@@ -170,7 +170,7 @@ describe("init and agent register commands", () => {
         "--name",
         "walker",
         "--personality",
-        "対立する案を残す",
+        "対立保持",
       ]),
     ).toEqual({
       command: "agent-register",
@@ -178,7 +178,7 @@ describe("init and agent register commands", () => {
       name: "walker",
       role: undefined,
       project: undefined,
-      personality: "対立する案を残す",
+      personality: "対立保持",
     });
   });
 
@@ -368,6 +368,45 @@ describe("init and agent register commands", () => {
       .where(eq(schema.roleAssignments.participantId, walker!.agentId));
     expect(walkerRoles).toHaveLength(1);
     expect(walkerRoles[0]?.role).toBe("proposer");
+  });
+
+  it("registers personality from a packaged resource name", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+
+    const client = new PGlite();
+    cleanups.push(() => client.close());
+    const db = drizzle(client, { schema });
+    const here = dirname(fileURLToPath(import.meta.url));
+    await migrate(db, {
+      migrationsFolder: join(here, "../../board/drizzle"),
+    });
+    const server = await startBoardServer({
+      db: db as unknown as Parameters<typeof startBoardServer>[0]["db"],
+      port: 0,
+    });
+    cleanups.push(() => server.close());
+
+    await initCommand({
+      boardUrl: server.baseUrl,
+      name: "ハル",
+      project: "comitia",
+      configDir,
+    });
+    await registerCommand({
+      name: "walker",
+      engine: "fake",
+      personality: "慎重",
+      configDir,
+    });
+    const walker = (await loadConfig(configDir)).agents.walker;
+    const [row] = await db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.id, walker!.agentId));
+    expect(row?.personality).toBe(
+      "リスクと失敗モードを先に出す。根拠が薄い合意は急がない。壊れる人・壊れる手順を具体的に名指す。",
+    );
   });
 
   it("rejects unsupported engines before making a request", async () => {

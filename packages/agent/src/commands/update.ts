@@ -2,6 +2,7 @@ import { loadConfig, saveConfig } from "../config.js";
 import { assertSupportedEngine } from "../engines.js";
 import { formatHttpError } from "../http-error.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
+import { resolvePersonalitySpec } from "../personality-spec.js";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
 
@@ -33,6 +34,7 @@ export async function updateCommand(
     if (!config.boardUrl) {
       throw new Error("boardUrl が設定されていません。`comitia init` を実行してください。");
     }
+    const personality = resolvePersonalitySpec(options.personality);
     const response = await fetchFn(
       new URL(`/v1/me/agents/${agent.agentId}`, config.boardUrl),
       {
@@ -42,7 +44,7 @@ export async function updateCommand(
           ...ownerAuthHeaders(config),
         },
         body: JSON.stringify({
-          personality: options.personality === "" ? null : options.personality,
+          personality,
         }),
       },
     );
@@ -50,7 +52,7 @@ export async function updateCommand(
       throw new Error(await formatHttpError(response));
     }
     stdout.write(
-      options.personality === ""
+      personality === null
         ? `${options.name} の性格を外しました。\n`
         : `${options.name} の性格を更新しました。\n`,
     );
