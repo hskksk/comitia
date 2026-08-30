@@ -6,7 +6,8 @@ describe("buildRoleGuidance", () => {
     const text = buildRoleGuidance([]);
     expect(text).toContain("ロールは未設定");
     expect(text).toContain("立ち位置を 1 つ選ぶ");
-    expect(text).toContain("選び方は run プロンプトにある");
+    expect(text).toContain("議論の態度があるとき");
+    expect(text).toContain("態度より先に見る");
     expect(text).not.toContain("検討が足りていないことが多い");
     for (const playbook of Object.values(ROLE_PLAYBOOKS)) {
       expect(text).toContain(playbook);
@@ -16,6 +17,7 @@ describe("buildRoleGuidance", () => {
   it("keeps only assigned playbooks, in the given order", () => {
     const text = buildRoleGuidance(["executor", "facilitator"]);
     expect(text).toContain("あなたのロールは 実行（executor）、進行（facilitator）");
+    expect(text).toContain("責任範囲を変えない");
     expect(text).toContain(ROLE_PLAYBOOKS.executor);
     expect(text).toContain(ROLE_PLAYBOOKS.facilitator);
     expect(text).not.toContain(ROLE_PLAYBOOKS.proposer);

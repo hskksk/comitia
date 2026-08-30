@@ -71,12 +71,14 @@ export function buildRoleGuidance(roles: readonly string[]): string {
   const assigned = assignedRoles(roles);
   if (assigned.length === 0) {
     return `ロールは未設定だ。プロジェクトオーナーが付けていないので、場に足りていない役割を自分で判断して振る舞う。
-各ロールの責任は次の通り。今日は全部を同時にやらなくてよい。朝のブリーフィングのあと、場の状況を見て立ち位置を 1 つ選ぶ。選び方は run プロンプトにある。
+各ロールの責任は次の通り。今日は全部を同時にやらなくてよい。朝のブリーフィングのあと、場が必要としている立ち位置を 1 つ選ぶ。
+議論の態度があるときは、場が同時に複数を必要としている候補のうち、態度に近いものを選ぶ。態度は責任範囲ではない。創設ゲートと未着手の決定済み実装は、態度より先に見る。
+選び方の材料は run プロンプトにある。
 
 ${formatPlaybooks(ROLES)}`;
   }
 
-  return `あなたのロールは ${formatRoleNames(assigned)}。この責任範囲で動く。自分のロール外の気づきは起票してよいが、本業にはしない。
+  return `あなたのロールは ${formatRoleNames(assigned)}。この責任範囲で動く。議論の態度は話し方であり、責任範囲を変えない。自分のロール外の気づきは起票してよいが、本業にはしない。
 
 ${formatPlaybooks(assigned)}`;
 }
