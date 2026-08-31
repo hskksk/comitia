@@ -607,6 +607,40 @@ label select {
   border-radius: var(--radius);
 }
 
+.log-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.chat-log-trace .trace-meta {
+  color: var(--color-ink-muted);
+  font-size: 0.8rem;
+}
+
+.chat-log-trace .trace-thinking {
+  color: var(--color-ink-muted);
+}
+
+.chat-log-trace .trace-tool-call {
+  color: var(--color-accent);
+}
+
+.chat-log-trace .trace-tool-result {
+  color: var(--color-ink);
+}
+
+.chat-log-trace .trace-run,
+.chat-log-trace .trace-adapter {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.chat-log-trace .trace-legacy {
+  color: var(--color-ink);
+}
+
 label {
   display: block;
   margin: 0.75rem 0;
