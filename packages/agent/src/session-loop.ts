@@ -31,6 +31,7 @@ import {
   ensureTraceChunkNewline,
   TraceSessionLog,
 } from "./trace-format.js";
+import { createTraceOtelBridge } from "./trace-otel.js";
 
 export interface SessionLoopOptions {
   plugin: EnginePlugin;
@@ -175,6 +176,8 @@ export async function runSessionLoop(
     onTraceError,
   } = options;
 
+  const otel = createTraceOtelBridge({ sessionId });
+
   const traceLog = new TraceSessionLog(
     async (chunk) => {
       try {
@@ -198,6 +201,7 @@ export async function runSessionLoop(
             }
           }
         : undefined,
+      onEvent: (event) => otel.onEvent(event),
     },
   );
 
@@ -411,6 +415,7 @@ export async function runSessionLoop(
     }
   } finally {
     await traceLog.flushPending().catch(() => undefined);
+    await otel.shutdown().catch(() => undefined);
     await plugin.stop();
     if (!keepWorkDir) {
       await rm(workDir, { recursive: true, force: true });

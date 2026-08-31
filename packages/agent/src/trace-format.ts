@@ -187,6 +187,8 @@ export type TraceSessionLogOptions = {
   /** M20-3: coalesce structured entries for POST /trace. */
   onEntries?: (entries: TraceEvent[]) => Promise<void>;
   entriesCoalesce?: TraceCoalesceOptions;
+  /** M20-4: optional side effect on each emitted trace event (e.g. OTel). */
+  onEvent?: (event: TraceEvent) => void;
 };
 
 export class TraceSessionLog {
@@ -223,6 +225,7 @@ export class TraceSessionLog {
     if (this.entriesUploader) {
       this.entriesUploader.enqueueEvent(event);
     }
+    this.options.onEvent?.(event);
     return event;
   }
 
