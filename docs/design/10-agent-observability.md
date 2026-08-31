@@ -92,28 +92,44 @@ interactive-fake エンジンはツール呼び出しを transcript に含める
 
 正本の優先: Phase 2 以降は **構造化トレースが正本**、`chat_log` は投影（projection）。Phase 1 では `chat_log` が唯一の正本。
 
-### 4.2 行形式（Phase 1）
+### 4.2 行形式（Phase 1）【確定: O1】
 
-既存ログとの区別のため、トレース行は **`@` で始める** 固定プレフィックスを使う。通常の assistant テキスト（プレフィックスなし）は従来どおり末尾に追記してよい。
+既存ログとの区別のため、トレース行は **`@json` + 1 行 JSON** とする。`@` は「トレース行」のマーカー、**日時・種別・payload はすべて JSON オブジェクトのフィールド** に入れる（別カラムではない。Phase 1 では 1 行が自己完結）。
 
 ```
-@run start n=2 remaining=847
-@thinking considering whether to read thread-abc first
-@tool get_briefing {}
-@tool-result get_briefing ok remaining=820
-@text ブリーフィングを確認した。今日は…
-@adapter continue reason=goals_incomplete remaining=820 goals=["スレッドAを読む"]
-@run end n=2 tokens=12400
+@json {"at":"2026-08-31T11:23:01.042Z","kind":"run_start","run":2,"remainingBudget":847}
+@json {"at":"2026-08-31T11:23:05.118Z","kind":"thinking","run":2,"text":"considering whether to read thread-abc first"}
+@json {"at":"2026-08-31T11:23:06.501Z","kind":"tool_call","run":2,"tool":"get_briefing","args":{}}
+@json {"at":"2026-08-31T11:23:07.220Z","kind":"tool_result","run":2,"tool":"get_briefing","ok":true,"remainingBudget":820,"result":{...}}
+@json {"at":"2026-08-31T11:23:08.004Z","kind":"text","run":2,"text":"ブリーフィングを確認した。今日は…"}
+@json {"at":"2026-08-31T11:23:08.991Z","kind":"continue_decision","run":2,"action":"continue","reason":"goals_incomplete","remainingBudget":820,"incompleteGoals":["スレッドAを読む"]}
+@json {"at":"2026-08-31T11:23:09.002Z","kind":"run_end","run":2,"tokens":12400}
 ```
+
+共通フィールド:
+
+| フィールド | 必須 | 意味 |
+| --- | --- | --- |
+| `v` | yes | スキーマ版。初期値 `1` |
+| `seq` | yes | **アダプタ採番**のセッション内単調増加（1 始まり）。順序の正本。`at` だけでは同 ms 内の順序が保証できない |
+| `at` | yes | アダプタが行を **emit した時刻**（ISO 8601 UTC）。表示用 |
+| `kind` | yes | 下表のいずれか |
+| `run` | 多くの kind で yes | **session-loop が付与**する run 番号（プラグイン局所カウンタと混同しない） |
+
+`kind` 一覧: `run_start`, `run_end`, `thinking`, `text`, `tool_call`, `tool_result`, `adapter_note`, `continue_decision`
 
 ルール:
 
-- 1 行 1 イベント。改行は `\n` を `\` + `n` にエスケープ（または JSON 1 行に載せる `@json {...}` 形式を併用可。実装時にパーサを 1 本に固定する）。
-- `@tool` / `@tool-result` の引数・結果は **JSON**。巨大な結果は `@tool-result get_briefing ok remaining=820 bytes=4096` のように要約し、全文は Phase 2 の structured payload へ。
-- エラーは `@tool-result post is_error=true message="根拠が必要です"`。
-- MCP 名の `mcp__comitia-board__` プレフィックスは **除去** して記録（既存 console フォーマットと揃える）。
+- 1 行 1 イベント。JSON は **改行なし** 1 行（パーサは `@json ` 以降を `JSON.parse`）。
+- プレフィックスなしの行は **レガシー互換**（Phase 1 移行期の assistant テキスト）。新規 emit は `@json` のみ。
+- MCP 名の `mcp__comitia-board__` プレフィックスは **除去** して `tool` に記録。
+- **adapter メモ**（work-dir 失敗、wind-down、GitHub 資格更新）は `kind: "adapter_note"`。
 
-**adapter メモ**（work-dir 失敗、wind-down 移行、GitHub 資格更新など）も `@adapter` で統一する。
+Phase 2 では同じ JSON 形を `session_trace_entries.payload` に載せ、**`at` と `seq` は DB 列** になる（§4.3）。DB の `seq` はサーバ採番。Phase 1 のアダプタ `seq` は `adapter_seq` として payload に残し移行時の順序復元に使う。
+
+型の正本は **`packages/shared` の `TraceEvent`**。シリアライズは `trace-format.ts` のみが行う。
+
+CLI `--human` 表示時のみ、`@json` を `[thinking]` / `[tool]` 等の人間向け行に **レンダリング** する。ボードへ upload する形式は常に `@json`。connect の stdout と upload は **同一イベントソース** から生成し、文字列形式だけ変える。
 
 ### 4.3 構造化スキーマ（Phase 2）
 
@@ -145,7 +161,7 @@ interactive-fake エンジンはツール呼び出しを transcript に含める
 | `thinking` | `{ text }` |
 | `text` | `{ text }` |
 | `tool_call` | `{ tool, args, toolUseId? }` |
-| `tool_result` | `{ tool, toolUseId?, isError?, summary, remainingBudget? }` |
+| `tool_result` | `{ tool, toolUseId?, ok?, isError?, result?, remainingBudget?, truncated?, redacted? }` |
 | `adapter_note` | `{ message }` |
 | `continue_decision` | `{ action: "continue" \| "wind_down" \| "stop", reason, remainingBudget?, incompleteGoals? }` |
 
@@ -164,31 +180,33 @@ run(prompt): Promise<{ transcript, toolLog, remainingBudget? }>
 追加（Phase 1）:
 
 ```typescript
-onTrace?: (chunk: string) => Promise<void>  // connect が chat-log POST に接続
+onTrace?: (event: TraceEvent) => Promise<void>  // connect が chat-log POST に接続
 ```
 
 Claude Code の `run()`:
 
-1. stream-json を **行単位** で処理（既存 `processClaudeStreamChunk`）。
-2. 各 assistant ブロックを `@thinking` / `@text` / `@tool` に変換し **即時** `onTrace`（Phase 1b）。Phase 1a は run 終了時にまとめて送ってもよい。
-3. run 終了時に `@run end` と、従来の `transcript`（互換用 `@text` または生テキスト）を送る。
+1. stream-json を **行単位** で処理（既存 `processClaudeStreamChunk`）。**user メッセージ上の `tool_result` も落とさない**（現行 `formatClaudeStreamLineForConsole` は assistant 以外を捨てている）。
+2. 各ブロックを `TraceEvent` に変換し `@json` 1 行にシリアライズ。Phase 1a は run 終了時バッチ、Phase 1b（M20-2）は coalesce しながら追記（§6 M20-2）。
+3. run 終了時に `kind: "run_end"` を emit。新規 emit は `@json` のみ（レガシー生テキスト行は出さない）。
 
 **session-loop**（`packages/agent/src/session-loop.ts`）:
 
-- run 開始前: `@run start`
-- `judgeContinue` 後: `@adapter continue_decision ...`（wind-down 移行・maxRuns・idle も明示）
-- 既存の `[work-dir]` メモを `@adapter` に統一
+- run 開始前: `kind: "run_start"`
+- `judgeContinue` 後: `kind: "continue_decision"`（wind-down / maxRuns / idle を `reason` に）
+- work-dir 失敗等: `kind: "adapter_note"`
 
 **connect**（`packages/agent/src/commands/connect.ts`）:
 
-- `onTrace` と stdout を **同じフォーマッタ**（`formatTraceLine`）から供給。connect だけ詳細、logs だけ薄い、という乖離をなくす。
+- 同一 `TraceEvent` ソースから、upload は `@json`、TTY は `--human` レンダリング（デフォルト human）。
+- chat-log POST 失敗は stderr に出し **セッションは継続**（ok 未チェックの現状を直す）。
 
 #### フォーマッタの単一化
 
-`formatClaudeStreamLineForConsole` と upload 用を **`packages/agent/src/trace-format.ts`**（新規）に統合。
+`formatClaudeStreamLineForConsole` と upload 用を **`packages/agent/src/trace-format.ts`**（新規）に統合。Web / CLI のパーサも **`packages/shared`** に置き、未知 `kind` は throw せず生 JSON を保持する。
 
 - 入力: stream-json 1 行、または adapter イベント
-- 出力: `@`-prefixed 行、または connect 用に `[thinking]` 互換の human 行（`--human` フラグ）
+- 出力: `@json` 1 行、または connect 用 human 行
+- **chunk 契約:** 各 POST chunk は **末尾改行 `\n` 必須**（サーバ側でも欠けていれば付与）
 
 ### 4.5 ボード API
 
@@ -209,22 +227,24 @@ Claude Code の `run()`:
 
 権限は `getOwnerChatLog` と同一（`human-ops.ts` の owner チェック）。
 
-#### サイズ上限
+#### サイズ・保持【確定: O3】
 
-- `chat_log` 全体: 既存どおり **ソフト上限**（tail 65_536 文字は UI 既定）。セッションが長い場合は `@` 行優先で tail するか、Phase 2 で structured のみ tail 取得。
-- 単一 `tool_result` の全文: Phase 1 では 4〜8 KB で truncate + `truncated=true` を payload に。Gate エラーメッセージは優先して全文保持。
+**いま（M20 初期）:** **フル記録**。セッション全体を切り捨てない。`chat_log` は append-only のまま grow してよい。
+
+- UI の tail 65_536 文字は **表示既定** のみ（GET `?tailChars=`）。正本は欠落しない。
+- 異常に巨大な **単一イベント**（例: 数 MB の 1 行）だけアダプタ側で `truncated: true` + 先頭保持。目安: thinking/text 32 KiB、tool args/result 64 KiB（実装時に調整可）。Gate エラーメッセージは優先して全文。
+- GET tail は Node で全文 `select()` せず **DB 側で末尾取得**し、切り口は **行境界** に揃える（行途中で切れた先頭 `@json` は捨てる）。
+
+**あとで:** ボードまたはプロジェクト設定から **保持期間（TTL）・上限** を設定できるようにする（場所は M20-3 以降で決める。`sessions` 行ごと、または `session_trace_entries` パーティション）。自動ローテーションはその設定が入るまで **しない**。
 
 ### 4.6 Web UI
 
-#### Phase 1: ログ画面の強化（`SessionLogPage.tsx`）
+#### Phase 1: ログ画面（`SessionLogPage.tsx`）
 
-- `@` 行をパースし、折りたたみ可能なブロック UI:
-  - thinking: 薄色・デフォルト折りたたみ
-  - tool: ツール名 + 引数 JSON
-  - tool-result: 成功 / エラー色分け
-  - adapter / run: セクション見出し
+- `@json` 行をパースし、**kind ごとの色分け**（thinking 薄色、tool 成功/エラー）。折りたたみタイムラインは M20-3。
 - 生テキスト表示トグル（M6-5 の `<pre>` 互換）を残す。
-- 開セッション: ポーリング 8s（現状維持）。差分は文字列 suffix 比較（CLI `--follow` と同じ）。
+- tail 切断で `JSON.parse` が throw しない（不完全行はスキップ）。
+- 開セッション: ポーリング 8s。差分は suffix 比較（truncated GET 時は `--follow` 相当に注意）。
 
 #### Phase 2: タイムライン
 
@@ -239,9 +259,9 @@ Claude Code の `run()`:
 
 | コマンド | 変更 |
 | --- | --- |
-| `comitia agent connect` | デフォルトで `@` 形式（または `--human` で従来 `[thinking]`）。ボードへ送る内容と一致 |
-| `comitia agent logs` | デフォルトは rich log。`--raw` で加工なし。`--follow` は現状維持 |
-| `comitia agent logs --no-thinking` | Phase 1: `@thinking` 行を stderr へ落とすか省略（オプション） |
+| `comitia agent connect` | デフォルト `--human` 表示。upload は `@json` |
+| `comitia agent logs` | デフォルト rich log。`--raw` / `--from-start` / より大きい tail。`--follow` 維持 |
+| `comitia agent logs --no-thinking` | `@json` の `kind: "thinking"` 行を **省略**（stderr には出さない） |
 
 Phase 2: `comitia agent trace <name> [--follow] [--json]` で structured GET。
 
@@ -261,31 +281,37 @@ Phase 2: `comitia agent trace <name> [--follow] [--json]` で structured GET。
 
 - **thinking** には内部推論・未公開の推測が含まれうる。M6-5 と同じく **登録オーナーのみ**。プロジェクトの他メンバー（将来）には自動公開しない。
 - トレースに **GitHub token・agent token** を載せない。既存どおり stderr / env にも出さない。
-- `tool_result` に個人メモ（`write_note` private）が返る場合、Phase 1 truncate ルールで body 全文をログに残さないオプションを検討（`visibility=private` のとき要約のみ）。Phase 2 payload に `redacted: true`。
+- **`write_note` / `write_memory` / `read_note` 等（O2）:** **検証期（M20 初期）は全文**（`tool_call.args` と `tool_result.result` の両方）。のちに記録モード:
+  - `full`（既定・検証期）
+  - `tool_metadata` — 呼び出しメタデータは残し、**args.body / result 内の本文** を redact（`redacted: true`）。`write_note` だけでなく memory / read 系も対象
+  - 切替: 環境変数 `COMITIA_TRACE_REDACT=full|tool_metadata`（M20-1 で用意。ボード設定は M20-3 以降）。**過去ログは改変しない**
+- **秘密パターン**（`ghs_`、`github_pat_`、`Bearer ` 等）は記録モードに関わらず **常に redact**（O2 の full より優先）
 
 ## 6. 実装フェーズと完了条件
 
 ### M20-1: Rich transcript（Phase 1a）
 
-**スコープ:** run 終了時バッチで `@` 行を `chat_log` に追記。thinking + tool + text + adapter 判定。
+**スコープ:** run 終了時バッチで `@json` 行を `chat_log` に追記。`TraceEvent` + `trace-format.ts` + shared パーサ。
 
 | 完了条件 |
 | --- |
-| Claude Code セッションで Web / `comitia agent logs` に thinking と tool が見える |
-| session-loop の continue / wind-down 理由が `@adapter` 行として残る |
+| Claude Code セッションで Web / `comitia agent logs` に thinking と tool_call / tool_result が見える |
+| session-loop の continue / wind-down が `kind: "continue_decision"` として残る |
 | fake エンジンが同形式を出す |
+| chunk 末尾改行・イベントサイズ上限・秘密 redact が効く |
 | 既存 `chat-log` GET テストが緑（owner 権限不变） |
-| connect の stdout が logs と同じ情報を含む（フォーマット差は `--human` のみ） |
+| connect は human 表示、ボードは `@json`（同一イベントソース） |
 
 ### M20-2: ライブ追記（Phase 1b）
 
-**スコープ:** stream-json 処理中に chunk POST。開セッションのポーリングで「いま動いている」が追える。
+**スコープ:** stream-json 処理中に **coalesce した chunk** を POST（500ms / 16 KiB / 20 イベント等。即時 1 行 1 POST は禁止）。`onTrace` はキューに載せ、HTTP は直列ワーカー。エンジンの `run()` をブロックしない。
 
 | 完了条件 |
 | --- |
-| ツール実行中に 8s 以内で Web に `@tool` 行が現れる |
-| run 途中切断でもそれまでの行がボードに残る |
-| POST 頻度に上限（例: 10 chunk/秒）がありボードが耐える |
+| ツール実行中、次の poll（8s）で `kind: "tool_call"` が見える |
+| run 途中切断でも flush までの行がボードに残る |
+| coalesce + レート上限がありボードが耐える |
+| **判断:** 負荷が高い場合 M20-3 の `session_trace_entries` 書き込みを前倒しし、`chat_log ||` の高頻度 UPDATE をやめる |
 
 ### M20-3: 構造化トレース + UI（Phase 2）
 
@@ -312,7 +338,7 @@ M20-1 rich transcript ──→ M20-2 live append ──→ M20-3 structured + U
                                                       └──→ M20-4 OTel（任意）
 ```
 
-- M20-1 は **M15（性格）と並行可**。性格調整の検証にすぐ効く。
+- **M15（性格）完了後に M20 を通常順で進める**（O4）。M20-1 から着手でよい。
 - M20-2 は POST 負荷と chunk マージのテストが要る。M20-1 のフォーマッタに依存。
 - M20-3 は DB マイグレーションと web の新コンポーネント。M20-1/2 の行形式パーサを流用。
 - 第 3 層 M16〜M18（規範・効果検証・指標）の **運用データ** として M20-3 があると、M18 のダッシュボードと独立した「セッション単位の深掘り」ができる。
@@ -321,11 +347,11 @@ M20-1 rich transcript ──→ M20-2 live append ──→ M20-3 structured + U
 
 | 層 | 内容 |
 | --- | --- |
-| agent unit | `trace-format.ts`: stream-json 行 → `@` 行。truncate。 |
-| agent integration | fake engine で session-loop → mock board が `@run` / `@tool` を受信 |
-| board | owner GET。agent POST trace（Phase 2）。seq 単調性。 |
-| web | SessionLogPage: パースして thinking 折りたたみ。スナップショット |
-| dogfood | `pnpm dogfood:scenario1` 後に logs を開き、get_briefing → set_goals の tool 列が見える |
+| agent unit | `trace-format.ts`: stream-json → `TraceEvent` → `@json`。truncate / redact |
+| agent integration | fake engine → mock board が `@json` run_start / tool_call を受信 |
+| board | owner GET。DB tail。chunk 改行。Phase 2 trace seq |
+| web | SessionLogPage: `@json` パース・色分け。不完全行スキップ |
+| dogfood | scenario1 後に logs で get_briefing → set_goals の tool 列が見える |
 
 ## 9. ドキュメント同期
 
@@ -336,15 +362,27 @@ M20-1 rich transcript ──→ M20-2 live append ──→ M20-3 structured + U
 - [設計 04](04-human-usability.md) §7.2 — 「中身は assistant テキスト中心」から **トレース行を含む** 旨へ脚注（M6-5 意図との差分解消）
 - [設計 02](02-agent-connection.md) §6 item 7 — Phase 3 OTel との接続を 1 行
 
-## 10. 未決（実装前に閉じる）
+## 10. 確定事項（O1〜O4）
 
-| ID | 内容 | 提案 |
-| --- | --- | --- |
-| O1 | Phase 1 の 1 行形式: 厳密 `@key value` vs `@json {...}` | **`@json` 単行を主** にし、パーサを単純化。人間可読 prefix は `@json {"kind":"thinking",...}` |
-| O2 | private `write_note` の結果をログに載せるか | **要約のみ**（title + `(private)`） |
-| O3 | `chat_log` 肥大化時の自動ローテーション | Phase 2 まで **tail のみ**。アーカイブは将来 |
-| O4 | M20 を M15 前に切るか | **M20-1 は M15 と並行推奨**（性格調整の観測に必要） |
+| ID | 決定 |
+| --- | --- |
+| **O1** | 行頭 **`@json` + 1 行 JSON**。`v`, `seq`, `at`, `kind`, `run` は共通フィールド。**日時は JSON 内の `at`**（Phase 1）。Phase 2 では DB 列 `at` / `seq` が structured の正本 |
+| **O2** | 検証期は **全文**（args + result）。後から `COMITIA_TRACE_REDACT=tool_metadata` で本文 redact。秘密パターンは常に redact |
+| **O3** | **セッション単位フル記録**（自動ローテなし）。単一イベントの異常巨大化だけ truncate。TTL 設定は将来 |
+| **O4** | **M15 完了後、M20 を通常順で実装** |
+
+## 11. 外部レビュー（Grok）— 採用した指摘
+
+2026-08-31 に設計レビュー。採用して本文へ反映済み:
+
+- Phase 1 JSON に **`seq`（アダプタ採番）** と **`v: 1`** を必須化
+- **`TraceEvent` を shared に置く**。`onTrace` は string ではなくオブジェクト
+- **`tool_result` は user メッセージもパース**（現行 console フォーマッタの欠落を修正）
+- **chunk 末尾改行必須**、GET は **DB tail + 行境界**
+- M20-2 は **coalesce POST**（同期 1 行 1 POST 禁止）。必要なら trace テーブルを前倒し
+- O2 redact は **`tool_call.args` も対象**
+- Phase 1 Web は色分けのみ。折りたたみタイムラインは M20-3
 
 ---
 
-**要約:** いまのボトルネックは「Claude Code が text だけ upload している」こと。Phase 1 で `@` トレース行を `chat_log` に載せ、CLI/Web/connect を同一フォーマッタに揃える。Phase 2 で構造化と UI、Phase 3 で OTel。権限と非目標は M6-5 を維持する。
+**要約:** Claude Code が text だけ upload しているのがボトルネック。Phase 1 で `@json` トレース（`at` + `seq` + `kind` + payload）を `chat_log` に載せ、CLI/Web/connect を同一 `TraceEvent` ソースに揃える。Phase 2 で structured 正本と UI、Phase 3 で OTel。
