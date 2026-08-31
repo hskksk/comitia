@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z, ZodError } from "zod";
-import { PROJECT_ID_HEADER, type TickType } from "@comitia/shared";
+import { PROJECT_ID_HEADER, TRACE_CHUNK_MAX_BYTES, type TickType } from "@comitia/shared";
 import { agentConnections, agentCredentials, sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { addTokenUsage } from "../domain/activity.js";
@@ -316,6 +316,12 @@ export function createBoardApp(input: {
     const participant = c.get("participant");
     const sessionId = c.req.param("id");
     const body = z.object({ chunk: z.string() }).parse(await c.req.json());
+    if (Buffer.byteLength(body.chunk, "utf8") > TRACE_CHUNK_MAX_BYTES) {
+      return c.json(
+        { error: `chunk exceeds ${TRACE_CHUNK_MAX_BYTES} bytes` },
+        413,
+      );
+    }
     const chunk = body.chunk.endsWith("\n") ? body.chunk : `${body.chunk}\n`;
     const session = await getSessionById(db, sessionId);
     if (session.participantId !== participant.id) {

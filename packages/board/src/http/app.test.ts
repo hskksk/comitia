@@ -5,6 +5,7 @@ import { db } from "../test/helpers.js";
 import { agentConnections, sessions, ticks } from "../db/schema.js";
 import { prepareSessionStart } from "../domain/sessions.js";
 import type { TickType } from "@comitia/shared";
+import { TRACE_CHUNK_MAX_BYTES } from "@comitia/shared";
 import { createBoardApp, type BoardGateway } from "./app.js";
 import { startBoardServer } from "./server.js";
 
@@ -548,6 +549,17 @@ describe("board HTTP", () => {
       .from(sessions)
       .where(eq(sessions.id, sessionId));
     expect(row?.chatLog).toBe("hello \nworld\n");
+
+    const oversized = "x".repeat(TRACE_CHUNK_MAX_BYTES);
+    const tooLarge = await app.request(`/v1/sessions/${sessionId}/chat-log`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({ chunk: oversized + "y" }),
+    });
+    expect(tooLarge.status).toBe(413);
 
     const usageRes = await app.request(`/v1/sessions/${sessionId}/token-usage`, {
       method: "POST",

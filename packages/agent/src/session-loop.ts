@@ -29,7 +29,6 @@ import type { EngineGithubAuth } from "./plugins/types.js";
 import {
   adapterNoteEvent,
   ensureTraceChunkNewline,
-  toolLogToTraceEvents,
   TraceSessionLog,
 } from "./trace-format.js";
 
@@ -172,19 +171,22 @@ export async function runSessionLoop(
     onChatLogError,
   } = options;
 
-  const traceLog = new TraceSessionLog(async (chunk) => {
-    try {
-      await onChatLog(ensureTraceChunkNewline(chunk));
-    } catch (error) {
-      onChatLogError?.(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  });
+  const traceLog = new TraceSessionLog(
+    async (chunk) => {
+      try {
+        await onChatLog(ensureTraceChunkNewline(chunk));
+      } catch (error) {
+        onChatLogError?.(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    },
+    { live: true },
+  );
 
-  async function flushTrace(events: TraceEvent[]): Promise<void> {
+  async function flushTracePending(): Promise<void> {
     try {
-      await traceLog.flush(events);
+      await traceLog.flushPending();
     } catch (error) {
       onChatLogError?.(
         error instanceof Error ? error.message : String(error),
@@ -227,7 +229,7 @@ export async function runSessionLoop(
           : `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。GitHub 実行資格が無い（プロジェクトに App 未接続のことが多い）。ホストの GH_TOKEN は使わない。作業ディレクトリの中身無しで続行する。`;
         console.error(note);
         const noteEvent = traceLog.emit(adapterNoteEvent(undefined, note));
-        await flushTrace([noteEvent]);
+        await traceLog.flush([noteEvent]);
       }
     }
 
@@ -301,16 +303,18 @@ export async function runSessionLoop(
         );
       }
 
-      const runEvents: TraceEvent[] = [];
-      runEvents.push(
-        traceLog.emit({
-          kind: "run_start",
-          run: runIndex,
-          remainingBudget: priorDecision?.remainingBudget ?? undefined,
-        }),
-      );
+      traceLog.emit({
+        kind: "run_start",
+        run: runIndex,
+        remainingBudget: priorDecision?.remainingBudget ?? undefined,
+      });
+      await flushTracePending();
 
-      const result = await plugin.run(prompt, { run: runIndex, trace: traceLog });
+      const result = await plugin.run(prompt, {
+        run: runIndex,
+        trace: traceLog,
+        traceLive: true,
+      });
       for (const item of result.toolLog) {
         entries.push({
           run: item.run,
@@ -331,20 +335,14 @@ export async function runSessionLoop(
         );
       }
 
-      if (result.traceEvents && result.traceEvents.length > 0) {
-        runEvents.push(...result.traceEvents);
-      } else if (result.toolLog.length > 0) {
-        runEvents.push(...toolLogToTraceEvents(runIndex, result.toolLog, traceLog));
-      }
+      await flushTracePending();
 
-      runEvents.push(
-        traceLog.emit({
-          kind: "run_end",
-          run: runIndex,
-          tokens: report.tokens,
-        }),
-      );
-      await flushTrace(runEvents);
+      traceLog.emit({
+        kind: "run_end",
+        run: runIndex,
+        tokens: report.tokens,
+      });
+      await flushTracePending();
 
       const decision = judgeContinue({
         entries,
@@ -359,7 +357,7 @@ export async function runSessionLoop(
         return;
       }
 
-      const continueEvent = traceLog.emit({
+      traceLog.emit({
         kind: "continue_decision",
         run: runIndex,
         action:
@@ -370,7 +368,7 @@ export async function runSessionLoop(
         remainingBudget: decision.remainingBudget ?? undefined,
         incompleteGoals: decision.incompleteGoalTexts,
       });
-      await flushTrace([continueEvent]);
+      await flushTracePending();
 
       if (phase === "wind-down") {
         stopReason = "wind-down 後も end_session 未実行";
@@ -389,6 +387,7 @@ export async function runSessionLoop(
       }
     }
   } finally {
+    await traceLog.flushPending().catch(() => undefined);
     await plugin.stop();
     if (!keepWorkDir) {
       await rm(workDir, { recursive: true, force: true });

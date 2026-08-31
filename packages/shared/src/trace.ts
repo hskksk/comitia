@@ -24,6 +24,9 @@ export type TraceEvent = {
 
 export const TRACE_LINE_PREFIX = "@json ";
 
+/** Max bytes per POST to `/v1/sessions/:id/chat-log` (M20-2). */
+export const TRACE_CHUNK_MAX_BYTES = 256 * 1024;
+
 export function isTraceLine(line: string): boolean {
   return line.startsWith(TRACE_LINE_PREFIX);
 }
