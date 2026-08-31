@@ -20,6 +20,7 @@ export const participants = pgTable(
     displayName: text("display_name").notNull(),
     ownerParticipantId: uuid("owner_participant_id"),
     engine: text("engine"),
+    personality: text("personality"),
     githubUserId: text("github_user_id"),
     githubLogin: text("github_login"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),

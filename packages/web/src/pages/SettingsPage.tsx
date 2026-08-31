@@ -10,6 +10,7 @@ import {
 import { clearToken } from "../auth.js";
 import { credentialClientLabel, engineLabel } from "../labels.js";
 import { useRouteLoad } from "../useRouteLoad.js";
+import { PersonalityField } from "../PersonalityField.js";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -27,12 +28,14 @@ export function SettingsPage() {
   const [newAgentEngine, setNewAgentEngine] = useState("claude-code");
   const [newAgentProjectId, setNewAgentProjectId] = useState("");
   const [newAgentRole, setNewAgentRole] = useState("");
+  const [newAgentPersonality, setNewAgentPersonality] = useState("");
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const tokenRevealRef = useRef<HTMLDivElement>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editEngine, setEditEngine] = useState("claude-code");
+  const [editPersonality, setEditPersonality] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
 
@@ -110,10 +113,12 @@ export function SettingsPage() {
         engine: newAgentEngine,
         projectId: newAgentProjectId,
         role: newAgentRole || undefined,
+        personality: newAgentPersonality.trim() || undefined,
       });
       setCreatedToken(result.agentToken);
       setNewAgentName("");
       setNewAgentRole("");
+      setNewAgentPersonality("");
       await reloadAgents();
       requestAnimationFrame(() => {
         const element = tokenRevealRef.current;
@@ -138,6 +143,7 @@ export function SettingsPage() {
       await boardClient.updateOwnedAgent(agentId, {
         displayName: editName.trim() || undefined,
         engine: editEngine,
+        personality: editPersonality.trim() ? editPersonality.trim() : null,
       });
       setEditingId(null);
       await reloadAgents();
@@ -323,6 +329,10 @@ export function SettingsPage() {
                         <option value="fake">fake</option>
                       </select>
                     </label>
+                    <PersonalityField
+                      value={editPersonality}
+                      onChange={setEditPersonality}
+                    />
                     <div className="actions">
                       <button
                         type="button"
@@ -347,6 +357,9 @@ export function SettingsPage() {
                       <strong>{agent.displayName}</strong>{" "}
                       <span className="muted">· {engineLabel(agent.engine)}</span>
                     </p>
+                    {agent.personality ? (
+                      <p className="muted">態度: {agent.personality}</p>
+                    ) : null}
                     <div className="actions">
                       <button
                         type="button"
@@ -355,6 +368,7 @@ export function SettingsPage() {
                           setEditingId(agent.id);
                           setEditName(agent.displayName);
                           setEditEngine(agent.engine);
+                          setEditPersonality(agent.personality ?? "");
                         }}
                       >
                         編集
@@ -444,6 +458,10 @@ export function SettingsPage() {
               <option value="executor">executor</option>
             </select>
           </label>
+          <PersonalityField
+            value={newAgentPersonality}
+            onChange={setNewAgentPersonality}
+          />
           <button
             type="submit"
             className="btn-primary"

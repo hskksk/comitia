@@ -5,6 +5,7 @@ import type { Db } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation, NotFoundError, PermissionDenied } from "./errors.js";
 import { getParticipant } from "./helpers.js";
+import { normalizePersonality } from "./personality.js";
 
 export async function listOwnedAgents(db: Db, ownerParticipantId: string) {
   return db
@@ -26,6 +27,7 @@ export async function updateOwnedAgent(
     agentId: string;
     displayName?: string;
     engine?: string;
+    personality?: string | null;
   },
 ) {
   const agent = await getParticipant(db, input.agentId);
@@ -44,6 +46,10 @@ export async function updateOwnedAgent(
   if (input.engine !== undefined && !isSupportedEngine(input.engine)) {
     throw new GateViolation(`engine must be one of: ${ENGINES.join(", ")}`);
   }
+  const personality =
+    input.personality === undefined
+      ? undefined
+      : normalizePersonality(input.personality);
   const [updated] = await db
     .update(participants)
     .set({
@@ -51,6 +57,7 @@ export async function updateOwnedAgent(
         ? { displayName: input.displayName }
         : {}),
       ...(input.engine !== undefined ? { engine: input.engine } : {}),
+      ...(personality !== undefined ? { personality } : {}),
     })
     .where(eq(participants.id, agent.id))
     .returning();
@@ -61,6 +68,7 @@ export async function updateOwnedAgent(
       agentId: agent.id,
       displayName: updated!.displayName,
       engine: updated!.engine,
+      personality: updated!.personality,
     },
   });
   return updated!;

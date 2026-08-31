@@ -127,6 +127,11 @@ export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
 export const ENGINES = ["claude-code", "fake"] as const;
 export type Engine = (typeof ENGINES)[number];
 
+/** Agent discussion attitude (M15). Counted in Unicode code points. */
+export const PERSONALITY_MAX_LENGTH = 200;
+
+export * from "./personality-presets.js";
+
 export function isSupportedEngine(value: string): value is Engine {
   return (ENGINES as readonly string[]).includes(value);
 }

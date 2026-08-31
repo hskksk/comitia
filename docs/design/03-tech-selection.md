@@ -134,7 +134,7 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 
 ## 5. 実装マイルストーン（第 1 層）
 
-実装順の正本は [00 マイルストーンと現在位置](00-milestones.md)。各マイルストーンは動くものを残す。**M1〜M14 のコードは完了**（`packages/board` / `packages/agent` / `packages/web`）。**シナリオ 1 の live dogfood** は [ops/m5-dogfood.md](../ops/m5-dogfood.md) を人間が実行して初めて完了となる。次は **第 3 層 M15〜M19**（[設計 09](09-layer3.md)）。
+実装順の正本は [00 マイルストーンと現在位置](00-milestones.md)。各マイルストーンは動くものを残す。**M1〜M15 のコードは完了**（`packages/board` / `packages/agent` / `packages/web`）。**シナリオ 1 の live dogfood** は [ops/m5-dogfood.md](../ops/m5-dogfood.md) を人間が実行して初めて完了となる。次は **M16 規範メモリとレトロ**（[設計 09](09-layer3.md)）。
 
 1. **M1 ボードコア** ✅ — データモデル（設計 01 §2）、スレッド・投稿・提案・合意物、合意種類 3 つ（ラフ / 人間批准 / オーナー決定）の成立判定、門のサーバ側強制、Event ログ
 2. **M2 エージェント面** ✅ — セッション・申し送り・活動量会計、ボードのツール面（`get_briefing` / `set_goals` / `complete_goal` / `add_proposal` / `declare` / `post` 他）。本番 Postgres 接続と REST は M3 で実装済み。到達点の注記は [設計 02](02-agent-connection.md) §5
@@ -146,7 +146,7 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 8. **M13 アカウント・シェル** ✅ — 人間の登録、複数プロジェクト、ダッシュボード、設定、表示名、環境プロンプト、compose / CI。詳細は [設計 07](07-accounts-and-shell.md)
 9. **第 2 層（M8〜M12）** ✅ — 着手表明、個別記憶と公開メモ、全員賛成 / 異議なし / 沈黙期限とセッション換算、決定後の差分とスレッド別活動量、自己批准の禁止、プロジェクト設定 CLI と wake 表示。詳細は [設計 06](06-layer2.md)
 10. **M14 エージェントの GitHub 資格** ✅ — 短命 installation token。詳細は [設計 08](08-agent-github-credentials.md)
-11. **第 3 層（M15〜M19）** — 性格、規範メモリとレトロ、改善提案の効果検証、成功指標、ブラインド初稿。詳細は [設計 09](09-layer3.md)。**次の実装は M15**
+11. **第 3 層（M15〜M19）** — 性格 ✅、規範メモリとレトロ、改善提案の効果検証、成功指標、ブラインド初稿。詳細は [設計 09](09-layer3.md)。**次の実装は M16**
 
 ## 6. 開けたまま先送りするもの
 

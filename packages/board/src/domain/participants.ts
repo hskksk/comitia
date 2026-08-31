@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 import { participants } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
-import { NotFoundError } from "./errors.js";
+import { GateViolation, NotFoundError } from "./errors.js";
 import { recordEvent } from "./events.js";
+import { normalizePersonality } from "./personality.js";
 
 export async function registerParticipant(
   db: Db,
@@ -11,8 +12,14 @@ export async function registerParticipant(
     displayName: string;
     ownerParticipantId?: string;
     engine?: string;
+    personality?: string | null;
   },
 ) {
+  if (input.kind !== "agent" && input.personality) {
+    throw new GateViolation("性格はエージェントにだけ付けられます");
+  }
+  const personality =
+    input.kind === "agent" ? normalizePersonality(input.personality) : null;
   const [participant] = await db
     .insert(participants)
     .values({
@@ -20,6 +27,7 @@ export async function registerParticipant(
       displayName: input.displayName,
       ownerParticipantId: input.ownerParticipantId ?? null,
       engine: input.engine ?? null,
+      personality,
     })
     .returning();
 

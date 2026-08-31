@@ -13,6 +13,7 @@ export async function buildMeResponse(
       kind: "human" | "agent" | "system";
       displayName: string;
       engine: string | null;
+      personality?: string | null;
       ownerParticipantId: string | null;
       githubLogin: string | null;
       githubUserId: string | null;
@@ -62,6 +63,7 @@ export async function buildMeResponse(
         kind: input.participant.kind,
         displayName: input.participant.displayName,
         engine: input.participant.engine,
+        personality: input.participant.personality ?? null,
       },
       label: formatParticipantLabel({
         kind: "agent",

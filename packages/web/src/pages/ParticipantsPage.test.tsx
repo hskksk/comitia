@@ -24,6 +24,7 @@ const participantsMock = vi.fn().mockResolvedValue({
       displayName: "ミカ",
       label: "ミカ@ハル",
       engine: "claude-code",
+      personality: "対立する案を残す",
       ownerParticipantId: "owner-1",
       roles: ["facilitator"],
       connection: { status: "disconnected", lastSeenAt: null },
@@ -60,6 +61,7 @@ describe("ParticipantsPage", () => {
     );
     expect(await screen.findByText("ミカ@ハル")).toBeInTheDocument();
     expect(screen.getByText(/claude-code/)).toBeInTheDocument();
+    expect(screen.getByText("態度: 対立する案を残す")).toBeInTheDocument();
     expect(screen.getByText("切断")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "ログ" })).toHaveAttribute(
       "href",

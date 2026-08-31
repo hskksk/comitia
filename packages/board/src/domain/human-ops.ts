@@ -209,6 +209,7 @@ export async function listProjectParticipants(db: Db, projectId: string) {
             : undefined,
         }),
         engine: person.engine,
+        personality: person.kind === "agent" ? person.personality : null,
         ownerParticipantId: person.ownerParticipantId,
         archivedAt: person.archivedAt ? person.archivedAt.toISOString() : null,
         roles: rolesByParticipant.get(person.id) ?? [],

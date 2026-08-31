@@ -130,6 +130,7 @@ export function createBoardApp(input: {
         displayName: z.string().min(1),
         engine: z.string(),
         projectId: z.string().uuid().optional(),
+        personality: z.string().nullable().optional(),
         role: z
           .enum(["facilitator", "proposer", "reviewer", "recorder", "executor"])
           .optional(),
@@ -147,6 +148,7 @@ export function createBoardApp(input: {
       projectId,
       displayName: body.displayName,
       engine: body.engine,
+      personality: body.personality,
       role: body.role,
     });
     return c.json(
