@@ -605,6 +605,74 @@ describe("session loop with fake engine", () => {
     expect(handover?.body).toBe("maxRuns で終了");
     expect(wrapped.stopped()).toBe(true);
   }, 20_000);
+
+  it("uploads @json trace lines to chat log", async () => {
+    const { db, registered, boardUrl } = await bootAgent(await createDb());
+    const requested = await fetch(`${boardUrl}/v1/me/request-session`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${registered.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(requested.ok).toBe(true);
+    const body = (await requested.json()) as { sessionId: string };
+
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const chatChunks: string[] = [];
+    await runSessionLoop({
+      plugin: createFakeEnginePlugin({
+        callTool: (name, args) => runtime.callTool(name, args),
+        script: [
+          { tool: "get_briefing", args: {} },
+          {
+            tool: "set_goals",
+            args: { goals: ["docs/sample.md の typo を直す"] },
+          },
+        ],
+        handover: "trace test",
+      }),
+      callTool: (name, args) => runtime.callTool(name, args),
+      onChatLog: async (chunk) => {
+        chatChunks.push(chunk);
+        const response = await fetch(
+          `${boardUrl}/v1/sessions/${body.sessionId}/chat-log`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              authorization: `Bearer ${registered.agentToken}`,
+            },
+            body: JSON.stringify({ chunk }),
+          },
+        );
+        expect(response.ok).toBe(true);
+      },
+      maxRuns: 1,
+      idleRunLimit: 2,
+      windDownRequestedRef: { current: false },
+      sessionId: body.sessionId,
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+
+    const combined = chatChunks.join("");
+    expect(combined).toContain('"kind":"run_start"');
+    expect(combined).toContain('"kind":"tool_call"');
+    expect(combined).toContain('"tool":"get_briefing"');
+    expect(combined).toContain('"kind":"continue_decision"');
+    expect(combined.endsWith("\n")).toBe(true);
+
+    const [session] = await db
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.id, body.sessionId));
+    expect(session?.chatLog).toContain("@json ");
+  }, 20_000);
 });
 
 describe("interactive fake engine through connect", () => {

@@ -5,6 +5,7 @@ import { createClaudeCodePlugin } from "./claude-code.js";
 import { createEnginePlugin } from "./create-engine.js";
 import { createFakeEnginePlugin } from "./fake.js";
 import { ESCAPE_LINE } from "./board-tools.js";
+import { TraceSessionLog } from "../trace-format.js";
 import {
   askOnTty,
   createInteractiveFakeEnginePlugin,
@@ -97,8 +98,10 @@ describe("interactive fake engine", () => {
       mcp: { command: "node", args: [], env: {} },
     });
 
+    const traceLog = new TraceSessionLog(async () => undefined);
     const work = await plugin.run(
       "comitia ボード MCP が利用可能。次の順で進めよ。\n1. get_briefing を呼ぶ",
+      { run: 1, trace: traceLog },
     );
     expect(calls.map((call) => call.name)).toEqual([
       "get_briefing",
@@ -110,11 +113,17 @@ describe("interactive fake engine", () => {
       "get_briefing",
       "set_goals",
     ]);
-    expect(work.transcript).toContain("[fake run 1]");
-    expect(work.transcript).toContain("get_briefing");
+    expect(work.traceEvents?.map((event) => event.kind)).toEqual([
+      "tool_call",
+      "tool_result",
+      "tool_call",
+      "tool_result",
+    ]);
+    expect(work.traceEvents?.[0]?.tool).toBe("get_briefing");
 
     const windDown = await plugin.run(
       "セッション終了作業。理由: 目標完了\nend_session を申し送り付きで呼べ。",
+      { run: 2, trace: traceLog },
     );
     expect(calls.at(-1)).toEqual({
       name: "end_session",

@@ -1,5 +1,6 @@
 import type { McpProxyToolResult } from "../mcp-proxy.js";
-import type { EnginePlugin } from "./types.js";
+import type { EnginePlugin, EngineRunContext } from "./types.js";
+import { toolLogToTraceEvents } from "../trace-format.js";
 
 export interface FakeScriptStep {
   tool: string;
@@ -119,7 +120,7 @@ export function createFakeEnginePlugin(
     async start() {
       runIndex = 0;
     },
-    async run(prompt: string) {
+    async run(prompt: string, ctx?: EngineRunContext) {
       runIndex += 1;
       const toolLog: Array<{
         run: number;
@@ -138,9 +139,12 @@ export function createFakeEnginePlugin(
         );
         lastTokens = 1;
         return {
-          transcript: `fake wind-down run ${runIndex}`,
+          transcript: "",
           toolLog,
           remainingBudget,
+          traceEvents: ctx?.trace
+            ? toolLogToTraceEvents(runIndex, toolLog, ctx.trace)
+            : undefined,
         };
       }
 
@@ -158,9 +162,12 @@ export function createFakeEnginePlugin(
 
       lastTokens = Math.max(1, toolLog.length);
       return {
-        transcript: `fake work run ${runIndex}`,
+        transcript: "",
         toolLog,
         remainingBudget,
+        traceEvents: ctx?.trace
+          ? toolLogToTraceEvents(runIndex, toolLog, ctx.trace)
+          : undefined,
       };
     },
     async report() {

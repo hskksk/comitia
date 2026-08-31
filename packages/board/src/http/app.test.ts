@@ -547,7 +547,7 @@ describe("board HTTP", () => {
       .select()
       .from(sessions)
       .where(eq(sessions.id, sessionId));
-    expect(row?.chatLog).toBe("hello world");
+    expect(row?.chatLog).toBe("hello \nworld\n");
 
     const usageRes = await app.request(`/v1/sessions/${sessionId}/token-usage`, {
       method: "POST",

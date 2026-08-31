@@ -316,13 +316,14 @@ export function createBoardApp(input: {
     const participant = c.get("participant");
     const sessionId = c.req.param("id");
     const body = z.object({ chunk: z.string() }).parse(await c.req.json());
+    const chunk = body.chunk.endsWith("\n") ? body.chunk : `${body.chunk}\n`;
     const session = await getSessionById(db, sessionId);
     if (session.participantId !== participant.id) {
       throw new PermissionDenied("セッションの所有者ではありません");
     }
     await db
       .update(sessions)
-      .set({ chatLog: sql`${sessions.chatLog} || ${body.chunk}` })
+      .set({ chatLog: sql`${sessions.chatLog} || ${chunk}` })
       .where(eq(sessions.id, sessionId));
     return c.json({ ok: true });
   });

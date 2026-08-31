@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { GATEWAY } from "@comitia/shared";
+import { GATEWAY, type TraceEvent } from "@comitia/shared";
 import { judgeContinue, type LoopPhase } from "./continue-judgment.js";
 import type { ToolLogEntry } from "./idle-detection.js";
 import type { McpProxyToolResult } from "./mcp-proxy.js";
@@ -26,6 +26,12 @@ import {
   type GithubSessionCredentials,
 } from "./github-auth.js";
 import type { EngineGithubAuth } from "./plugins/types.js";
+import {
+  adapterNoteEvent,
+  ensureTraceChunkNewline,
+  toolLogToTraceEvents,
+  TraceSessionLog,
+} from "./trace-format.js";
 
 export interface SessionLoopOptions {
   plugin: EnginePlugin;
@@ -34,6 +40,7 @@ export interface SessionLoopOptions {
     args?: Record<string, unknown>,
   ) => Promise<McpProxyToolResult>;
   onChatLog: (chunk: string) => Promise<void>;
+  onChatLogError?: (message: string) => void;
   maxRuns: number;
   idleRunLimit: number;
   windDownRequestedRef: { current: boolean };
@@ -162,7 +169,28 @@ export async function runSessionLoop(
     boardUrl,
     agentToken,
     onChatLog,
+    onChatLogError,
   } = options;
+
+  const traceLog = new TraceSessionLog(async (chunk) => {
+    try {
+      await onChatLog(ensureTraceChunkNewline(chunk));
+    } catch (error) {
+      onChatLogError?.(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  });
+
+  async function flushTrace(events: TraceEvent[]): Promise<void> {
+    try {
+      await traceLog.flush(events);
+    } catch (error) {
+      onChatLogError?.(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
 
   const { path: workDir, persistent: keepWorkDir } = await resolveWorkDir();
   const entries: ToolLogEntry[] = [];
@@ -199,7 +227,8 @@ export async function runSessionLoop(
           ? `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。作業ディレクトリの中身無しで続行する。`
           : `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。GitHub 実行資格が無い（プロジェクトに App 未接続のことが多い）。ホストの GH_TOKEN は使わない。作業ディレクトリの中身無しで続行する。`;
         console.error(note);
-        await onChatLog(note);
+        const noteEvent = traceLog.emit(adapterNoteEvent(undefined, note));
+        await flushTrace([noteEvent]);
       }
     }
 
@@ -273,7 +302,16 @@ export async function runSessionLoop(
         );
       }
 
-      const result = await plugin.run(prompt);
+      const runEvents: TraceEvent[] = [];
+      runEvents.push(
+        traceLog.emit({
+          kind: "run_start",
+          run: runIndex,
+          remainingBudget: priorDecision?.remainingBudget ?? undefined,
+        }),
+      );
+
+      const result = await plugin.run(prompt, { run: runIndex, trace: traceLog });
       for (const item of result.toolLog) {
         entries.push({
           run: item.run,
@@ -293,9 +331,21 @@ export async function runSessionLoop(
           { tokens: report.tokens },
         );
       }
-      if (result.transcript) {
-        await onChatLog(result.transcript);
+
+      if (result.traceEvents && result.traceEvents.length > 0) {
+        runEvents.push(...result.traceEvents);
+      } else if (result.toolLog.length > 0) {
+        runEvents.push(...toolLogToTraceEvents(runIndex, result.toolLog, traceLog));
       }
+
+      runEvents.push(
+        traceLog.emit({
+          kind: "run_end",
+          run: runIndex,
+          tokens: report.tokens,
+        }),
+      );
+      await flushTrace(runEvents);
 
       const decision = judgeContinue({
         entries,
@@ -309,6 +359,19 @@ export async function runSessionLoop(
       if (hasEndSession(entries)) {
         return;
       }
+
+      const continueEvent = traceLog.emit({
+        kind: "continue_decision",
+        run: runIndex,
+        action:
+          decision.phase === "wind-down" || !decision.shouldContinue
+            ? "wind_down"
+            : "continue",
+        reason: decision.reason,
+        remainingBudget: decision.remainingBudget ?? undefined,
+        incompleteGoals: decision.incompleteGoalTexts,
+      });
+      await flushTrace([continueEvent]);
 
       if (phase === "wind-down") {
         windDownRunsWithoutEnd += 1;

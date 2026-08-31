@@ -106,12 +106,21 @@ export async function connectCommand(
             plugin,
             callTool: (name, args) => proxy.callTool(name, args),
             onChatLog: async (chunk) => {
-              await postAuthorized(
+              const response = await postAuthorized(
                 config.boardUrl,
                 agent.token,
                 `/v1/sessions/${sessionId}/chat-log`,
                 { chunk },
               );
+              if (!response.ok) {
+                const body = await response.text().catch(() => "");
+                console.error(
+                  `[chat-log] POST failed: ${response.status}${body ? ` ${body}` : ""}`,
+                );
+              }
+            },
+            onChatLogError: (message) => {
+              console.error(`[chat-log] ${message}`);
             },
             maxRuns: GATEWAY.maxRuns,
             idleRunLimit: GATEWAY.idleRunLimit,
