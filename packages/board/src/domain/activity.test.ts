@@ -7,6 +7,7 @@ import { events, sessions } from "../db/schema.js";
 import {
   computeRemaining,
   getRemainingBudget,
+  addTokenUsage,
   refundSpend,
   spend,
 } from "./activity.js";
@@ -71,6 +72,19 @@ describe("activity budget", () => {
     const restored = await refundSpend(db, session.id, "create_thread");
     expect(restored).toBe(before);
     expect(await getRemainingBudget(db, session.id)).toBe(before);
+  });
+
+  it("addTokenUsage does not consume below the wind-down reserve", async () => {
+    const { session } = await setupAgentSession();
+
+    await db
+      .update(sessions)
+      .set({ budgetUsed: DEFAULT_SESSION_BUDGET - WIND_DOWN_RESERVE - 3 })
+      .where(eq(sessions.id, session.id));
+
+    const remaining = await addTokenUsage(db, session.id, 500);
+    expect(remaining).toBe(WIND_DOWN_RESERVE);
+    expect(await getRemainingBudget(db, session.id)).toBe(WIND_DOWN_RESERVE);
   });
 
   it("when remaining <= reserve, post fails and end_session succeeds", async () => {

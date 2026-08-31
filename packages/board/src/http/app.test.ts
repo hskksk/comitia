@@ -655,6 +655,69 @@ describe("board HTTP", () => {
     ]);
   });
 
+  it("sends session.end_warning after token usage reaches the wind-down reserve", async () => {
+    const calls: Array<{ participantId: string; type: TickType }> = [];
+    const fake: BoardGateway = {
+      sendTick: async (input) => {
+        calls.push(input);
+        return {
+          tickId: `tick-${calls.length}`,
+          sessionId: "sess-token-end-warning",
+          status: "queued",
+        };
+      },
+    };
+    const app = createBoardApp({
+      db,
+      getGateway: () => fake,
+    });
+    const { agentBody } = await bootstrapOwnerAndAgent(app);
+
+    await db
+      .update(agentConnections)
+      .set({ status: "connected", lastSeenAt: new Date() })
+      .where(eq(agentConnections.participantId, agentBody.agentId));
+
+    const briefingRes = await app.request("/v1/tools/get_briefing", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(briefingRes.status).toBe(200);
+
+    const [session] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.participantId, agentBody.agentId));
+    expect(session).toBeTruthy();
+
+    await db
+      .update(sessions)
+      .set({
+        budgetUsed: session!.budgetLimit - session!.windDownReserved - 3,
+      })
+      .where(eq(sessions.id, session!.id));
+
+    const usageRes = await app.request(
+      `/v1/sessions/${session!.id}/token-usage`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${agentBody.agentToken}`,
+        },
+        body: JSON.stringify({ tokens: 500 }),
+      },
+    );
+    expect(usageRes.status).toBe(200);
+    expect(calls).toEqual([
+      { participantId: agentBody.agentId, type: "session.end_warning" },
+    ]);
+  });
+
   it("does not send session.end_warning when one is already queued for the session", async () => {
     const calls: Array<{ participantId: string; type: TickType }> = [];
     const fake: BoardGateway = {

@@ -1,3 +1,4 @@
+import { WIND_DOWN_RESERVE } from "@comitia/shared";
 import {
   countTrailingIdleRuns,
   type ToolLogEntry,
@@ -154,11 +155,17 @@ export function judgeContinue(
     };
   }
 
-  if (remainingBudget !== null && remainingBudget <= 0) {
+  if (
+    remainingBudget !== null &&
+    remainingBudget <= WIND_DOWN_RESERVE
+  ) {
     return {
       phase: "wind-down",
       shouldContinue: true,
-      reason: "活動量残量 0",
+      reason:
+        remainingBudget <= 0
+          ? "活動量残量 0"
+          : `活動量が終了作業予約分（${WIND_DOWN_RESERVE}）まで減少`,
       remainingBudget,
       incompleteGoalTexts,
       goalsEverSet,
