@@ -100,11 +100,13 @@ function wrapPlugin(inner: EnginePlugin): {
   workDirPersistent: () => boolean | undefined;
   github: () => EngineGithubAuth | null | undefined;
   prompts: () => string[];
+  environmentPrompt: () => string | undefined;
 } {
   let stopped = false;
   let workDir: string | undefined;
   let workDirPersistent: boolean | undefined;
   let github: EngineGithubAuth | null | undefined;
+  let environmentPrompt: string | undefined;
   const prompts: string[] = [];
   return {
     plugin: {
@@ -112,6 +114,7 @@ function wrapPlugin(inner: EnginePlugin): {
         workDir = session.workDir;
         workDirPersistent = session.workDirPersistent;
         github = session.github;
+        environmentPrompt = session.environmentPrompt;
         await inner.start(session);
       },
       run: (prompt) => {
@@ -134,6 +137,7 @@ function wrapPlugin(inner: EnginePlugin): {
     workDirPersistent: () => workDirPersistent,
     github: () => github,
     prompts: () => prompts,
+    environmentPrompt: () => environmentPrompt,
   };
 }
 
@@ -244,6 +248,8 @@ describe("session loop with fake engine", () => {
           .where(eq(schema.handovers.sessionId, session!.id));
         expect(handover?.body).toBe("目標を完了した");
         expect(wrapped.stopped()).toBe(true);
+        expect(wrapped.environmentPrompt()).toContain("ロールは未設定");
+        expect(wrapped.environmentPrompt()).toContain("性格に合うロールを選ぶのではない");
         const dir = wrapped.workDir();
         expect(dir).toBeTruthy();
         expect(existsSync(dir!)).toBe(false);

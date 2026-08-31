@@ -14,6 +14,7 @@ import {
 } from "./prompts.js";
 import {
   buildEnvironmentPrompt,
+  parseAgentIdentity,
   type AgentIdentity,
 } from "./environment-prompt.js";
 import {
@@ -86,19 +87,10 @@ async function fetchIdentity(
       console.error(`[identity] GET /v1/me failed: ${response.status}`);
       return null;
     }
-    const body = (await response.json()) as {
-      label?: string;
-      participant?: { displayName?: string };
-      owner?: { displayName: string } | null;
-      project?: { name: string; repoUrl: string | null } | null;
-      projects?: Array<{ id: string; name: string; repoUrl: string | null }>;
-    };
-    return {
-      label: body.label ?? body.participant?.displayName ?? "エージェント",
-      owner: body.owner ?? null,
-      project: body.project ?? null,
-      projects: body.projects ?? [],
-    };
+    const body = (await response.json()) as Parameters<
+      typeof parseAgentIdentity
+    >[0];
+    return parseAgentIdentity(body);
   } catch (error) {
     console.error(
       `[identity] GET /v1/me unreachable: ${error instanceof Error ? error.message : String(error)}`,
@@ -219,6 +211,7 @@ export async function runSessionLoop(
           owner: null,
           project: null,
           projects: [],
+          roles: [],
         },
       ),
       github: githubCreds
