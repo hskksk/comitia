@@ -5,6 +5,7 @@ import { db } from "../test/helpers.js";
 import { agentConnections, sessions, ticks } from "../db/schema.js";
 import { prepareSessionStart } from "../domain/sessions.js";
 import type { TickType } from "@comitia/shared";
+import { TRACE_CHUNK_MAX_BYTES } from "@comitia/shared";
 import { createBoardApp, type BoardGateway } from "./app.js";
 import { startBoardServer } from "./server.js";
 
@@ -514,7 +515,7 @@ describe("board HTTP", () => {
 
   it("appends chat log and token usage on the agent's own session", async () => {
     const app = createBoardApp({ db });
-    const { agentBody } = await bootstrapOwnerAndAgent(app);
+    const { initBody, agentBody } = await bootstrapOwnerAndAgent(app);
 
     const session = await prepareSessionStart(db, {
       participantId: agentBody.agentId,
@@ -548,6 +549,78 @@ describe("board HTTP", () => {
       .from(sessions)
       .where(eq(sessions.id, sessionId));
     expect(row?.chatLog).toBe("hello \nworld\n");
+
+    const oversized = "x".repeat(TRACE_CHUNK_MAX_BYTES);
+    const tooLarge = await app.request(`/v1/sessions/${sessionId}/chat-log`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({ chunk: oversized + "y" }),
+    });
+    expect(tooLarge.status).toBe(413);
+
+    const traceRes = await app.request(`/v1/sessions/${sessionId}/trace`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({
+        entries: [
+          {
+            v: 1,
+            seq: 1,
+            at: "2026-08-31T12:00:00.000Z",
+            kind: "tool_call",
+            run: 1,
+            tool: "get_briefing",
+            args: {},
+          },
+        ],
+      }),
+    });
+    expect(traceRes.status).toBe(200);
+    expect(await traceRes.json()).toEqual({ ok: true, lastSeq: 1 });
+
+    const otherAgentRes = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${initBody.ownerToken}`,
+      },
+      body: JSON.stringify({
+        displayName: "コト",
+        engine: "claude-code",
+      }),
+    });
+    expect(otherAgentRes.status).toBe(201);
+    const otherAgent = (await otherAgentRes.json()) as { agentToken: string };
+
+    const deniedTrace = await app.request(`/v1/sessions/${sessionId}/trace`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${otherAgent.agentToken}`,
+      },
+      body: JSON.stringify({
+        entries: [
+          {
+            v: 1,
+            at: "2026-08-31T12:00:01.000Z",
+            kind: "tool_call",
+            run: 1,
+            tool: "get_briefing",
+            args: {},
+          },
+        ],
+      }),
+    });
+    expect(deniedTrace.status).toBe(400);
+    expect(await deniedTrace.json()).toEqual({
+      error: "セッションの所有者ではありません",
+    });
 
     const usageRes = await app.request(`/v1/sessions/${sessionId}/token-usage`, {
       method: "POST",

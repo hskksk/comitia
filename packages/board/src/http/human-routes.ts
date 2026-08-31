@@ -32,6 +32,7 @@ import {
   listProjectParticipants,
   listRecentEvents,
 } from "../domain/human-ops.js";
+import { getOwnerSessionTrace } from "../domain/trace.js";
 import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { createThread, searchThreads } from "../domain/threads.js";
@@ -768,6 +769,40 @@ export function registerHumanRoutes(
         fromStart,
       });
       return c.json(log);
+    } catch (error) {
+      if (error instanceof PermissionDenied) {
+        return c.json({ error: error.message }, 403);
+      }
+      if (error instanceof NotFoundError) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/v1/sessions/:id/trace", auth, human, async (c) => {
+    const afterSeqRaw = c.req.query("afterSeq");
+    const limitRaw = c.req.query("limit");
+    const afterSeq =
+      afterSeqRaw === undefined ? undefined : Number(afterSeqRaw);
+    const limit = limitRaw === undefined ? undefined : Number(limitRaw);
+    if (
+      afterSeq !== undefined &&
+      (!Number.isFinite(afterSeq) || afterSeq < 0)
+    ) {
+      return c.json({ error: "afterSeq が不正です" }, 400);
+    }
+    if (limit !== undefined && (!Number.isFinite(limit) || limit < 1)) {
+      return c.json({ error: "limit が不正です" }, 400);
+    }
+    try {
+      const trace = await getOwnerSessionTrace(db, {
+        sessionId: c.req.param("id"),
+        actorId: c.get("participant").id,
+        afterSeq,
+        limit,
+      });
+      return c.json(trace);
     } catch (error) {
       if (error instanceof PermissionDenied) {
         return c.json({ error: error.message }, 403);

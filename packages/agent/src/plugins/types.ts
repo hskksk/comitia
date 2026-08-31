@@ -6,6 +6,8 @@ export type TraceEmitter = TraceEmitSink;
 export type EngineRunContext = {
   run: number;
   trace?: TraceEmitter;
+  /** Events are emitted during the run (streaming), not batched at end. */
+  traceLive?: boolean;
 };
 
 export type EngineGithubAuth = {

@@ -99,6 +99,13 @@
       "when": 1788079870981,
       "tag": "0013_participant_personality",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788180535687,
+      "tag": "0014_harsh_dragon_man",
+      "breakpoints": true
     }
   ]
 }

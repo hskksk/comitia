@@ -4,6 +4,15 @@ import {
   type TraceEvent,
   type TraceKind,
 } from "@comitia/shared";
+import {
+  TraceCoalescingUploader,
+  TraceEntriesCoalescingUploader,
+  type TraceCoalesceOptions,
+} from "./trace-coalesce.js";
+import { TRACE_CHUNK_MAX_BYTES } from "@comitia/shared";
+
+export { TRACE_CHUNK_MAX_BYTES, TRACE_COALESCE_DEFAULTS } from "./trace-coalesce.js";
+export type { TraceCoalesceOptions } from "./trace-coalesce.js";
 
 export const TRACE_TEXT_LIMIT = 32 * 1024;
 export const TRACE_JSON_LIMIT = 64 * 1024;
@@ -170,22 +179,51 @@ export function ensureTraceChunkNewline(chunk: string): string {
   return chunk.endsWith("\n") ? chunk : `${chunk}\n`;
 }
 
+export type TraceSessionLogOptions = {
+  redactMode?: TraceRedactMode;
+  /** M20-2: coalesce and upload on each emit (non-blocking). */
+  live?: boolean;
+  coalesce?: TraceCoalesceOptions;
+  /** M20-3: coalesce structured entries for POST /trace. */
+  onEntries?: (entries: TraceEvent[]) => Promise<void>;
+  entriesCoalesce?: TraceCoalesceOptions;
+};
+
 export class TraceSessionLog {
   private seq = 0;
+  private readonly uploader: TraceCoalescingUploader | null;
+  private readonly entriesUploader: TraceEntriesCoalescingUploader | null;
 
   constructor(
     private readonly onChunk: (chunk: string) => Promise<void>,
-    private readonly redactMode: TraceRedactMode = readTraceRedactMode(),
-  ) {}
+    private readonly options: TraceSessionLogOptions = {},
+  ) {
+    this.uploader = options.live
+      ? new TraceCoalescingUploader(onChunk, options.coalesce)
+      : null;
+    this.entriesUploader = options.onEntries
+      ? new TraceEntriesCoalescingUploader(
+          options.onEntries,
+          options.entriesCoalesce ?? options.coalesce,
+        )
+      : null;
+  }
 
   emit(
     input: Omit<TraceEvent, "v" | "seq" | "at"> & { at?: string },
   ): TraceEvent {
     this.seq += 1;
-    return finalizeTraceEvent(
+    const event = finalizeTraceEvent(
       { ...input, seq: this.seq },
-      { redactMode: this.redactMode },
+      { redactMode: this.options.redactMode ?? readTraceRedactMode() },
     );
+    if (this.uploader) {
+      this.uploader.enqueueEvent(event);
+    }
+    if (this.entriesUploader) {
+      this.entriesUploader.enqueueEvent(event);
+    }
+    return event;
   }
 
   emitMany(
@@ -194,8 +232,21 @@ export class TraceSessionLog {
     return inputs.map((input) => this.emit(input));
   }
 
+  async flushPending(): Promise<void> {
+    if (this.uploader) {
+      await this.uploader.flushPending();
+    }
+    if (this.entriesUploader) {
+      await this.entriesUploader.flushPending();
+    }
+  }
+
   async flush(events: TraceEvent[]): Promise<void> {
     if (events.length === 0) {
+      return;
+    }
+    if (this.uploader || this.entriesUploader) {
+      await this.flushPending();
       return;
     }
     const chunk = ensureTraceChunkNewline(serializeTraceEvents(events));
@@ -311,6 +362,7 @@ export function parseClaudeStreamTrace(
   output: string,
   run: number,
   traceLog: TraceEmitSink,
+  options?: { recordEvents?: boolean },
 ): {
   toolLog: Array<{
     run: number;
@@ -335,6 +387,8 @@ export function parseClaudeStreamTrace(
   let tokens = 0;
   const events: TraceEvent[] = [];
 
+  const recordEvents = options?.recordEvents !== false;
+
   for (const line of output.split("\n")) {
     if (!line.trim()) {
       continue;
@@ -356,8 +410,17 @@ export function parseClaudeStreamTrace(
     }
 
     for (const partial of claudeStreamLineToPartialEvents(line, run)) {
-      const finalized = traceLog.emit(partial);
-      events.push(finalized);
+      const finalized = recordEvents
+        ? traceLog.emit(partial)
+        : ({
+            ...partial,
+            v: TRACE_VERSION,
+            seq: 0,
+            at: "",
+          } as TraceEvent);
+      if (recordEvents) {
+        events.push(finalized);
+      }
 
       if (finalized.kind === "tool_call" && typeof finalized.tool === "string") {
         const index =

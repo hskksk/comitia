@@ -757,6 +757,42 @@ describe("human ops REST", () => {
     expect(denied.status).toBe(403);
   });
 
+  it("lets the registering owner read structured trace entries", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const session = await openOrGetSession(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    const { appendSessionTraceEntries } = await import("../domain/trace.js");
+    await appendSessionTraceEntries(db, {
+      sessionId: session.id,
+      participantId: agent.id,
+      entries: [
+        {
+          v: 1,
+          seq: 1,
+          at: "2026-08-31T12:00:00.000Z",
+          kind: "run_start",
+          run: 1,
+        },
+      ],
+    });
+
+    const ownerHeaders = await ownerAuthHeader(owner.id, project.id);
+    const trace = await app.request(`/v1/sessions/${session.id}/trace`, {
+      headers: ownerHeaders,
+    });
+    expect(trace.status).toBe(200);
+    const body = (await trace.json()) as {
+      entries: Array<{ kind: string; seq: number }>;
+      hasMore: boolean;
+    };
+    expect(body.entries[0]?.kind).toBe("run_start");
+    expect(body.entries[0]?.seq).toBe(1);
+    expect(body.hasMore).toBe(false);
+  });
+
   it("forbids agent tokens from reading chat logs", async () => {
     const app = createBoardApp({ db });
     const init = await app.request("/v1/init", {

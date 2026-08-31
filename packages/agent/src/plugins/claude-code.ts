@@ -303,12 +303,21 @@ export function createClaudeCodePlugin(
           let stdout = "";
           let stderr = "";
           let liveBuffer = "";
+          const traceLive = ctx?.traceLive === true && ctx.trace !== undefined;
           running.stdout.setEncoding("utf8");
           running.stderr.setEncoding("utf8");
           running.stdout.on("data", (chunk: string) => {
             stdout += chunk;
-            if (!consoleOut) return;
             liveBuffer = processClaudeStreamChunk(liveBuffer, chunk, (line) => {
+              if (traceLive) {
+                for (const partial of claudeStreamLineToPartialEvents(
+                  line,
+                  runIndex,
+                )) {
+                  ctx.trace!.emit(partial);
+                }
+              }
+              if (!consoleOut) return;
               const formatted = formatClaudeStreamLineForConsole(line);
               if (formatted) consoleOut.write(`${formatted}\n`);
             });
@@ -333,7 +342,9 @@ export function createClaudeCodePlugin(
         },
       );
       const parsed = ctx?.trace
-        ? parseClaudeStreamTrace(result.stdout, runIndex, ctx.trace)
+        ? parseClaudeStreamTrace(result.stdout, runIndex, ctx.trace, {
+            recordEvents: !ctx.traceLive,
+          })
         : (() => {
             const fallback = parseClaudeStream(result.stdout, runIndex);
             return {

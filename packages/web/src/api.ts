@@ -286,6 +286,12 @@ export type ChatLogResponse = {
   truncated: boolean;
 };
 
+export type SessionTraceResponse = {
+  sessionId: string;
+  entries: import("@comitia/shared").TraceEvent[];
+  hasMore: boolean;
+};
+
 export type CreateThreadInput = {
   title: string;
   type: string;
@@ -646,6 +652,23 @@ export class BoardClient {
     const query = params.toString();
     return this.request(
       `/v1/sessions/${sessionId}/chat-log${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async sessionTrace(
+    sessionId: string,
+    options: { afterSeq?: number; limit?: number } = {},
+  ): Promise<SessionTraceResponse> {
+    const params = new URLSearchParams();
+    if (options.afterSeq !== undefined) {
+      params.set("afterSeq", String(options.afterSeq));
+    }
+    if (options.limit !== undefined) {
+      params.set("limit", String(options.limit));
+    }
+    const query = params.toString();
+    return this.request(
+      `/v1/sessions/${sessionId}/trace${query ? `?${query}` : ""}`,
     );
   }
 

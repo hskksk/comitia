@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z, ZodError } from "zod";
-import { PROJECT_ID_HEADER, type TickType } from "@comitia/shared";
+import { PROJECT_ID_HEADER, TRACE_CHUNK_MAX_BYTES, TRACE_KINDS, type TickType } from "@comitia/shared";
 import { agentConnections, agentCredentials, sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { addTokenUsage } from "../domain/activity.js";
@@ -17,6 +17,7 @@ import { issueAgentGithubCredentials } from "../domain/github-credentials.js";
 import { resolveHumanProjectId, resolveUniqueMembershipProjectId } from "../domain/memberships.js";
 import { agentBelongsToProject } from "../domain/owned-agents.js";
 import { findOpenSession, getSessionById } from "../domain/sessions.js";
+import { appendSessionTraceEntries } from "../domain/trace.js";
 import type { GitHubClient } from "../github/types.js";
 import { maybeSendEndWarning } from "../gateway/health.js";
 import { createBoardToolRuntime } from "../mcp/create-server.js";
@@ -316,6 +317,12 @@ export function createBoardApp(input: {
     const participant = c.get("participant");
     const sessionId = c.req.param("id");
     const body = z.object({ chunk: z.string() }).parse(await c.req.json());
+    if (Buffer.byteLength(body.chunk, "utf8") > TRACE_CHUNK_MAX_BYTES) {
+      return c.json(
+        { error: `chunk exceeds ${TRACE_CHUNK_MAX_BYTES} bytes` },
+        413,
+      );
+    }
     const chunk = body.chunk.endsWith("\n") ? body.chunk : `${body.chunk}\n`;
     const session = await getSessionById(db, sessionId);
     if (session.participantId !== participant.id) {
@@ -326,6 +333,32 @@ export function createBoardApp(input: {
       .set({ chatLog: sql`${sessions.chatLog} || ${chunk}` })
       .where(eq(sessions.id, sessionId));
     return c.json({ ok: true });
+  });
+
+  const traceEventSchema = z
+    .object({
+      v: z.literal(1),
+      seq: z.number().int().positive().optional(),
+      at: z.string(),
+      kind: z.enum(TRACE_KINDS),
+      run: z.number().int().optional(),
+    })
+    .passthrough();
+
+  app.post("/v1/sessions/:id/trace", auth, agent, async (c) => {
+    const participant = c.get("participant");
+    const sessionId = c.req.param("id");
+    const body = z
+      .object({
+        entries: z.array(traceEventSchema).min(1).max(100),
+      })
+      .parse(await c.req.json());
+    const result = await appendSessionTraceEntries(db, {
+      sessionId,
+      participantId: participant.id,
+      entries: body.entries,
+    });
+    return c.json({ ok: true, lastSeq: result.lastSeq });
   });
 
   app.post("/v1/sessions/:id/token-usage", auth, agent, async (c) => {
