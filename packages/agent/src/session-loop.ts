@@ -40,6 +40,8 @@ export interface SessionLoopOptions {
   ) => Promise<McpProxyToolResult>;
   onChatLog: (chunk: string) => Promise<void>;
   onChatLogError?: (message: string) => void;
+  onTraceEntries?: (entries: TraceEvent[]) => Promise<void>;
+  onTraceError?: (message: string) => void;
   maxRuns: number;
   idleRunLimit: number;
   windDownRequestedRef: { current: boolean };
@@ -169,6 +171,8 @@ export async function runSessionLoop(
     agentToken,
     onChatLog,
     onChatLogError,
+    onTraceEntries,
+    onTraceError,
   } = options;
 
   const traceLog = new TraceSessionLog(
@@ -181,7 +185,20 @@ export async function runSessionLoop(
         );
       }
     },
-    { live: true },
+    {
+      live: true,
+      onEntries: onTraceEntries
+        ? async (entries) => {
+            try {
+              await onTraceEntries(entries);
+            } catch (error) {
+              onTraceError?.(
+                error instanceof Error ? error.message : String(error),
+              );
+            }
+          }
+        : undefined,
+    },
   );
 
   async function flushTracePending(): Promise<void> {

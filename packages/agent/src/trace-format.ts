@@ -6,6 +6,7 @@ import {
 } from "@comitia/shared";
 import {
   TraceCoalescingUploader,
+  TraceEntriesCoalescingUploader,
   type TraceCoalesceOptions,
 } from "./trace-coalesce.js";
 import { TRACE_CHUNK_MAX_BYTES } from "@comitia/shared";
@@ -183,11 +184,15 @@ export type TraceSessionLogOptions = {
   /** M20-2: coalesce and upload on each emit (non-blocking). */
   live?: boolean;
   coalesce?: TraceCoalesceOptions;
+  /** M20-3: coalesce structured entries for POST /trace. */
+  onEntries?: (entries: TraceEvent[]) => Promise<void>;
+  entriesCoalesce?: TraceCoalesceOptions;
 };
 
 export class TraceSessionLog {
   private seq = 0;
   private readonly uploader: TraceCoalescingUploader | null;
+  private readonly entriesUploader: TraceEntriesCoalescingUploader | null;
 
   constructor(
     private readonly onChunk: (chunk: string) => Promise<void>,
@@ -195,6 +200,12 @@ export class TraceSessionLog {
   ) {
     this.uploader = options.live
       ? new TraceCoalescingUploader(onChunk, options.coalesce)
+      : null;
+    this.entriesUploader = options.onEntries
+      ? new TraceEntriesCoalescingUploader(
+          options.onEntries,
+          options.entriesCoalesce ?? options.coalesce,
+        )
       : null;
   }
 
@@ -209,6 +220,9 @@ export class TraceSessionLog {
     if (this.uploader) {
       this.uploader.enqueueEvent(event);
     }
+    if (this.entriesUploader) {
+      this.entriesUploader.enqueueEvent(event);
+    }
     return event;
   }
 
@@ -222,13 +236,16 @@ export class TraceSessionLog {
     if (this.uploader) {
       await this.uploader.flushPending();
     }
+    if (this.entriesUploader) {
+      await this.entriesUploader.flushPending();
+    }
   }
 
   async flush(events: TraceEvent[]): Promise<void> {
     if (events.length === 0) {
       return;
     }
-    if (this.uploader) {
+    if (this.uploader || this.entriesUploader) {
       await this.flushPending();
       return;
     }

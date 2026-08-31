@@ -108,6 +108,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   agent connect     エージェントを接続（claude-code / fake）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
+  agent trace       構造化トレースを読む（--json で JSON 出力）
   agent update      エージェント設定を更新（任意 --engine --personality）
   project           プロジェクトのリポジトリ紐づけを表示
   project set       リポジトリ紐づけを設定・解除（--repo-url <url> | --clear-repo）

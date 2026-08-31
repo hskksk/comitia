@@ -2,6 +2,7 @@
 
 import { pathToFileURL } from "node:url";
 import { agentLogsCommand } from "./commands/agent-logs.js";
+import { agentTraceCommand } from "./commands/agent-trace.js";
 import { agentListCommand } from "./commands/agent-list.js";
 import { connectCommand } from "./commands/connect.js";
 import { doctorCommand } from "./commands/doctor.js";
@@ -84,6 +85,13 @@ type ParsedCommand =
       sessionId?: string;
       follow: boolean;
       raw: boolean;
+    }
+  | {
+      command: "agent-trace";
+      name: string;
+      sessionId?: string;
+      follow: boolean;
+      json: boolean;
     }
   | {
       command: "agent-update";
@@ -267,6 +275,44 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
     return { command: "agent-logs", name, sessionId, follow, raw };
   }
+  if (args[0] === "agent" && args[1] === "trace") {
+    if (!args[2]) {
+      throw new UsageError(
+        "Usage: comitia agent trace <name> [--session <id>] [--follow] [--json]",
+      );
+    }
+    const name = args[2];
+    let sessionId: string | undefined;
+    let follow = false;
+    let json = false;
+    const rest = args.slice(3);
+    for (let index = 0; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--follow") {
+        follow = true;
+        continue;
+      }
+      if (token === "--json") {
+        json = true;
+        continue;
+      }
+      if (token === "--session") {
+        const value = rest[index + 1];
+        if (!value) {
+          throw new UsageError(
+            "Usage: comitia agent trace <name> [--session <id>] [--follow] [--json]",
+          );
+        }
+        sessionId = value;
+        index += 1;
+        continue;
+      }
+      throw new UsageError(
+        "Usage: comitia agent trace <name> [--session <id>] [--follow] [--json]",
+      );
+    }
+    return { command: "agent-trace", name, sessionId, follow, json };
+  }
   if (args[0] === "agent" && args[1] === "update") {
     if (!args[2]) {
       throw new UsageError(
@@ -395,6 +441,10 @@ export async function runCli(
   }
   if (command.command === "agent-logs") {
     await agentLogsCommand({ ...command, ...io });
+    return;
+  }
+  if (command.command === "agent-trace") {
+    await agentTraceCommand({ ...command, ...io });
     return;
   }
   if (command.command === "agent-update") {
