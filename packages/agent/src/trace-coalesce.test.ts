@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TRACE_VERSION } from "@comitia/shared";
 import {
+  splitTraceLinesByMaxBytes,
   TRACE_COALESCE_DEFAULTS,
   TraceCoalescingUploader,
 } from "./trace-coalesce.js";
@@ -102,5 +103,44 @@ describe("TraceCoalescingUploader", () => {
     await uploader.flushPending();
 
     expect(calls).toBe(2);
+  });
+
+  it("flushes when maxBytes is exceeded using utf8 byte length", async () => {
+    const chunks: string[] = [];
+    const uploader = new TraceCoalescingUploader(
+      async (chunk) => {
+        chunks.push(chunk);
+      },
+      { maxBytes: 20, maxEvents: 100, maxMs: 10_000 },
+    );
+
+    uploader.enqueueEvent({
+      v: TRACE_VERSION,
+      seq: 1,
+      at: "t1",
+      kind: "text",
+      run: 1,
+      text: "あ", // 3 bytes in UTF-8; char length is 1
+    });
+    uploader.enqueueEvent({
+      v: TRACE_VERSION,
+      seq: 2,
+      at: "t2",
+      kind: "text",
+      run: 1,
+      text: "い",
+    });
+    await uploader.flushPending();
+
+    expect(chunks).toHaveLength(2);
+  });
+
+  it("splits uploads that exceed TRACE_CHUNK_MAX_BYTES", () => {
+    const lineA = `@json ${"a".repeat(262_130)}`;
+    const lineB = "@json {}";
+    const batches = splitTraceLinesByMaxBytes([lineA, lineB], 256 * 1024);
+    expect(batches).toHaveLength(2);
+    expect(batches[0]).toEqual([lineA]);
+    expect(batches[1]).toEqual([lineB]);
   });
 });
