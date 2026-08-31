@@ -18,7 +18,8 @@ import {
   ESCAPE_LINE,
   type ToolPromptHints,
 } from "./board-tools.js";
-import type { EnginePlugin } from "./types.js";
+import type { EnginePlugin, EngineRunContext } from "./types.js";
+import { toolLogToTraceEvents } from "../trace-format.js";
 
 export interface InteractiveIo {
   write: (text: string) => void;
@@ -211,7 +212,7 @@ export function createInteractiveFakeEnginePlugin(
       write("");
     },
 
-    async run(prompt: string) {
+    async run(prompt: string, ctx?: EngineRunContext) {
       runIndex += 1;
       const toolLog: Array<{
         run: number;
@@ -328,9 +329,12 @@ export function createInteractiveFakeEnginePlugin(
 
       lastTokens = Math.max(1, toolLog.length);
       return {
-        transcript: transcript.join("\n"),
+        transcript: "",
         toolLog,
         remainingBudget,
+        traceEvents: ctx?.trace
+          ? toolLogToTraceEvents(runIndex, toolLog, ctx.trace)
+          : undefined,
       };
     },
 

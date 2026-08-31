@@ -4,14 +4,20 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { devNull, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatTraceHuman, type TraceEvent } from "@comitia/shared";
 import { TOOLSET_OVERVIEW } from "./tool-catalog.js";
 import {
   applyClaudeCredentialEnv,
   resolveHostHome,
 } from "../claude-auth.js";
 import { joinSystemPrompt } from "../environment-prompt.js";
-import type { EngineGithubAuth, EnginePlugin } from "./types.js";
+import type { EngineGithubAuth, EnginePlugin, EngineRunContext } from "./types.js";
 import { engineGithubEnv, writeIsolatedGitHubAuth } from "../github-auth.js";
+import {
+  claudeStreamLineToPartialEvents,
+  parseClaudeStreamTrace,
+  TraceSessionLog,
+} from "../trace-format.js";
 
 const RM_OPTS = {
   recursive: true,
@@ -140,108 +146,18 @@ export function resolveMcpStdioEntrypoint(fromUrl = import.meta.url): string {
   }
 }
 
-function parseJson(value: string): unknown {
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return value;
-  }
-}
-
-function extractRemainingBudget(value: unknown): number | null {
-  if (typeof value === "string") {
-    const parsed = parseJson(value);
-    return parsed === value ? null : extractRemainingBudget(parsed);
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = extractRemainingBudget(item);
-      if (found !== null) return found;
-    }
-    return null;
-  }
-  if (value === null || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  if (typeof record.remaining_budget === "number") {
-    return record.remaining_budget;
-  }
-  for (const child of Object.values(record)) {
-    const found = extractRemainingBudget(child);
-    if (found !== null) return found;
-  }
-  return null;
-}
-
 export function parseClaudeStream(output: string, run: number) {
-  const transcript: string[] = [];
-  const toolLog: Array<{
-    run: number;
-    tool: string;
-    args: unknown;
-    isError?: boolean;
-    result?: unknown;
-  }> = [];
-  const toolById = new Map<string, number>();
-  let remainingBudget: number | null = null;
-  let tokens = 0;
-
-  for (const line of output.split("\n")) {
-    if (!line.trim()) continue;
-    const event = parseJson(line);
-    if (event === null || typeof event !== "object") continue;
-    const record = event as Record<string, unknown>;
-    const message = record.message;
-    if (message && typeof message === "object") {
-      const messageRecord = message as Record<string, unknown>;
-      const usage = messageRecord.usage;
-      if (usage && typeof usage === "object") {
-        const usageRecord = usage as Record<string, unknown>;
-        for (const key of ["input_tokens", "output_tokens"]) {
-          if (typeof usageRecord[key] === "number") tokens += usageRecord[key];
-        }
-      }
-      const content = messageRecord.content;
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block === null || typeof block !== "object") continue;
-          const item = block as Record<string, unknown>;
-          if (
-            record.type === "assistant" &&
-            item.type === "text" &&
-            typeof item.text === "string"
-          ) {
-            transcript.push(item.text);
-          } else if (item.type === "tool_use" && typeof item.name === "string") {
-            const index = toolLog.push({
-              run,
-              tool: item.name.replace(/^mcp__[^_]+__/, ""),
-              args: item.input ?? {},
-            }) - 1;
-            if (typeof item.id === "string") toolById.set(item.id, index);
-          } else if (item.type === "tool_result") {
-            const result = item.content;
-            const index = typeof item.tool_use_id === "string"
-              ? toolById.get(item.tool_use_id)
-              : undefined;
-            if (index !== undefined) {
-              toolLog[index] = {
-                ...toolLog[index]!,
-                ...(item.is_error === true ? { isError: true } : {}),
-                result,
-              };
-            }
-            remainingBudget = extractRemainingBudget(result) ?? remainingBudget;
-          }
-        }
-      }
-    }
-  }
-
+  const traceLog = new TraceSessionLog(async () => undefined);
+  const parsed = parseClaudeStreamTrace(output, run, traceLog);
+  const transcript = parsed.events
+    .filter((event) => event.kind === "text" && typeof event.text === "string")
+    .map((event) => event.text as string)
+    .join("\n");
   return {
-    transcript: transcript.join("\n"),
-    toolLog,
-    remainingBudget,
-    tokens,
+    transcript,
+    toolLog: parsed.toolLog,
+    remainingBudget: parsed.remainingBudget,
+    tokens: parsed.tokens,
   };
 }
 
@@ -271,30 +187,22 @@ export function processClaudeStreamChunk(
  * showing (tool results, non-assistant events, blank lines, ...).
  */
 export function formatClaudeStreamLineForConsole(line: string): string | null {
-  const trimmed = line.trim();
-  if (!trimmed) return null;
-  const event = parseJson(trimmed);
-  if (event === null || typeof event !== "object") return null;
-  const record = event as Record<string, unknown>;
-  if (record.type !== "assistant") return null;
-  const message = record.message;
-  if (!message || typeof message !== "object") return null;
-  const content = (message as Record<string, unknown>).content;
-  if (!Array.isArray(content)) return null;
+  const partials = claudeStreamLineToPartialEvents(line, 0);
   const parts: string[] = [];
-  for (const block of content) {
-    if (block === null || typeof block !== "object") continue;
-    const item = block as Record<string, unknown>;
-    if (item.type === "thinking" && typeof item.thinking === "string") {
-      parts.push(`[thinking] ${item.thinking}`);
-    } else if (item.type === "text" && typeof item.text === "string") {
-      parts.push(item.text);
-    } else if (item.type === "tool_use" && typeof item.name === "string") {
-      const toolName = item.name.replace(/^mcp__[^_]+__/, "");
-      parts.push(`[tool] ${toolName}(${JSON.stringify(item.input ?? {})})`);
+  for (const partial of partials) {
+    const human = formatTraceHuman({
+      v: 1,
+      seq: 0,
+      at: "",
+      ...partial,
+    } as TraceEvent);
+    if (human) {
+      parts.push(human);
     }
   }
-  if (parts.length === 0) return null;
+  if (parts.length === 0) {
+    return null;
+  }
   return parts.join("\n");
 }
 
@@ -365,7 +273,7 @@ export function createClaudeCodePlugin(
       await applyGithubAuth(auth);
     },
 
-    async run(prompt) {
+    async run(prompt, ctx?: EngineRunContext) {
       if (!workDir || !isolatedHome || !mcpConfigPath) {
         throw new Error("Claude Code plugin has not been started");
       }
@@ -423,12 +331,21 @@ export function createClaudeCodePlugin(
           });
         },
       );
-      const parsed = parseClaudeStream(result.stdout, runIndex);
+      const parsed = ctx?.trace
+        ? parseClaudeStreamTrace(result.stdout, runIndex, ctx.trace)
+        : (() => {
+            const fallback = parseClaudeStream(result.stdout, runIndex);
+            return {
+              ...fallback,
+              events: [] as ReturnType<typeof parseClaudeStreamTrace>["events"],
+            };
+          })();
       lastTokens = parsed.tokens;
       return {
-        transcript: parsed.transcript,
+        transcript: "",
         toolLog: parsed.toolLog,
         remainingBudget: parsed.remainingBudget,
+        traceEvents: parsed.events,
       };
     },
 

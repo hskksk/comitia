@@ -1,3 +1,13 @@
+import type { TraceEvent } from "@comitia/shared";
+import type { TraceEmitSink } from "../trace-format.js";
+
+export type TraceEmitter = TraceEmitSink;
+
+export type EngineRunContext = {
+  run: number;
+  trace?: TraceEmitter;
+};
+
 export type EngineGithubAuth = {
   token: string;
   expiresAt: string;
@@ -14,7 +24,7 @@ export interface EnginePlugin {
     environmentPrompt?: string;
     github?: EngineGithubAuth | null;
   }): Promise<void>;
-  run(prompt: string): Promise<{
+  run(prompt: string, ctx?: EngineRunContext): Promise<{
     transcript: string;
     toolLog: Array<{
       run: number;
@@ -24,6 +34,7 @@ export interface EnginePlugin {
       result?: unknown;
     }>;
     remainingBudget: number | null;
+    traceEvents?: TraceEvent[];
   }>;
   report(): Promise<{ tokens: number }>;
   /** End the current session; runtime dirs may survive until dispose(). */
