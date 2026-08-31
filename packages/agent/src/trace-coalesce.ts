@@ -57,6 +57,13 @@ export function splitTraceLinesByMaxBytes(
   return batches;
 }
 
+function logUploadError(label: string, error: unknown): void {
+  console.error(
+    `[${label}] upload failed:`,
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
 /** Coalesce @json lines and upload via a serial, non-blocking queue. */
 export class TraceCoalescingUploader {
   private pendingLines: string[] = [];
@@ -119,7 +126,9 @@ export class TraceCoalescingUploader {
       const chunk = ensureTraceChunkNewline(batch.join("\n"));
       this.uploadChain = this.uploadChain
         .then(() => this.onChunk(chunk))
-        .catch(() => undefined);
+        .catch((error) => {
+          logUploadError("trace-coalesce", error);
+        });
     }
     return this.uploadChain;
   }
@@ -174,7 +183,9 @@ export class TraceEntriesCoalescingUploader {
     this.pendingBytes = 0;
     this.uploadChain = this.uploadChain
       .then(() => this.onBatch(batch))
-      .catch(() => undefined);
+      .catch((error) => {
+        logUploadError("trace-entries-coalesce", error);
+      });
     return this.uploadChain;
   }
 }

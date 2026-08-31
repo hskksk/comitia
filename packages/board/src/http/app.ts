@@ -338,7 +338,7 @@ export function createBoardApp(input: {
   const traceEventSchema = z
     .object({
       v: z.literal(1),
-      seq: z.number().int().positive(),
+      seq: z.number().int().positive().optional(),
       at: z.string(),
       kind: z.enum(TRACE_KINDS),
       run: z.number().int().optional(),

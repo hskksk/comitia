@@ -22,6 +22,16 @@ export type TraceEvent = {
   [key: string]: unknown;
 };
 
+/** Client-supplied trace payload; server assigns `seq` when omitted. */
+export type TraceEventInput = {
+  v: typeof TRACE_VERSION;
+  seq?: number;
+  at: string;
+  kind: TraceKind;
+  run?: number;
+  [key: string]: unknown;
+};
+
 export const TRACE_LINE_PREFIX = "@json ";
 
 /** Max bytes per POST to `/v1/sessions/:id/chat-log` (M20-2). */
@@ -111,7 +121,7 @@ export function parseChatLogTraceLines(chatLog: string): TraceEvent[] {
 }
 
 export type AppendSessionTraceRequest = {
-  entries: TraceEvent[];
+  entries: TraceEventInput[];
 };
 
 export type AppendSessionTraceResponse = {

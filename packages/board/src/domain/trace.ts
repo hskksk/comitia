@@ -1,19 +1,19 @@
 import { and, asc, eq, gt, sql } from "drizzle-orm";
-import type { TraceEvent, TraceKind } from "@comitia/shared";
+import type { TraceEvent, TraceEventInput, TraceKind } from "@comitia/shared";
 import { TRACE_VERSION } from "@comitia/shared";
-import { sessionTraceEntries } from "../db/schema.js";
+import { sessionTraceEntries, sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { PermissionDenied } from "./errors.js";
 import { getParticipant } from "./helpers.js";
 import { getSessionById } from "./sessions.js";
 
 const DEFAULT_TRACE_LIMIT = 500;
-const MAX_TRACE_LIMIT = 2_000;
+export const MAX_TRACE_LIMIT = 2_000;
 
 function traceEventToRow(
   sessionId: string,
   seq: number,
-  event: TraceEvent,
+  event: TraceEventInput,
 ): typeof sessionTraceEntries.$inferInsert {
   const { v, seq: adapterSeq, at, kind, run, ...rest } = event;
   return {
@@ -24,7 +24,7 @@ function traceEventToRow(
     run: run ?? null,
     payload: {
       v: v ?? TRACE_VERSION,
-      adapter_seq: adapterSeq,
+      ...(typeof adapterSeq === "number" ? { adapter_seq: adapterSeq } : {}),
       ...rest,
     },
   };
@@ -54,7 +54,7 @@ export async function appendSessionTraceEntries(
   input: {
     sessionId: string;
     participantId: string;
-    entries: TraceEvent[];
+    entries: TraceEventInput[];
   },
 ): Promise<{ lastSeq: number }> {
   if (input.entries.length === 0) {
@@ -66,6 +66,9 @@ export async function appendSessionTraceEntries(
   }
 
   return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select ${sessions.id} from ${sessions} where ${sessions.id} = ${input.sessionId} for update`,
+    );
     const [maxRow] = await tx
       .select({
         maxSeq: sql<number>`coalesce(max(${sessionTraceEntries.seq}), 0)`,
