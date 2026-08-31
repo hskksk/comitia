@@ -31,6 +31,7 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).toContain("環境プロンプトの各ロール指針");
     expect(INITIAL_PROMPT).not.toContain("コンセンサスを作る場");
     expect(INITIAL_PROMPT).not.toContain("タスクキューではない");
+    expect(INITIAL_PROMPT).not.toContain("議論の態度");
   });
 
   it("leaves no docs/sample.md example in shippable source (poc/ and test fixtures excluded)", async () => {

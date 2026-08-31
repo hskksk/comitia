@@ -88,6 +88,9 @@ export function ParticipantsPage() {
             {item.engine ? ` · ${engineLabel(item.engine)}` : ""}
             {item.roles.length > 0 ? ` · ${item.roles.join("、")}` : ""}
           </p>
+          {item.kind === "agent" && item.personality ? (
+            <p className="muted">態度: {item.personality}</p>
+          ) : null}
           {item.connection ? (
             <p>
               <span className={`connection-badge is-${item.connection.status}`}>

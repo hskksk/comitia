@@ -68,6 +68,7 @@ type ParsedCommand =
       engine: string;
       role?: string;
       project?: string;
+      personality?: string;
     }
   | {
       command: "agent-connect";
@@ -86,7 +87,8 @@ type ParsedCommand =
   | {
       command: "agent-update";
       name: string;
-      engine: string;
+      engine?: string;
+      personality?: string;
     }
   | {
       command: "project";
@@ -205,6 +207,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       name: requireOption(options, "name"),
       role: options.get("role"),
       project: options.get("project"),
+      personality: options.get("personality"),
     };
   }
   if (args[0] === "agent" && args[1] === "connect") {
@@ -260,13 +263,25 @@ export function parseCliArgs(args: string[]): ParsedCommand {
   }
   if (args[0] === "agent" && args[1] === "update") {
     if (!args[2]) {
-      throw new UsageError("Usage: comitia agent update <name> --engine <engine>");
+      throw new UsageError(
+        "Usage: comitia agent update <name> [--engine <engine>] [--personality <name|path>]",
+      );
     }
     const options = parseOptions(args.slice(3));
+    const engine = options.get("engine");
+    const personality = options.has("personality")
+      ? options.get("personality")
+      : undefined;
+    if (!engine && personality === undefined) {
+      throw new UsageError(
+        "Usage: comitia agent update <name> [--engine <engine>] [--personality <name|path>]",
+      );
+    }
     return {
       command: "agent-update",
       name: args[2],
-      engine: requireOption(options, "engine"),
+      engine,
+      personality,
     };
   }
   if (args[0] === "project" && args[1] === undefined) {

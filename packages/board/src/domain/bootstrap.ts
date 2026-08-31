@@ -64,6 +64,7 @@ export async function registerAgent(
     engine: string;
     role?: ProjectRole;
     projectId?: string;
+    personality?: string | null;
   },
 ) {
   if (!isSupportedEngine(input.engine)) {
@@ -101,6 +102,7 @@ export async function registerAgent(
       displayName: input.displayName,
       ownerParticipantId: input.ownerParticipantId,
       engine: input.engine,
+      personality: input.personality,
     });
     const agentToken = issueToken();
     await tx.insert(agentCredentials).values({

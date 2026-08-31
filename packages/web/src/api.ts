@@ -16,6 +16,7 @@ export type MeResponse = {
     kind: "human" | "agent";
     displayName: string;
     engine?: string | null;
+    personality?: string | null;
     githubLogin?: string | null;
     githubUserId?: string | null;
   };
@@ -79,6 +80,7 @@ export type OwnedAgent = {
   id: string;
   displayName: string;
   engine: string;
+  personality: string | null;
   ownerParticipantId: string;
 };
 
@@ -246,6 +248,7 @@ export type ParticipantItem = {
   displayName: string;
   label?: string;
   engine: string | null;
+  personality?: string | null;
   ownerParticipantId: string | null;
   roles: string[];
   connection: {
@@ -451,6 +454,7 @@ export class BoardClient {
     engine: string;
     projectId: string;
     role?: string;
+    personality?: string;
   }): Promise<{ agentId: string; projectId: string; agentToken: string }> {
     return this.request("/v1/agents", {
       method: "POST",
@@ -460,8 +464,13 @@ export class BoardClient {
 
   async updateOwnedAgent(
     agentId: string,
-    input: { displayName?: string; engine?: string },
-  ): Promise<{ id: string; displayName: string; engine: string }> {
+    input: { displayName?: string; engine?: string; personality?: string | null },
+  ): Promise<{
+    id: string;
+    displayName: string;
+    engine: string;
+    personality: string | null;
+  }> {
     return this.request(`/v1/me/agents/${agentId}`, {
       method: "PATCH",
       body: JSON.stringify(input),

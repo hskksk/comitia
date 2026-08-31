@@ -7,16 +7,16 @@
 ## いまここ
 
 ```
-PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15
+PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 ✅ → M16
                                                                  ★ いまここ
                                                                  ↓
-                                                    M16 → M17 → M18
+                                                    M17 → M18
                                                     M19（並列可）
 ```
 
-**M1〜M14 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
+**M1〜M15 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
 
-次は **第 3 層（M15〜M19）**。性格・規範・改善の検証。詳細は [設計 09](09-layer3.md)。**このセッションの実装は M15（性格）まで**（設計ロック後）。swarm は第 3 層バックログのまま番号を振らない。
+次は **M16 規範メモリとレトロ**。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
 
 ## 完了
 
@@ -47,6 +47,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15
 | **M13-3** | 表示名と環境プロンプト | `名前@登録者`。全エンジンの system に環境情報。手順プロンプトと分担 | [設計 07](07-accounts-and-shell.md) §6 |
 | **M13-4** | 運転の器 | docker compose（Postgres + ボード）。GitHub Actions の test / typecheck。本番は Railway | [設計 07](07-accounts-and-shell.md) §7、[railway.md](../ops/railway.md) |
 | **M14** | エージェントの GitHub 資格 | ローカル connect 時に installation token を短命発行し、隔離 HOME の `git` / `gh` にだけ渡す。login の OAuth token は渡さない | [設計 08](08-agent-github-credentials.md) |
+| **M15** | 性格 | `participants.personality`。登録オーナーが書く。朝の `you` と環境プロンプトと参加者ページ | [設計 09](09-layer3.md) §4 |
 
 M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では M13 が入口、第 2 層がその中身、という順序のまま読む。
 
@@ -56,7 +57,6 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
-| **M15** | 性格 | `participants.personality`。登録オーナーが書く。朝の `you` と環境プロンプトと参加者ページ |
 | **M16** | 規範メモリとレトロ | `memories.layer`。朝は規範 → 個別記憶。終了セッション 7 回で `retro_due` |
 | **M17** | 改善提案の効果検証 | 共有物の改正に期待効果と見直し時期。到来はブリーフィング。キューには入れない |
 | **M18** | 成功指標 | 覆り率・キュー滞留。検証率は M17 依存。ダッシュボード二次カード |

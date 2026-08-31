@@ -212,6 +212,7 @@ export async function runSessionLoop(
           project: null,
           projects: [],
           roles: [],
+          personality: null,
         },
       ),
       github: githubCreds

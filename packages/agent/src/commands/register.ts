@@ -1,11 +1,13 @@
 import { loadConfig, saveConfig } from "../config.js";
 import { assertSupportedEngine } from "../engines.js";
+import { resolvePersonalitySpec } from "../personality-spec.js";
 
 export interface RegisterCommandOptions {
   name: string;
   engine: string;
   role?: string;
   project?: string;
+  personality?: string;
   configDir?: string;
 }
 
@@ -19,6 +21,11 @@ export async function registerCommand(
     throw new Error("Run `comitia init` before registering an agent");
   }
 
+  const personality =
+    options.personality === undefined
+      ? undefined
+      : resolvePersonalitySpec(options.personality);
+
   const response = await fetch(new URL("/v1/agents", config.boardUrl), {
     method: "POST",
     headers: {
@@ -29,6 +36,7 @@ export async function registerCommand(
       displayName: options.name,
       engine: options.engine,
       ...(options.role ? { role: options.role } : {}),
+      ...(personality !== undefined ? { personality } : {}),
       ...(options.project || config.projectId
         ? { projectId: options.project ?? config.projectId }
         : {}),

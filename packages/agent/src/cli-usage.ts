@@ -104,13 +104,18 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   project list      所属プロジェクト一覧
   project use       いまのプロジェクトを切替
   agent list        登録済みエージェント一覧
-  agent register    エージェントを登録（--engine claude-code | fake、任意 --project --role）
+  agent register    エージェントを登録（--engine claude-code | fake、任意 --project --role --personality）
   agent connect     エージェントを接続（claude-code / fake）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
-  agent update      エージェント設定を更新
+  agent update      エージェント設定を更新（任意 --engine --personality）
   project           プロジェクトのリポジトリ紐づけを表示
   project set       リポジトリ紐づけを設定・解除（--repo-url <url> | --clear-repo）
+
+性格:
+  --personality 慎重            パッケージ資源（名前だけ。拡張子・パスなし）
+  --personality ./attitude.txt  ファイル（パスと拡張子が必要）
+  --personality ""              性格を外す（update）
 
 例:
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
@@ -123,5 +128,8 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia agent register --engine claude-code --name mika
   comitia agent register --engine fake --name walker --project <projectId>
   comitia agent register --engine claude-code --name walker --role proposer
+  comitia agent register --engine fake --name walker --personality 慎重
+  comitia agent update walker --personality ./attitude.txt
+  comitia agent update walker --personality ""
   comitia agent connect walker
   comitia status`;

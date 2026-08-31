@@ -632,6 +632,33 @@ label textarea {
   line-height: var(--line-height-body);
 }
 
+.personality-field {
+  margin: 0.75rem 0;
+}
+
+.personality-field label {
+  margin: 0;
+}
+
+.personality-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.personality-presets button {
+  min-height: var(--tap-min);
+  padding: 0.25rem 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.personality-presets button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .decision-panel {
   margin-top: 1.5rem;
   padding: 1rem;

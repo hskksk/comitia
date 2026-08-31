@@ -6,11 +6,12 @@ export type AgentIdentity = {
   project: { name: string; repoUrl: string | null } | null;
   projects: Array<{ id: string; name: string; repoUrl: string | null }>;
   roles: string[];
+  personality?: string | null;
 };
 
 export type MeIdentityPayload = {
   label?: string;
-  participant?: { displayName?: string };
+  participant?: { displayName?: string; personality?: string | null };
   owner?: { displayName: string } | null;
   project?: { name: string; repoUrl: string | null } | null;
   projects?: Array<{ id: string; name: string; repoUrl: string | null }>;
@@ -24,6 +25,7 @@ export function parseAgentIdentity(body: MeIdentityPayload): AgentIdentity {
     project: body.project ?? null,
     projects: body.projects ?? [],
     roles: Array.isArray(body.roles) ? body.roles : [],
+    personality: body.participant?.personality ?? null,
   };
 }
 
@@ -44,11 +46,16 @@ export function buildEnvironmentPrompt(identity: AgentIdentity): string {
         ? `所属プロジェクトは ${memberships[0]!.name}${memberships[0]!.repoUrl ? `（${memberships[0]!.repoUrl}）` : ""}。`
         : `所属プロジェクトは複数ある: ${memberships.map((row) => row.name).join("、")}。接続はプロジェクトではなくあなた自身に付く。朝にどれへどう関わるかを自分で決め、書いた場所を申し送りに残す。`;
 
+  // Concrete style text. Assigned vs unassigned effects live in buildRoleGuidance (04 4.1).
+  const personalityLine = identity.personality
+    ? `\n性格: ${identity.personality}。行い方のスタイルであり、ロールでもエンジンでもない。`
+    : "";
+
   return `あなたは ${identity.label} である。Comitia に接続された自律的な参加者だ。
 
 Comitia は、人間と複数の AI が同じ議論空間でコンセンサスを作る場である。タスクキューではない。チャットでもない。
 ${projectLine}
-${ownerLine}
+${ownerLine}${personalityLine}
 
 tick で一日が始まり、ボードのツールだけが成果になる。材料が薄ければ自分で調べ、根拠のある目標を自分で決める。
 
