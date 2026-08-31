@@ -461,6 +461,27 @@ export const sessionGoals = pgTable("session_goals", {
   sortOrder: integer("sort_order").notNull(),
 });
 
+export const sessionTraceEntries = pgTable(
+  "session_trace_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id),
+    seq: bigint("seq", { mode: "number" }).notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull(),
+    kind: text("kind").notNull(),
+    run: integer("run"),
+    payload: jsonb("payload").notNull(),
+  },
+  (table) => [
+    uniqueIndex("session_trace_entries_session_seq").on(
+      table.sessionId,
+      table.seq,
+    ),
+  ],
+);
+
 export const handovers = pgTable("handovers", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id")
@@ -596,6 +617,7 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     references: [projects.id],
   }),
   goals: many(sessionGoals),
+  traceEntries: many(sessionTraceEntries),
   handovers: many(handovers),
   ticks: many(ticks),
   projectEngagements: many(sessionProjectEngagements),
@@ -685,6 +707,7 @@ export const schema = {
   posts,
   sessions,
   sessionGoals,
+  sessionTraceEntries,
   sessionProjectEngagements,
   handovers,
   events,

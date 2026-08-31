@@ -619,6 +619,26 @@ label select {
   font-size: 0.8rem;
 }
 
+.trace-collapse-btn,
+.log-toolbar .btn-secondary.is-active {
+  margin-left: 0.35rem;
+}
+
+.trace-collapse-btn {
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.log-toolbar .btn-secondary.is-active {
+  border-color: var(--color-accent);
+}
+
 .chat-log-trace .trace-thinking {
   color: var(--color-ink-muted);
 }

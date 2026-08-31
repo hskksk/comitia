@@ -561,6 +561,29 @@ describe("board HTTP", () => {
     });
     expect(tooLarge.status).toBe(413);
 
+    const traceRes = await app.request(`/v1/sessions/${sessionId}/trace`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${agentBody.agentToken}`,
+      },
+      body: JSON.stringify({
+        entries: [
+          {
+            v: 1,
+            seq: 1,
+            at: "2026-08-31T12:00:00.000Z",
+            kind: "tool_call",
+            run: 1,
+            tool: "get_briefing",
+            args: {},
+          },
+        ],
+      }),
+    });
+    expect(traceRes.status).toBe(200);
+    expect(await traceRes.json()).toEqual({ ok: true, lastSeq: 1 });
+
     const usageRes = await app.request(`/v1/sessions/${sessionId}/token-usage`, {
       method: "POST",
       headers: {

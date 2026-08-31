@@ -109,3 +109,18 @@ export function parseChatLogTraceLines(chatLog: string): TraceEvent[] {
   }
   return events;
 }
+
+export type AppendSessionTraceRequest = {
+  entries: TraceEvent[];
+};
+
+export type AppendSessionTraceResponse = {
+  ok: true;
+  lastSeq: number;
+};
+
+export type SessionTraceResponse = {
+  sessionId: string;
+  entries: TraceEvent[];
+  hasMore: boolean;
+};

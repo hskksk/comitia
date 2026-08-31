@@ -89,3 +89,57 @@ export class TraceCoalescingUploader {
     return this.uploadChain;
   }
 }
+
+/** Coalesce TraceEvent batches for POST /v1/sessions/:id/trace. */
+export class TraceEntriesCoalescingUploader {
+  private pending: TraceEvent[] = [];
+  private pendingBytes = 0;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private uploadChain = Promise.resolve();
+  private readonly maxMs: number;
+  private readonly maxBytes: number;
+  private readonly maxEvents: number;
+
+  constructor(
+    private readonly onBatch: (entries: TraceEvent[]) => Promise<void>,
+    options: TraceCoalesceOptions = {},
+  ) {
+    this.maxMs = options.maxMs ?? TRACE_COALESCE_DEFAULTS.maxMs;
+    this.maxBytes = options.maxBytes ?? TRACE_COALESCE_DEFAULTS.maxBytes;
+    this.maxEvents = options.maxEvents ?? TRACE_COALESCE_DEFAULTS.maxEvents;
+  }
+
+  enqueueEvent(event: TraceEvent): void {
+    this.pending.push(event);
+    this.pendingBytes += JSON.stringify(event).length;
+    if (
+      this.pending.length >= this.maxEvents ||
+      this.pendingBytes >= this.maxBytes
+    ) {
+      void this.flushPending();
+      return;
+    }
+    if (this.timer === null) {
+      this.timer = setTimeout(() => {
+        void this.flushPending();
+      }, this.maxMs);
+    }
+  }
+
+  flushPending(): Promise<void> {
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.pending.length === 0) {
+      return this.uploadChain;
+    }
+    const batch = this.pending;
+    this.pending = [];
+    this.pendingBytes = 0;
+    this.uploadChain = this.uploadChain
+      .then(() => this.onBatch(batch))
+      .catch(() => undefined);
+    return this.uploadChain;
+  }
+}
