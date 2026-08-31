@@ -150,6 +150,8 @@ export const GATEWAY = {
   healthTtlMs: 90_000,
   idleRunLimit: 2,
   maxRuns: 8,
+  /** Extra runs allowed after wind-down starts so end_session can succeed. */
+  windDownRunLimit: 3,
   defaultListenPort: 8787,
 } as const;
 

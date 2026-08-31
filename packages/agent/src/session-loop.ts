@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { TraceEvent } from "@comitia/shared";
+import { GATEWAY, type TraceEvent } from "@comitia/shared";
 import { judgeContinue, type LoopPhase } from "./continue-judgment.js";
 import type { ToolLogEntry } from "./idle-detection.js";
 import type { McpProxyToolResult } from "./mcp-proxy.js";
@@ -197,6 +197,7 @@ export async function runSessionLoop(
   let phase: LoopPhase = "work";
   let stopReason = "最大 run 数に到達";
   let runIndex = 0;
+  let windDownRunsWithoutEnd = 0;
 
   try {
     const identity = await fetchIdentity(boardUrl, agentToken);
@@ -373,8 +374,13 @@ export async function runSessionLoop(
       await flushTrace([continueEvent]);
 
       if (phase === "wind-down") {
-        stopReason = "wind-down 後も end_session 未実行";
-        break;
+        windDownRunsWithoutEnd += 1;
+        if (windDownRunsWithoutEnd >= GATEWAY.windDownRunLimit) {
+          stopReason = "wind-down 後も end_session 未実行";
+          break;
+        }
+        stopReason = decision.reason;
+        continue;
       }
 
       if (decision.phase === "wind-down") {

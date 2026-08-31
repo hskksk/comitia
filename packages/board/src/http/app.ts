@@ -337,6 +337,13 @@ export function createBoardApp(input: {
       throw new PermissionDenied("セッションの所有者ではありません");
     }
     const remaining = await addTokenUsage(db, sessionId, body.tokens);
+    const gateway = input.getGateway?.();
+    if (gateway) {
+      await maybeSendEndWarning(db, gateway.sendTick, {
+        participantId: participant.id,
+        sessionId,
+      });
+    }
     return c.json({ remaining_budget: remaining });
   });
 

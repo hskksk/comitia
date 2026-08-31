@@ -51,11 +51,31 @@ export async function addTokenUsage(
     throw new GateViolation("セッションは終了しています");
   }
 
+  const usable = computeUsableRemaining(session);
+  const charged = Math.min(tokens, Math.max(0, usable));
+  if (charged === 0) {
+    return computeRemaining(session);
+  }
+
   const [updated] = await db
     .update(sessions)
-    .set({ budgetUsed: session.budgetUsed + tokens })
+    .set({ budgetUsed: session.budgetUsed + charged })
     .where(eq(sessions.id, sessionId))
     .returning();
+
+  await recordEvent(db, {
+    projectId: session.projectId,
+    threadId: null,
+    actorParticipantId: session.participantId,
+    kind: "budget_spent",
+    payload: {
+      sessionId,
+      toolName: "token_usage",
+      cost: charged,
+      budgetUsed: updated!.budgetUsed,
+      remaining: computeRemaining(updated!),
+    },
+  });
 
   return computeRemaining(updated!);
 }

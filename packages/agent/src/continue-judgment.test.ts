@@ -120,6 +120,31 @@ describe("judgeContinue", () => {
     });
   });
 
+  it("enters wind-down when remaining budget is within the wind-down reserve even with incomplete goals", () => {
+    const decision = judgeContinue({
+      entries: [
+        entry({
+          tool: "set_goals",
+          result: {
+            remaining_budget: 8,
+            goals: [{ id: "g1", text: "typo", status: "pending" }],
+          },
+        }),
+      ],
+      runCount: 1,
+      maxRuns: 8,
+      idleRunLimit: 2,
+      windDownRequested: false,
+    });
+    expect(decision).toMatchObject({
+      phase: "wind-down",
+      shouldContinue: true,
+      reason: "活動量が終了作業予約分（10）まで減少",
+      remainingBudget: 8,
+      incompleteGoalTexts: ["typo"],
+    });
+  });
+
   it("enters wind-down when max runs is reached", () => {
     const decision = judgeContinue({
       entries: [entry({ run: 8, tool: "post", result: { remaining_budget: 50 } })],
