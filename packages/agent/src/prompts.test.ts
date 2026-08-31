@@ -23,6 +23,12 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).not.toContain("typo");
     expect(INITIAL_PROMPT).toContain("get_briefing");
     expect(INITIAL_PROMPT).toContain("set_goals");
+    expect(INITIAL_PROMPT).toContain("今日試みる役割を 1 つ決め");
+    expect(INITIAL_PROMPT).toContain("決め方は環境プロンプトの性格に従う");
+    expect(INITIAL_PROMPT).toContain("場の状況は材料であり、条件表ではない");
+    expect(INITIAL_PROMPT).not.toContain("situation.unclaimed_decided");
+    expect(INITIAL_PROMPT).not.toContain("議論の態度");
+    expect(INITIAL_PROMPT).toContain("環境プロンプトの各ロール指針");
     expect(INITIAL_PROMPT).not.toContain("コンセンサスを作る場");
     expect(INITIAL_PROMPT).not.toContain("タスクキューではない");
     expect(INITIAL_PROMPT).not.toContain("議論の態度");
@@ -52,6 +58,7 @@ describe("buildRedrivePrompt", () => {
     });
     expect(prompt).toContain("目標がまだ宣言されていない");
     expect(prompt).toContain("set_goals");
+    expect(prompt).toContain("決め方は環境プロンプトの性格に従う");
     expect(prompt).not.toContain("続きに取り組め");
   });
 
