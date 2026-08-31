@@ -410,6 +410,56 @@ describe("ThreadPage", () => {
     expect(releaseWorkMock).toHaveBeenCalledWith("t1", "claim-1");
   });
 
+  it("shows active work claimants in the thread badge", async () => {
+    threadMock.mockResolvedValue({
+      ...threadView,
+      workClaims: [
+        {
+          id: "claim-1",
+          participantId: "p1",
+          displayName: "ハル",
+          paths: ["docs/"],
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+        {
+          id: "claim-2",
+          participantId: "other",
+          displayName: "ミカ",
+          paths: ["packages/"],
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+      ],
+    });
+    renderThread();
+    await screen.findByText("ルール改正");
+    expect(screen.getByText("着手中: ハル, ミカ")).toBeInTheDocument();
+  });
+
+  it("dedupes duplicate claims from the same participant in the badge", async () => {
+    threadMock.mockResolvedValue({
+      ...threadView,
+      workClaims: [
+        {
+          id: "claim-1",
+          participantId: "p1",
+          displayName: "ハル",
+          paths: ["docs/"],
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+        {
+          id: "claim-2",
+          participantId: "p1",
+          displayName: "ハル",
+          paths: ["packages/"],
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+      ],
+    });
+    renderThread();
+    await screen.findByText("ルール改正");
+    expect(screen.getByText("着手中: ハル")).toBeInTheDocument();
+  });
+
   it("shows the decision block when decisionView is present", async () => {
     threadMock.mockResolvedValue({
       ...threadView,

@@ -11,7 +11,9 @@ import {
   getHumanThreadView,
   listJudgmentQueue,
   listNonblockingInbox,
+  listProjectThreads,
 } from "./human-views.js";
+import { claimWork } from "./work-claims.js";
 
 import { createFakeGitHubClient } from "../github/fake-client.js";
 import { eq } from "drizzle-orm";
@@ -239,5 +241,97 @@ describe("getHumanThreadView", () => {
     expect(view.posts.some((post) => post.authorDisplayName === "ミカ@ハル")).toBe(
       true,
     );
+  });
+});
+
+describe("listProjectThreads", () => {
+  it("attaches active work claimants' display names to each thread", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "implementation",
+      title: "着手ラベルの追加",
+      trigger: "一覧で誰が着手中か見たい",
+      duplicateSearchQuery: "work claim label",
+      consensusType: "owner_decision",
+      conflictCitationsChecked: true,
+    });
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["packages/web/src/api.ts"],
+    });
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    const row = rows.find((r) => r.id === thread.id);
+    expect(row?.activeWorkClaimants).toEqual([agent.displayName]);
+  });
+
+  it("returns an empty list of claimants when no one has claimed work", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "implementation",
+      title: "未着手のスレッド",
+      trigger: "確認用",
+      duplicateSearchQuery: "no claim",
+      consensusType: "owner_decision",
+      conflictCitationsChecked: true,
+    });
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    const row = rows.find((r) => r.id === thread.id);
+    expect(row?.activeWorkClaimants).toEqual([]);
+  });
+
+  it("dedupes multiple active claims from the same participant", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "implementation",
+      title: "二重着手",
+      trigger: "確認用",
+      duplicateSearchQuery: "double claim",
+      consensusType: "owner_decision",
+      conflictCitationsChecked: true,
+    });
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["docs/"],
+    });
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["packages/web/"],
+    });
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    const row = rows.find((r) => r.id === thread.id);
+    expect(row?.activeWorkClaimants).toEqual([agent.displayName]);
+  });
+});
+
+describe("listJudgmentQueue activeWorkClaimants", () => {
+  it("attaches active work claimants to queue items", async () => {
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const awaiting = await seedAwaitingRatification(db, {
+      ownerId: owner.id,
+      agentId: agent.id,
+      projectId: project.id,
+      title: "判断待ちで着手中",
+    });
+    await claimWork(db, {
+      threadId: awaiting.thread.id,
+      participantId: agent.id,
+      paths: ["docs/"],
+    });
+
+    const queue = await listJudgmentQueue(db, { projectId: project.id });
+    const item = queue.find((row) => row.threadId === awaiting.thread.id);
+    expect(item?.activeWorkClaimants).toEqual([agent.displayName]);
   });
 });

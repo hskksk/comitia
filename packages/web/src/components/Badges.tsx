@@ -9,7 +9,7 @@ export function ThreadBadges(props: {
   type: string;
   state: string;
   consensusType: string | null;
-  hasActiveWorkClaim?: boolean;
+  activeWorkClaimants?: string[];
 }) {
   return (
     <div className="badge-row">
@@ -18,8 +18,10 @@ export function ThreadBadges(props: {
       <span className="badge badge-consensus">
         {consensusTypeLabel(props.consensusType)}
       </span>
-      {props.hasActiveWorkClaim ? (
-        <span className="badge badge-claim">着手中</span>
+      {props.activeWorkClaimants && props.activeWorkClaimants.length > 0 ? (
+        <span className="badge badge-work-claim">
+          着手中: {props.activeWorkClaimants.join(", ")}
+        </span>
       ) : null}
     </div>
   );

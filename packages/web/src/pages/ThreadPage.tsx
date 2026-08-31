@@ -16,6 +16,7 @@ import { pullRequestStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
 import { useRouteLoad } from "../useRouteLoad.js";
+import { activeWorkClaimantNames } from "../workClaimLabels.js";
 
 const COMPOSER_TYPES = [
   ["comment", "コメント"],
@@ -336,7 +337,7 @@ export function ThreadPage() {
         type={view.thread.type}
         state={view.thread.state}
         consensusType={view.thread.consensusType}
-        hasActiveWorkClaim={view.workClaims.length > 0}
+        activeWorkClaimants={activeWorkClaimantNames(view.workClaims)}
       />
       <SynthesisCard
         synthesis={view.synthesis}

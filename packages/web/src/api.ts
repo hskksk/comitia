@@ -105,6 +105,7 @@ export type QueueItem = {
     versionNumber: number;
     content: string;
   } | null;
+  activeWorkClaimants: string[];
 };
 
 export type InboxItem = {
@@ -130,7 +131,7 @@ export type ThreadListItem = {
   consensusType: string | null;
   ownerParticipantId: string;
   createdAt: string;
-  hasActiveWorkClaim: boolean;
+  activeWorkClaimants: string[];
 };
 
 export type HumanProposal = {

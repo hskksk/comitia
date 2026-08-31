@@ -13,13 +13,39 @@ import { openOrGetSession, endSession } from "./sessions.js";
 import { createThread } from "./threads.js";
 import { GateViolation, NotFoundError, PermissionDenied } from "./errors.js";
 import {
+  activeClaimantsByThreadId,
   claimPathsOverlap,
   claimWork,
   listActiveProjectClaims,
   listActiveThreadClaims,
   listUnclaimedDecidedImplementations,
   releaseWork,
+  uniqueClaimantDisplayNames,
 } from "./work-claims.js";
+
+describe("uniqueClaimantDisplayNames", () => {
+  it("dedupes by participantId while preserving first-seen order", () => {
+    expect(
+      uniqueClaimantDisplayNames([
+        { participantId: "p1", displayName: "ハル" },
+        { participantId: "p2", displayName: "ミカ" },
+        { participantId: "p1", displayName: "ハル" },
+      ]),
+    ).toEqual(["ハル", "ミカ"]);
+  });
+});
+
+describe("activeClaimantsByThreadId", () => {
+  it("groups claimants per thread", () => {
+    const map = activeClaimantsByThreadId([
+      { threadId: "t1", participantId: "p1", displayName: "ハル" },
+      { threadId: "t2", participantId: "p2", displayName: "ミカ" },
+      { threadId: "t1", participantId: "p3", displayName: "リン" },
+    ]);
+    expect(map.get("t1")).toEqual(["ハル", "リン"]);
+    expect(map.get("t2")).toEqual(["ミカ"]);
+  });
+});
 
 describe("claimPathsOverlap", () => {
   it("treats a prefix directory as overlapping", () => {

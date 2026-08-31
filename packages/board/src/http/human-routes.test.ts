@@ -377,12 +377,12 @@ describe("human REST", () => {
 
     const before = await app.request("/v1/threads", { headers });
     const beforeBody = (await before.json()) as {
-      items: Array<{ id: string; hasActiveWorkClaim: boolean }>;
+      items: Array<{ id: string; activeWorkClaimants: string[] }>;
     };
     expect(
       beforeBody.items.find((item) => item.id === seeded.thread.id)
-        ?.hasActiveWorkClaim,
-    ).toBe(false);
+        ?.activeWorkClaimants,
+    ).toEqual([]);
 
     await app.request(`/v1/threads/${seeded.thread.id}/work-claims`, {
       method: "POST",
@@ -392,12 +392,12 @@ describe("human REST", () => {
 
     const after = await app.request("/v1/threads", { headers });
     const afterBody = (await after.json()) as {
-      items: Array<{ id: string; hasActiveWorkClaim: boolean }>;
+      items: Array<{ id: string; activeWorkClaimants: string[] }>;
     };
     expect(
       afterBody.items.find((item) => item.id === seeded.thread.id)
-        ?.hasActiveWorkClaim,
-    ).toBe(true);
+        ?.activeWorkClaimants,
+    ).toEqual([owner.displayName]);
   });
 
   it("rejects releasing another participant's claim", async () => {

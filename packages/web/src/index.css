@@ -388,9 +388,12 @@ textarea {
   color: var(--color-ink-muted);
 }
 
-.badge-claim {
+.badge-work-claim {
   border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-ink) 25%, var(--color-border));
   color: var(--color-ink);
+  background: var(--color-card);
+  font-weight: 600;
 }
 
 .actions {
