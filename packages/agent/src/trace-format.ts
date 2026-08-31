@@ -311,7 +311,8 @@ export function claudeStreamLineToPartialEvents(
       partials.push({ kind: "thinking", run, text: item.thinking });
     } else if (isAssistant && item.type === "text" && typeof item.text === "string") {
       partials.push({ kind: "text", run, text: item.text });
-    } else if (item.type === "tool_use" && typeof item.name === "string") {
+      // tool_use blocks appear on assistant messages; user messages carry tool_result.
+    } else if (isAssistant && item.type === "tool_use" && typeof item.name === "string") {
       partials.push({
         kind: "tool_call",
         run,

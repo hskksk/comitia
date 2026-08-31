@@ -1,4 +1,8 @@
 import { loadConfig } from "../config.js";
+import {
+  formatChatLogDelta,
+  formatChatLogForDisplay,
+} from "../chat-log-display.js";
 import { formatHttpError } from "../http-error.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
 
@@ -8,6 +12,8 @@ export interface AgentLogsCommandOptions {
   name: string;
   sessionId?: string;
   follow?: boolean;
+  /** Emit raw chat_log including @json lines (default: human-readable trace). */
+  raw?: boolean;
   configDir?: string;
   fetch?: typeof globalThis.fetch;
   stdout?: CliOutput;
@@ -71,23 +77,29 @@ export async function agentLogsCommand(
     );
 
   const first = await loadLog();
-  stdout.write(first.chatLog.endsWith("\n") ? first.chatLog : `${first.chatLog}\n`);
+  const raw = options.raw === true;
+  stdout.write(formatChatLogForDisplay(first.chatLog, raw));
   if (!options.follow) {
     return;
   }
 
-  let printed = first.chatLog;
+  let printedRaw = first.chatLog;
   const pollMs = options.pollMs ?? 5_000;
   const maxPolls = options.maxPolls ?? Number.POSITIVE_INFINITY;
   for (let i = 0; i < maxPolls; i += 1) {
     await new Promise((resolve) => setTimeout(resolve, pollMs));
     const next = await loadLog();
-    if (next.chatLog.startsWith(printed) && next.chatLog.length > printed.length) {
-      stdout.write(next.chatLog.slice(printed.length));
-      printed = next.chatLog;
-    } else if (next.chatLog !== printed) {
-      stdout.write(next.chatLog.endsWith("\n") ? next.chatLog : `${next.chatLog}\n`);
-      printed = next.chatLog;
+    if (
+      next.chatLog.startsWith(printedRaw) &&
+      next.chatLog.length > printedRaw.length
+    ) {
+      stdout.write(
+        formatChatLogDelta(next.chatLog.slice(printedRaw.length), raw),
+      );
+      printedRaw = next.chatLog;
+    } else if (next.chatLog !== printedRaw) {
+      stdout.write(formatChatLogForDisplay(next.chatLog, raw));
+      printedRaw = next.chatLog;
     }
   }
 }
