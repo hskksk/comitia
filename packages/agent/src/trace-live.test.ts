@@ -54,4 +54,30 @@ describe("claude live trace streaming", () => {
     expect(chunks[0]).toContain('"kind":"run_start"');
     expect(chunks[0]).toContain(`"v":${TRACE_VERSION}`);
   });
+
+  it("live emit followed by flush does not duplicate adapter notes", async () => {
+    const chunks: string[] = [];
+    const traceLog = new TraceSessionLog(
+      async (chunk) => {
+        chunks.push(chunk);
+      },
+      { live: true, coalesce: { maxEvents: 10, maxMs: 60_000 } },
+    );
+
+    traceLog.emit({ kind: "adapter_note", run: 1, message: "checkout failed" });
+    await traceLog.flush([
+      {
+        v: TRACE_VERSION,
+        seq: 1,
+        at: "2026-08-31T12:00:00.000Z",
+        kind: "adapter_note",
+        run: 1,
+        message: "checkout failed",
+      },
+    ]);
+    await traceLog.flushPending();
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]?.match(/"kind":"adapter_note"/g)).toHaveLength(1);
+  });
 });

@@ -229,8 +229,8 @@ export async function runSessionLoop(
           ? `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。作業ディレクトリの中身無しで続行する。`
           : `[work-dir] repoUrl のクローン/更新に失敗: ${checkout.error}。GitHub 実行資格が無い（プロジェクトに App 未接続のことが多い）。ホストの GH_TOKEN は使わない。作業ディレクトリの中身無しで続行する。`;
         console.error(note);
-        const noteEvent = traceLog.emit(adapterNoteEvent(undefined, note));
-        await traceLog.flush([noteEvent]);
+        traceLog.emit(adapterNoteEvent(undefined, note));
+        await flushTracePending();
       }
     }
 

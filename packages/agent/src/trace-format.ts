@@ -228,12 +228,11 @@ export class TraceSessionLog {
     if (events.length === 0) {
       return;
     }
-    const chunk = ensureTraceChunkNewline(serializeTraceEvents(events));
     if (this.uploader) {
-      this.uploader.enqueueLine(chunk.trimEnd());
-      await this.uploader.flushPending();
+      await this.flushPending();
       return;
     }
+    const chunk = ensureTraceChunkNewline(serializeTraceEvents(events));
     await this.onChunk(chunk);
   }
 }
