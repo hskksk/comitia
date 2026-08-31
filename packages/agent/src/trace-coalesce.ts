@@ -25,6 +25,38 @@ function ensureTraceChunkNewline(chunk: string): string {
   return chunk.endsWith("\n") ? chunk : `${chunk}\n`;
 }
 
+function lineUtf8Bytes(line: string, withSeparator: boolean): number {
+  return Buffer.byteLength(line, "utf8") + (withSeparator ? 1 : 0);
+}
+
+/** Split coalesced lines so each upload stays within Board's chunk limit. */
+export function splitTraceLinesByMaxBytes(
+  lines: string[],
+  maxBytes: number,
+): string[][] {
+  if (lines.length === 0) {
+    return [];
+  }
+  const batches: string[][] = [];
+  let current: string[] = [];
+  let currentBytes = 0;
+  for (const line of lines) {
+    const addedBytes = lineUtf8Bytes(line, current.length > 0);
+    if (current.length > 0 && currentBytes + addedBytes > maxBytes) {
+      batches.push(current);
+      current = [line];
+      currentBytes = Buffer.byteLength(line, "utf8");
+      continue;
+    }
+    current.push(line);
+    currentBytes += addedBytes;
+  }
+  if (current.length > 0) {
+    batches.push(current);
+  }
+  return batches;
+}
+
 /** Coalesce @json lines and upload via a serial, non-blocking queue. */
 export class TraceCoalescingUploader {
   private pendingLines: string[] = [];
@@ -51,7 +83,7 @@ export class TraceCoalescingUploader {
       return;
     }
     this.pendingLines.push(normalized);
-    this.pendingBytes += normalized.length + 1;
+    this.pendingBytes += lineUtf8Bytes(normalized, this.pendingLines.length > 1);
     this.pendingEvents += 1;
     if (
       this.pendingEvents >= this.maxEvents ||
@@ -79,13 +111,16 @@ export class TraceCoalescingUploader {
     if (this.pendingLines.length === 0) {
       return this.uploadChain;
     }
-    const chunk = ensureTraceChunkNewline(this.pendingLines.join("\n"));
+    const lines = this.pendingLines;
     this.pendingLines = [];
     this.pendingBytes = 0;
     this.pendingEvents = 0;
-    this.uploadChain = this.uploadChain
-      .then(() => this.onChunk(chunk))
-      .catch(() => undefined);
+    for (const batch of splitTraceLinesByMaxBytes(lines, TRACE_CHUNK_MAX_BYTES)) {
+      const chunk = ensureTraceChunkNewline(batch.join("\n"));
+      this.uploadChain = this.uploadChain
+        .then(() => this.onChunk(chunk))
+        .catch(() => undefined);
+    }
     return this.uploadChain;
   }
 }
@@ -111,7 +146,7 @@ export class TraceEntriesCoalescingUploader {
 
   enqueueEvent(event: TraceEvent): void {
     this.pending.push(event);
-    this.pendingBytes += JSON.stringify(event).length;
+    this.pendingBytes += Buffer.byteLength(JSON.stringify(event), "utf8");
     if (
       this.pending.length >= this.maxEvents ||
       this.pendingBytes >= this.maxBytes
