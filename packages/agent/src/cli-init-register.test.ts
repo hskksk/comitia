@@ -132,6 +132,7 @@ describe("init and agent register commands", () => {
       name: "mika",
       sessionId: undefined,
       follow: false,
+      raw: false,
     });
     expect(
       parseCliArgs(["agent", "logs", "mika", "--session", "sess-1", "--follow"]),
@@ -140,6 +141,14 @@ describe("init and agent register commands", () => {
       name: "mika",
       sessionId: "sess-1",
       follow: true,
+      raw: false,
+    });
+    expect(parseCliArgs(["agent", "logs", "mika", "--raw"])).toEqual({
+      command: "agent-logs",
+      name: "mika",
+      sessionId: undefined,
+      follow: false,
+      raw: true,
     });
     expect(parseCliArgs(["agent", "update", "mika", "--engine", "fake"])).toEqual({
       command: "agent-update",
@@ -843,6 +852,96 @@ describe("operator commands", () => {
     await agentLogsCommand({
       name: "mika",
       follow: false,
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+    });
+
+    expect(chunks.join("")).toContain("hello from mika");
+  });
+
+  it("prints rich trace lines from chat log by default", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-logs-rich-"));
+    cleanups.push(() => rm(configDir, { recursive: true, force: true }));
+    await writeConfig(configDir);
+
+    const traceLine = `@json ${JSON.stringify({
+      v: 1,
+      seq: 1,
+      at: "2026-08-31T11:00:00.000Z",
+      kind: "tool_call",
+      run: 1,
+      tool: "get_briefing",
+      args: {},
+    })}`;
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.endsWith("/v1/agents/agent-1/sessions")) {
+        return new Response(
+          JSON.stringify({
+            items: [{ id: "sess-1", startedAt: "2026-08-17T00:00:00.000Z", endedAt: null }],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/v1/sessions/sess-1/chat-log")) {
+        return new Response(
+          JSON.stringify({ chatLog: `${traceLine}\n`, truncated: false }),
+          { status: 200 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await agentLogsCommand({
+      name: "mika",
+      follow: false,
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+    });
+
+    expect(chunks.join("")).toContain("[tool] get_briefing({})");
+    expect(chunks.join("")).not.toContain("@json");
+  });
+
+  it("prints raw chat log with --raw", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-logs-raw-"));
+    cleanups.push(() => rm(configDir, { recursive: true, force: true }));
+    await writeConfig(configDir);
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.endsWith("/v1/agents/agent-1/sessions")) {
+        return new Response(
+          JSON.stringify({
+            items: [{ id: "sess-1", startedAt: "2026-08-17T00:00:00.000Z", endedAt: null }],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/v1/sessions/sess-1/chat-log")) {
+        return new Response(
+          JSON.stringify({ chatLog: "hello from mika\n", truncated: false }),
+          { status: 200 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await agentLogsCommand({
+      name: "mika",
+      follow: false,
+      raw: true,
       configDir,
       fetch: fetchMock as typeof fetch,
       stdout,

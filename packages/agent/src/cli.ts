@@ -83,6 +83,7 @@ type ParsedCommand =
       name: string;
       sessionId?: string;
       follow: boolean;
+      raw: boolean;
     }
   | {
       command: "agent-update";
@@ -231,12 +232,13 @@ export function parseCliArgs(args: string[]): ParsedCommand {
   if (args[0] === "agent" && args[1] === "logs") {
     if (!args[2]) {
       throw new UsageError(
-        "Usage: comitia agent logs <name> [--session <id>] [--follow]",
+        "Usage: comitia agent logs <name> [--session <id>] [--follow] [--raw]",
       );
     }
     const name = args[2];
     let sessionId: string | undefined;
     let follow = false;
+    let raw = false;
     const rest = args.slice(3);
     for (let index = 0; index < rest.length; index += 1) {
       const token = rest[index];
@@ -244,11 +246,15 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         follow = true;
         continue;
       }
+      if (token === "--raw") {
+        raw = true;
+        continue;
+      }
       if (token === "--session") {
         const value = rest[index + 1];
         if (!value) {
           throw new UsageError(
-            "Usage: comitia agent logs <name> [--session <id>] [--follow]",
+            "Usage: comitia agent logs <name> [--session <id>] [--follow] [--raw]",
           );
         }
         sessionId = value;
@@ -256,10 +262,10 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         continue;
       }
       throw new UsageError(
-        "Usage: comitia agent logs <name> [--session <id>] [--follow]",
+        "Usage: comitia agent logs <name> [--session <id>] [--follow] [--raw]",
       );
     }
-    return { command: "agent-logs", name, sessionId, follow };
+    return { command: "agent-logs", name, sessionId, follow, raw };
   }
   if (args[0] === "agent" && args[1] === "update") {
     if (!args[2]) {

@@ -182,9 +182,10 @@ export function processClaudeStreamChunk(
 }
 
 /**
- * Turn one line of `claude --output-format stream-json` output into a
- * human-readable console line, or `null` if the line has nothing worth
- * showing (tool results, non-assistant events, blank lines, ...).
+ * Turn one line of `claude --output-format stream-json` output into
+ * human-readable console line(s), or `null` if nothing worth showing
+ * (blank lines, invalid JSON, events with no formatTraceHuman output).
+ * Includes assistant thinking/text/tool_use and user tool_result blocks.
  */
 export function formatClaudeStreamLineForConsole(line: string): string | null {
   const partials = claudeStreamLineToPartialEvents(line, 0);

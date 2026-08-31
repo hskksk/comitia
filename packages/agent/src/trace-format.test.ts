@@ -75,6 +75,37 @@ describe("trace-format", () => {
     ]);
   });
 
+  it("ignores tool_use on user stream lines", () => {
+    const line = JSON.stringify({
+      type: "user",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            name: "mcp__comitia-board__get_briefing",
+            input: {},
+          },
+        ],
+      },
+    });
+    expect(claudeStreamLineToPartialEvents(line, 1)).toEqual([]);
+  });
+
+  it("redacts note bodies in tool_metadata mode", () => {
+    const event = finalizeTraceEvent(
+      {
+        seq: 1,
+        kind: "tool_call",
+        run: 1,
+        tool: "write_note",
+        args: { title: "t", body: "secret" },
+      },
+      { redactMode: "tool_metadata" },
+    );
+    expect(event.args).toEqual({ title: "(redacted)", body: "(redacted)" });
+    expect(event.redacted).toBe(true);
+  });
+
   it("builds trace events from claude stdout", async () => {
     const chunks: string[] = [];
     const traceLog = new TraceSessionLog(async (chunk) => {
