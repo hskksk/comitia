@@ -43,8 +43,29 @@ export function SessionLogPage() {
     if (!id) {
       return;
     }
+    const fetchAllTrace = async (): Promise<SessionTraceResponse | null> => {
+      const entries: SessionTraceResponse["entries"] = [];
+      let afterSeq = 0;
+      let sessionId = id;
+      let hasMore = true;
+      while (hasMore) {
+        const page = await boardClient.sessionTrace(id, {
+          afterSeq,
+          limit: 2_000,
+        });
+        entries.push(...page.entries);
+        afterSeq = page.entries.at(-1)?.seq ?? afterSeq;
+        hasMore = page.hasMore;
+        sessionId = page.sessionId;
+      }
+      if (entries.length === 0) {
+        return null;
+      }
+      return { sessionId, entries, hasMore: false };
+    };
+
     Promise.all([
-      boardClient.sessionTrace(id, { afterSeq: 0, limit: 2_000 }).catch(() => null),
+      fetchAllTrace().catch(() => null),
       boardClient.chatLog(id, fromStart ? { fromStart: true } : { tailChars: 65_536 }),
     ])
       .then(([traceResult, chatLog]) => {
@@ -65,7 +86,7 @@ export function SessionLogPage() {
             return {
               ...traceResult,
               entries: merged,
-              hasMore: traceResult.hasMore,
+              hasMore: false,
             };
           });
         } else {

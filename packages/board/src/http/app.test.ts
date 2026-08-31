@@ -515,7 +515,7 @@ describe("board HTTP", () => {
 
   it("appends chat log and token usage on the agent's own session", async () => {
     const app = createBoardApp({ db });
-    const { agentBody } = await bootstrapOwnerAndAgent(app);
+    const { initBody, agentBody } = await bootstrapOwnerAndAgent(app);
 
     const session = await prepareSessionStart(db, {
       participantId: agentBody.agentId,
@@ -583,6 +583,44 @@ describe("board HTTP", () => {
     });
     expect(traceRes.status).toBe(200);
     expect(await traceRes.json()).toEqual({ ok: true, lastSeq: 1 });
+
+    const otherAgentRes = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${initBody.ownerToken}`,
+      },
+      body: JSON.stringify({
+        displayName: "コト",
+        engine: "claude-code",
+      }),
+    });
+    expect(otherAgentRes.status).toBe(201);
+    const otherAgent = (await otherAgentRes.json()) as { agentToken: string };
+
+    const deniedTrace = await app.request(`/v1/sessions/${sessionId}/trace`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${otherAgent.agentToken}`,
+      },
+      body: JSON.stringify({
+        entries: [
+          {
+            v: 1,
+            at: "2026-08-31T12:00:01.000Z",
+            kind: "tool_call",
+            run: 1,
+            tool: "get_briefing",
+            args: {},
+          },
+        ],
+      }),
+    });
+    expect(deniedTrace.status).toBe(400);
+    expect(await deniedTrace.json()).toEqual({
+      error: "セッションの所有者ではありません",
+    });
 
     const usageRes = await app.request(`/v1/sessions/${sessionId}/token-usage`, {
       method: "POST",

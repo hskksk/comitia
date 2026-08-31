@@ -93,10 +93,23 @@ export async function agentTraceCommand(
       headers,
     );
 
+  const loadAllTrace = async (startSeq = 0) => {
+    const entries: TraceEvent[] = [];
+    let afterSeq = startSeq;
+    let hasMore = true;
+    while (hasMore) {
+      const page = await loadTrace(afterSeq);
+      entries.push(...page.entries);
+      afterSeq = page.entries.at(-1)?.seq ?? afterSeq;
+      hasMore = page.hasMore;
+    }
+    return { entries, lastSeq: afterSeq };
+  };
+
   let afterSeq = 0;
-  const first = await loadTrace(afterSeq);
+  const first = await loadAllTrace(afterSeq);
   stdout.write(formatTraceOutput(first.entries, options.json === true));
-  afterSeq = first.entries.at(-1)?.seq ?? afterSeq;
+  afterSeq = first.lastSeq;
 
   if (!options.follow) {
     return;
