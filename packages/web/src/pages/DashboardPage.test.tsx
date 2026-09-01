@@ -41,10 +41,12 @@ const getProjectMock = vi.fn().mockResolvedValue({
   },
 });
 
+const eventsMock = vi.fn().mockResolvedValue({ items: [] });
+
 vi.mock("../api.js", () => ({
   boardClient: {
     getProject: (...args: unknown[]) => getProjectMock(...args),
-    events: vi.fn().mockResolvedValue({ items: [] }),
+    events: (...args: unknown[]) => eventsMock(...args),
   },
 }));
 
@@ -66,6 +68,32 @@ describe("DashboardPage", () => {
     expect(screen.getByText("エージェント接続中 1")).toBeInTheDocument();
     expect(document.getElementById("project-rules-heading")).toBeInTheDocument();
     expect(screen.getByText("小さな作業はオーナー決定")).toBeInTheDocument();
+  });
+
+  it("shows the actor and target display names on recent events", async () => {
+    eventsMock.mockResolvedValueOnce({
+      items: [
+        {
+          id: "e1",
+          kind: "project_membership_added",
+          threadId: null,
+          actorParticipantId: "p1",
+          actorDisplayName: "ハル",
+          targetDisplayName: "ミカ",
+          payload: {},
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/p/proj-1"]}>
+        <Routes>
+          <Route path="/p/:projectId" element={<DashboardPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("by ハル")).toBeInTheDocument();
+    expect(screen.getByText("→ 対象: ミカ")).toBeInTheDocument();
   });
 
   it("collapses long project rules to five lines until expanded", async () => {
