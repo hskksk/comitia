@@ -76,14 +76,20 @@ mise exec -- pnpm railway:push-secrets -- --deploy    # 設定後に redeploy
 ```
 
 `SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
-`BOARD_PUBLIC_URL` も同期対象。`SMEE_WEBHOOK_URL` は本番では不要（ローカル dogfood 用）なのでデフォルトでは送らない。必要なら `--include-smee`。
 
 ## CI との関係
 
 - PR と `main` への push で `.github/workflows/ci.yml` が test / typecheck / Docker イメージビルドを回す
-- Railway 側のデプロイジョブは GitHub Actions に置かない（`RAILWAY_TOKEN` が要らない）
-- `main` の CI が赤いときは、Wait for CI によりデプロイは SKIPPED になり、直前の本番が残る
-- インフラの差分確認は手元（または運用者が）`railway config plan` する。Actions から `apply` しない
+- `.railway/**` を変えた PR では `.github/workflows/railway-iac.yml` が `railway config plan` を実行（適用はしない）
+- `main` へマージされ `.railway/**` に差分があると、同ワークフローが `railway config apply --yes` でインフラを更新する
+- アプリの本番デプロイは引き続き Railway の GitHub 連携 + Wait for CI（Actions から `railway up` はしない）
+- `main` の CI が赤いときは、Wait for CI によりアプリのデプロイは SKIPPED になり、直前の本番が残る
+
+### GitHub Actions 用シークレット
+
+Railway ダッシュボード → Project Settings → Tokens で **Project Token**（`production` 環境向け）を作り、GitHub リポジトリの `RAILWAY_TOKEN` に登録する。トークンは環境にスコープされるので `railway link` は不要。
+
+破壊的変更（サービス削除など）は CI の `apply` では `--confirm-destructive` を付けないため失敗する。意図した削除は手元で `railway config apply --yes --confirm-destructive` を実行する。
 
 ## ロールバック
 
@@ -112,5 +118,5 @@ Railway のプローブは IPv6 で来る。`HOST=0.0.0.0` だと届かない。
 
 - レプリカを 2 以上にする（WS リレーがプロセス内）
 - Web を Vercel/Netlify に分け、API だけ Railway（同一オリジンを崩す）
-- Actions からの `railway up` / `railway config apply`（プレビュー環境が要るようになったら検討）
+- Actions からの `railway up`（アプリデプロイは GitHub 連携に任せる）
 - `railway.toml` を復活させる（IaC と同時運用できない）

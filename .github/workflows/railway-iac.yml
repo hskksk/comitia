@@ -1,0 +1,72 @@
+name: Railway IaC
+
+on:
+  pull_request:
+    paths:
+      - ".railway/**"
+      - ".github/workflows/railway-iac.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".railway/**"
+      - ".github/workflows/railway-iac.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: railway-iac-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Preview Railway infrastructure changes
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway config plan
+
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Apply Railway infrastructure
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway config apply --yes
