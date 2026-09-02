@@ -6,7 +6,7 @@ enginebay runs a host-installed coding agent (OpenCode, Claude Code, and later C
 
 It is not a product, a session loop, or a sandbox OS. Host applications — Comitia, eval harnesses, other adapters — stay thin.
 
-**Status:** v1 implements **OpenCode** (`openBay`, `doctor`, `env` isolation). `claude-code` is in the catalog but not implemented yet. See [docs/design.md](docs/design.md).
+**Status:** OpenCode and **Claude Code** drivers are implemented (`openBay`, `doctor`, `env` isolation). See [docs/design.md](docs/design.md).
 
 ## Why
 
@@ -62,7 +62,7 @@ Each `run()` is a **fresh CLI process**. Conversation continuity is the consumer
 
 ## Engines
 
-Planned catalog. v1 implements OpenCode first.
+v1 implements OpenCode and Claude Code. Later engines wait until a consumer needs them.
 
 | ID | CLI | Notes |
 | --- | --- | --- |

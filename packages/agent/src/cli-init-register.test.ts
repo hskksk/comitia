@@ -12,7 +12,7 @@ import { schema, startBoardServer } from "@comitia/board";
 import { parseCliArgs, runCli } from "./cli.js";
 import { USAGE_TEXT } from "./cli-usage.js";
 import { loadConfig } from "./config.js";
-import { doctorCommand, opencodeDoctorFindings } from "./commands/doctor.js";
+import { doctorCommand, opencodeDoctorFindings, claudeCliDoctorFinding } from "./commands/doctor.js";
 import { statusCommand } from "./commands/status.js";
 import { tokenCommand } from "./commands/token.js";
 import { wakeCommand } from "./commands/wake.js";
@@ -653,6 +653,34 @@ describe("operator commands", () => {
         message: "OpenCode 認証: ホストで `opencode auth` を実行してください",
       },
     ]);
+  });
+
+  it("maps enginebay doctor output into Japanese Claude CLI findings", () => {
+    expect(
+      claudeCliDoctorFinding({
+        ok: false,
+        engine: "claude-code",
+        cli: { found: false, command: "claude" },
+        auth: { found: false, detail: "missing" },
+        message: "claude CLI is not on PATH",
+      }),
+    ).toEqual({
+      ok: false,
+      message:
+        "Claude Code CLI が見つかりません（PATH に claude がありません）。エージェント接続には必要です。",
+    });
+    expect(
+      claudeCliDoctorFinding({
+        ok: true,
+        engine: "claude-code",
+        cli: { found: true, command: "claude", version: "1.0.0-fake" },
+        auth: { found: true, detail: "credentials" },
+        message: "ok",
+      }),
+    ).toEqual({
+      ok: true,
+      message: "claude が PATH にあります（1.0.0-fake）",
+    });
   });
 
   it("checks OpenCode when an agent uses that engine", async () => {
