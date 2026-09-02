@@ -161,7 +161,7 @@ export async function openClaudeBay(
   hostEnv: NodeJS.ProcessEnv,
   hostHome: string,
 ): Promise<Bay> {
-  const runtimeDir = await mkdtemp(join(tmpdir(), "enginebay-runtime-"));
+  const runtimeDir = await mkdtemp(join(tmpdir(), "enginebay-claude-runtime-"));
   const isolatedHome = join(runtimeDir, "home");
   await mkdir(isolatedHome, { recursive: true });
   const mcpConfigPath = join(runtimeDir, "mcp-config.json");
