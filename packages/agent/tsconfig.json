@@ -6,9 +6,14 @@
     "types": ["node"],
     "paths": {
       "@comitia/board": ["../board/src/index.ts"],
-      "@comitia/shared": ["../shared/src/index.ts"]
+      "@comitia/shared": ["../shared/src/index.ts"],
+      "enginebay": ["../enginebay/src/index.ts"]
     }
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../shared" }, { "path": "../board" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../board" },
+    { "path": "../enginebay" }
+  ]
 }

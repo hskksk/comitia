@@ -97,6 +97,45 @@ describe("SettingsPage", () => {
     expect(await screen.findByText("ウォーカー")).toBeInTheDocument();
   });
 
+  it("offers OpenCode in the engine select", async () => {
+    const user = userEvent.setup();
+    listOwnedAgentsMock
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: "a1",
+            displayName: "ソウ",
+            engine: "opencode",
+            personality: null,
+            ownerParticipantId: "p1",
+          },
+        ],
+      });
+    createAgentMock.mockResolvedValueOnce({
+      agent: { id: "a1", displayName: "ソウ", engine: "opencode" },
+      agentToken: "comt_once",
+    });
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+    await user.type(await screen.findByLabelText("名前"), "ソウ");
+    const select = screen.getByLabelText("エンジン");
+    expect(select).toHaveValue("claude-code");
+    await user.selectOptions(select, "opencode");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    expect(createAgentMock).toHaveBeenCalledWith({
+      displayName: "ソウ",
+      engine: "opencode",
+      projectId: "proj-1",
+      role: undefined,
+      personality: undefined,
+    });
+    expect(await screen.findByText("OpenCode")).toBeInTheDocument();
+  });
+
   it("fills personality from a packaged preset chip", async () => {
     const user = userEvent.setup();
     const cautious = PERSONALITY_PRESETS.find((preset) => preset.id === "慎重");

@@ -109,9 +109,9 @@ describe("bootstrap", () => {
       registerAgent(db, {
         ownerParticipantId: boot.owner.id,
         displayName: "ソウ",
-        engine: "opencode",
+        engine: "cursor-agent",
       }),
-    ).rejects.toThrow(/claude-code, fake/);
+    ).rejects.toThrow(/claude-code, fake, opencode/);
   });
 
   it("accepts the fake walkthrough engine", async () => {
@@ -125,6 +125,19 @@ describe("bootstrap", () => {
       engine: "fake",
     });
     expect(registered.agent.engine).toBe("fake");
+  });
+
+  it("accepts the opencode engine", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const registered = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "ソウ",
+      engine: "opencode",
+    });
+    expect(registered.agent.engine).toBe("opencode");
   });
 
   it("registers without a role by default", async () => {

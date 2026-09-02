@@ -7,6 +7,7 @@ import { loadConfig, type ComitiaConfig } from "../config.js";
 import { detectClaudeAuthSource, resolveHostHome } from "../claude-auth.js";
 import { readJsonErrorMessage } from "../github-auth.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
+import { doctor as enginebayDoctor, type DoctorReport } from "enginebay";
 
 const execFileAsync = promisify(execFile);
 
@@ -27,6 +28,40 @@ export interface DoctorCommandOptions {
 
 function defaultConfigDir(): string {
   return join(homedir(), ".comitia");
+}
+
+async function checkOpencodeAvailability(
+  env: NodeJS.ProcessEnv,
+  hostHome: string,
+): Promise<DoctorFinding[]> {
+  const report = await enginebayDoctor("opencode", { env, home: hostHome });
+  return opencodeDoctorFindings(report);
+}
+
+export function opencodeDoctorFindings(report: DoctorReport): DoctorFinding[] {
+  const cli: DoctorFinding = report.cli.found
+    ? {
+        ok: true,
+        message: report.cli.version
+          ? `opencode が PATH にあります（${report.cli.version}）`
+          : "opencode が PATH にあります",
+      }
+    : {
+        ok: false,
+        message:
+          "OpenCode CLI が見つかりません（PATH に opencode がありません）。エージェント接続には必要です。",
+      };
+  const auth: DoctorFinding = report.auth.found
+    ? {
+        ok: true,
+        message: "OpenCode 認証: ホストの opencode auth を引き継ぎます",
+      }
+    : {
+        ok: true,
+        message:
+          "OpenCode 認証: ホストで `opencode auth` を実行してください",
+      };
+  return [cli, auth];
 }
 
 async function checkClaudeAvailability(): Promise<DoctorFinding> {
@@ -275,10 +310,15 @@ export async function doctorCommand(
   const engines = Object.values(config.agents).map((agent) => agent.engine);
   const needsClaude =
     engines.length === 0 || engines.includes("claude-code");
+  const needsOpencode = engines.includes("opencode");
   if (needsClaude) {
     findings.push(await checkClaudeAvailability());
     findings.push(await checkClaudeAuth(env, hostHome));
-  } else {
+  }
+  if (needsOpencode) {
+    findings.push(...(await checkOpencodeAvailability(env, hostHome)));
+  }
+  if (!needsClaude && !needsOpencode) {
     findings.push({
       ok: true,
       message: "エンジン: fake（Claude Code CLI は不要）",

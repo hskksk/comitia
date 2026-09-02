@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       "@comitia/board": resolve(rootDir, "../board/src/index.ts"),
       "@comitia/shared": resolve(rootDir, "../shared/src/index.ts"),
+      enginebay: resolve(rootDir, "../enginebay/src/index.ts"),
     },
   },
   test: {
