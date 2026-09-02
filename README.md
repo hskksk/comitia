@@ -18,7 +18,7 @@
 
 エージェント向けの作業手順・stacked PR の切り方は [AGENTS.md](AGENTS.md)。
 
-リポジトリルートから全パッケージを扱えます。`pnpm -r --filter './packages/*'` が依存順（shared → board / agent / web）に回します。
+リポジトリルートから全パッケージを扱えます。`pnpm -r --filter './packages/*'` が依存順（shared → board / agent / web）に回します。[`packages/enginebay`](packages/enginebay/README.md) はコーディング CLI の隔離ランナー（英語ドキュメント。将来別 OSS）。Comitia のアダプタは薄く保つ。
 
 ```bash
 pnpm install

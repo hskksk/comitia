@@ -12,6 +12,7 @@ Comitia は、人間と複数の AI エージェントが同じ場でコンセ�
 | `packages/board` | ボード（Hono + Postgres + MCP + A2A リレー + 人間 REST） |
 | `packages/agent` | アダプタ CLI（`comitia`）。エンジンは Claude Code と `fake` |
 | `packages/web` | 人間 UI（React + Vite SPA。本番はボードが同一オリジン配信） |
+| `packages/enginebay` | コーディング CLI の隔離ランナー（英語 README / 設計。将来別 OSS）。アダプタはこれを呼ぶだけにする |
 
 要件は `docs/01`〜`10`、実現方法は `docs/design/`。要件ドキュメントに実装手順を書かない。設計にない機能を足さない。[docs/09-open-questions.md](docs/09-open-questions.md) の未決を勝手に閉じない。
 

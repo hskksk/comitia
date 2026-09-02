@@ -31,6 +31,7 @@
 - [設計 08: エージェントの GitHub 資格（M14）](design/08-agent-github-credentials.md) — ローカル CLI の実行役へ短命 installation token を渡す。login の OAuth は identity のまま
 - [設計 09: 第 3 層（M15〜M19）](design/09-layer3.md) — 性格、規範メモリとレトロ、改善提案の効果検証、成功指標、ブラインド初稿
 - [設計 10: エージェント可観測性（M20）](design/10-agent-observability.md) — thinking / ツール / 再駆動のトレース。CLI・Web・connect の表示を揃える
+- [enginebay](../packages/enginebay/docs/design.md) — Isolated coding-CLI runner (English). `packages/enginebay`; destined to be its own OSS. Comitia's adapter stays thin.
 
 ## 読み方
 
