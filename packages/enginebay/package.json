@@ -1,0 +1,13 @@
+{
+  "name": "enginebay",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Isolated bays for coding-agent CLIs: spawn, isolate config and session records, inherit provider login, inject MCP, emit canonical events.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "node -e \"\"",
+    "typecheck": "node -e \"\"",
+    "test": "node -e \"\""
+  }
+}
