@@ -2,7 +2,7 @@
 
 Isolated bays for coding-agent CLIs. This document is the design of record for the package. Implementation follows it; Comitia product docs do not override it.
 
-Status: **v1 OpenCode implemented.** `claude-code` is listed but not implemented.
+Status: **OpenCode and Claude Code implemented.**
 
 ## 1. Problem
 
@@ -254,7 +254,7 @@ No `run_start` / `continue_decision`: those are consumer session-loop events (Co
 
 OpenCode v1 parser reads `opencode run --format json` NDJSON (`text`, `reasoning`, `tool_use`, `step_finish`). It does **not** require the eval collector plugin or `opencode export`. If stdout is too thin for thinking/tools, a later slice may add export as a fallback — not in v1.
 
-Claude parser can move from `parseClaudeStreamTrace` once the `claude-code` driver lands; until then Comitia may keep its parser and only use enginebay for OpenCode.
+Claude parser reads `claude --output-format stream-json` (`assistant` thinking/text/`tool_use`, `user` `tool_result`). Comitia maps `BayEvent` → traces and keeps remaining-budget parsing on the product side.
 
 ## 11. Engine catalog and slices
 

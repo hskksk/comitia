@@ -18,6 +18,12 @@ import {
   opencodeAuthPresent,
 } from "./opencode.js";
 import { parseOpencodeLine, redactBayEvent } from "./opencode-parse.js";
+import { openClaudeBay } from "./claude-bay.js";
+import {
+  CLAUDE_COMMAND,
+  CLAUDE_COMMAND_ALIASES,
+  claudeAuthPresent,
+} from "./claude.js";
 import { spawnLineProcess, type SpawnedRun } from "./spawn.js";
 import type {
   Bay,
@@ -184,14 +190,17 @@ export async function openBay(options: OpenBayOptions): Promise<Bay> {
   if (isolation !== "env") {
     throw new Error(`enginebay: isolation ${isolation} is not implemented`);
   }
+  const hostEnv = options.hostEnv ?? process.env;
+  const hostHome = resolveHostHome(hostEnv, options.hostHome);
+  if (options.engine === "claude-code") {
+    return openClaudeBay(options, hostEnv, hostHome);
+  }
   if (options.engine !== "opencode") {
     throw new Error(
-      `enginebay: engine "${options.engine}" is not implemented yet (v1 is opencode)`,
+      `enginebay: engine "${options.engine}" is not implemented yet`,
     );
   }
 
-  const hostEnv = options.hostEnv ?? process.env;
-  const hostHome = resolveHostHome(hostEnv, options.hostHome);
   const runtimeDir = await mkdtemp(join(tmpdir(), "enginebay-runtime-"));
   const dataDir = await mkdtemp(join(tmpdir(), "enginebay-data-"));
   const isolatedHome = join(runtimeDir, "home");
@@ -244,17 +253,20 @@ export async function doctor(
   engine: EngineId,
   host?: { env?: NodeJS.ProcessEnv; home?: string },
 ): Promise<import("./types.js").DoctorReport> {
+  const env = host?.env ?? process.env;
+  const home = resolveHostHome(env, host?.home);
+  if (engine === "claude-code") {
+    return doctorClaude(env, home);
+  }
   if (engine !== "opencode") {
     return {
       ok: false,
       engine,
       cli: { found: false, command: engine },
       auth: { found: false, detail: "not implemented" },
-      message: `enginebay: engine "${engine}" is not implemented yet (v1 is opencode)`,
+      message: `enginebay: engine "${engine}" is not implemented yet`,
     };
   }
-  const env = host?.env ?? process.env;
-  const home = resolveHostHome(env, host?.home);
   const found = commandExists(OPENCODE_COMMAND, env);
   const version = found ? readCommandVersion(OPENCODE_COMMAND, env) : undefined;
   const shareDir = hostOpencodeShareDir(home);
@@ -280,4 +292,32 @@ export async function doctor(
       ? `opencode is on PATH; ${auth.detail}`
       : `opencode is on PATH; ${auth.detail}`;
   return { ok, engine, cli, auth, message };
+}
+
+function doctorClaude(
+  env: NodeJS.ProcessEnv,
+  home: string,
+): import("./types.js").DoctorReport {
+  let command = CLAUDE_COMMAND;
+  let found = false;
+  let version: string | undefined;
+  for (const candidate of CLAUDE_COMMAND_ALIASES) {
+    if (commandExists(candidate, env)) {
+      command = candidate;
+      found = true;
+      version = readCommandVersion(candidate, env);
+      break;
+    }
+  }
+  const auth = claudeAuthPresent(home, env);
+  const cli = {
+    found,
+    command,
+    ...(version ? { version } : {}),
+  };
+  const ok = found;
+  const message = !found
+    ? "claude CLI is not on PATH"
+    : `claude is on PATH; ${auth.detail}`;
+  return { ok, engine: "claude-code", cli, auth, message };
 }

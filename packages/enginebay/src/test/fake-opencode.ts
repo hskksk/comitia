@@ -7,13 +7,20 @@ const FAKE_OPENCODE = join(
   "../../test/fake-opencode.mjs",
 );
 
-export async function installFakeOpencode(binDir: string): Promise<string> {
+export async function installFakeCommand(
+  binDir: string,
+  command: string,
+): Promise<string> {
   await mkdir(binDir, { recursive: true });
-  const dest = join(binDir, "opencode");
+  const dest = join(binDir, command);
   await symlink(FAKE_OPENCODE, dest);
   await chmod(dest, 0o755);
   await chmod(FAKE_OPENCODE, 0o755);
   return dest;
+}
+
+export async function installFakeOpencode(binDir: string): Promise<string> {
+  return installFakeCommand(binDir, "opencode");
 }
 
 export async function writeHostOpencodeAuth(
