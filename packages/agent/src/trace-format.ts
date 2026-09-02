@@ -265,7 +265,7 @@ function parseJsonLine(value: string): unknown {
   }
 }
 
-function extractRemainingBudget(value: unknown): number | null {
+export function extractRemainingBudget(value: unknown): number | null {
   if (typeof value === "string") {
     const parsed = parseJsonLine(value);
     return parsed === null ? null : extractRemainingBudget(parsed);
