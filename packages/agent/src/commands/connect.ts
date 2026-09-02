@@ -3,7 +3,7 @@ import { startLocalA2aServer } from "../a2a-server.js";
 import { loadConfig } from "../config.js";
 import { createMcpProxyRuntime } from "../mcp-proxy.js";
 import type { EnginePlugin } from "../plugins/types.js";
-import { runSessionLoop } from "../session-loop.js";
+import { comitiaWorkspaceId, runSessionLoop } from "../session-loop.js";
 import { buildRelayWsUrl, connectTunnel } from "../tunnel.js";
 
 export interface ConnectCommandOptions {
@@ -145,6 +145,7 @@ export async function connectCommand(
             sessionId,
             boardUrl: config.boardUrl,
             agentToken: agent.token,
+            workspaceId: comitiaWorkspaceId(options.name),
           }).finally(() => {
             windDownRequestedRef.current = false;
             if (runningSessionId === sessionId) {
