@@ -307,6 +307,55 @@ describe("openBay Claude Code isolation", () => {
   });
 });
 
+describe("openBay workspaces", () => {
+  it("creates an ephemeral work dir and deletes it on close", async () => {
+    const hostHome = await tempDir("enginebay-ws-eph-home-");
+    const bay = await openBay({
+      engine: "opencode",
+      hostHome,
+      hostEnv: { HOME: hostHome, PATH: process.env.PATH },
+    });
+    expect(bay.workspace.ephemeral).toBe(true);
+    expect(bay.workspace.persistent).toBe(false);
+    expect(existsSync(bay.workDir)).toBe(true);
+    const path = bay.workDir;
+    await bay.close();
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("reuses a named XDG workspace and keeps it after close", async () => {
+    const hostHome = await tempDir("enginebay-ws-named-home-");
+    const hostEnv = { HOME: hostHome, PATH: process.env.PATH };
+    const bay = await openBay({
+      engine: "claude-code",
+      workspaceId: "comitia-mika",
+      hostHome,
+      hostEnv,
+    });
+    expect(bay.workspace.id).toBe("comitia-mika");
+    expect(bay.workspace.persistent).toBe(true);
+    expect(bay.workDir).toBe(
+      join(hostHome, ".local", "share", "enginebay", "workspaces", "comitia-mika"),
+    );
+    await writeFile(join(bay.workDir, "keep.txt"), "named\n", "utf8");
+    await bay.close();
+    expect(existsSync(join(bay.workDir, "keep.txt"))).toBe(true);
+
+    const again = await openBay({
+      engine: "opencode",
+      workspaceId: "Comitia-Mika",
+      hostHome,
+      hostEnv,
+    });
+    expect(again.workDir).toBe(bay.workDir);
+    expect(await readFile(join(again.workDir, "keep.txt"), "utf8")).toBe(
+      "named\n",
+    );
+    await again.close();
+    expect(existsSync(join(again.workDir, "keep.txt"))).toBe(true);
+  });
+});
+
 describe("openBay guards", () => {
   it("rejects unimplemented isolation backends", async () => {
     await expect(
@@ -316,6 +365,16 @@ describe("openBay guards", () => {
         isolation: { kind: "jai" as IsolationKind },
       }),
     ).rejects.toThrow(/isolation jai is not implemented/);
+  });
+
+  it("rejects setting both workDir and workspaceId", async () => {
+    await expect(
+      openBay({
+        engine: "opencode",
+        workDir: "/tmp/work",
+        workspaceId: "x",
+      }),
+    ).rejects.toThrow(/workDir or workspaceId, not both/);
   });
 });
 

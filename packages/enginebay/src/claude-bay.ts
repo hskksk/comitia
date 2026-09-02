@@ -17,6 +17,7 @@ import { writeIsolatedGitconfig } from "./gitconfig.js";
 import { redactBayEvent } from "./opencode-parse.js";
 import { spawnLineProcess, type SpawnedRun } from "./spawn.js";
 import type { Bay, BayEvent, EngineId, OpenBayOptions } from "./types.js";
+import type { PreparedWorkspace } from "./workspace.js";
 
 const RM_OPTS = {
   recursive: true,
@@ -28,6 +29,7 @@ const RM_OPTS = {
 class ClaudeBay implements Bay {
   readonly engine: EngineId = "claude-code";
   readonly workDir: string;
+  readonly workspace: PreparedWorkspace;
   private readonly runtimeDir: string;
   private readonly hostEnv: NodeJS.ProcessEnv;
   private readonly hostHome: string;
@@ -42,7 +44,7 @@ class ClaudeBay implements Bay {
   private readonly toolById = new Map<string, string>();
 
   constructor(input: {
-    workDir: string;
+    workspace: PreparedWorkspace;
     runtimeDir: string;
     hostEnv: NodeJS.ProcessEnv;
     hostHome: string;
@@ -53,7 +55,8 @@ class ClaudeBay implements Bay {
     mcpConfigPath: string;
     gitconfigPath: string;
   }) {
-    this.workDir = input.workDir;
+    this.workDir = input.workspace.path;
+    this.workspace = input.workspace;
     this.runtimeDir = input.runtimeDir;
     this.hostEnv = input.hostEnv;
     this.hostHome = input.hostHome;
@@ -84,7 +87,11 @@ class ClaudeBay implements Bay {
   async close(): Promise<void> {
     await this.abort();
     this.closed = true;
-    await rm(this.runtimeDir, RM_OPTS);
+    const jobs = [rm(this.runtimeDir, RM_OPTS)];
+    if (this.workspace.ephemeral) {
+      jobs.push(rm(this.workDir, RM_OPTS));
+    }
+    await Promise.all(jobs);
   }
 
   async *run(prompt: string): AsyncIterable<BayEvent> {
@@ -160,6 +167,7 @@ export async function openClaudeBay(
   options: OpenBayOptions,
   hostEnv: NodeJS.ProcessEnv,
   hostHome: string,
+  workspace: PreparedWorkspace,
 ): Promise<Bay> {
   const runtimeDir = await mkdtemp(join(tmpdir(), "enginebay-claude-runtime-"));
   const isolatedHome = join(runtimeDir, "home");
@@ -173,7 +181,7 @@ export async function openClaudeBay(
   const gitconfigPath = join(isolatedHome, ".gitconfig");
   const extraEnv = options.extraEnv ?? {};
   const bay = new ClaudeBay({
-    workDir: options.workDir,
+    workspace,
     runtimeDir,
     hostEnv,
     hostHome,

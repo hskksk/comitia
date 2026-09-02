@@ -25,12 +25,9 @@ import {
   claudeAuthPresent,
 } from "./claude.js";
 import { spawnLineProcess, type SpawnedRun } from "./spawn.js";
-import type {
-  Bay,
-  BayEvent,
-  EngineId,
-  OpenBayOptions,
-} from "./types.js";
+import type { Bay, BayEvent, EngineId, OpenBayOptions } from "./types.js";
+import type { PreparedWorkspace } from "./workspace.js";
+import { prepareWorkspace } from "./workspace.js";
 
 const RM_OPTS = {
   recursive: true,
@@ -42,6 +39,7 @@ const RM_OPTS = {
 class OpencodeBay implements Bay {
   readonly engine: EngineId = "opencode";
   readonly workDir: string;
+  readonly workspace: PreparedWorkspace;
   private readonly runtimeDir: string;
   private readonly dataDir: string;
   private readonly hostEnv: NodeJS.ProcessEnv;
@@ -56,7 +54,7 @@ class OpencodeBay implements Bay {
   private closed = false;
 
   constructor(input: {
-    workDir: string;
+    workspace: PreparedWorkspace;
     runtimeDir: string;
     dataDir: string;
     hostEnv: NodeJS.ProcessEnv;
@@ -68,7 +66,8 @@ class OpencodeBay implements Bay {
     mcpConfig: Record<string, unknown>;
     gitconfigPath: string;
   }) {
-    this.workDir = input.workDir;
+    this.workDir = input.workspace.path;
+    this.workspace = input.workspace;
     this.runtimeDir = input.runtimeDir;
     this.dataDir = input.dataDir;
     this.hostEnv = input.hostEnv;
@@ -100,10 +99,14 @@ class OpencodeBay implements Bay {
   async close(): Promise<void> {
     await this.abort();
     this.closed = true;
-    await Promise.all([
+    const jobs = [
       rm(this.runtimeDir, RM_OPTS),
       rm(this.dataDir, RM_OPTS),
-    ]);
+    ];
+    if (this.workspace.ephemeral) {
+      jobs.push(rm(this.workDir, RM_OPTS));
+    }
+    await Promise.all(jobs);
   }
 
   async *run(prompt: string): AsyncIterable<BayEvent> {
@@ -192,13 +195,22 @@ export async function openBay(options: OpenBayOptions): Promise<Bay> {
   }
   const hostEnv = options.hostEnv ?? process.env;
   const hostHome = resolveHostHome(hostEnv, options.hostHome);
-  if (options.engine === "claude-code") {
-    return openClaudeBay(options, hostEnv, hostHome);
-  }
-  if (options.engine !== "opencode") {
+  if (options.engine !== "claude-code" && options.engine !== "opencode") {
     throw new Error(
       `enginebay: engine "${options.engine}" is not implemented yet`,
     );
+  }
+  if (options.workDir !== undefined && options.workspaceId !== undefined) {
+    throw new Error("enginebay: set either workDir or workspaceId, not both");
+  }
+  const workspace = await prepareWorkspace({
+    path: options.workDir,
+    id: options.workspaceId,
+    hostEnv,
+    hostHome,
+  });
+  if (options.engine === "claude-code") {
+    return openClaudeBay(options, hostEnv, hostHome, workspace);
   }
 
   const runtimeDir = await mkdtemp(join(tmpdir(), "enginebay-runtime-"));
@@ -233,7 +245,7 @@ export async function openBay(options: OpenBayOptions): Promise<Bay> {
   const gitconfigPath = join(isolatedHome, ".gitconfig");
   const extraEnv = options.extraEnv ?? {};
   const bay = new OpencodeBay({
-    workDir: options.workDir,
+    workspace,
     runtimeDir,
     dataDir,
     hostEnv,

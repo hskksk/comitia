@@ -1,3 +1,5 @@
+import type { PreparedWorkspace } from "./workspace.js";
+
 export const ENGINE_IDS = ["opencode", "claude-code"] as const;
 export type EngineId = (typeof ENGINE_IDS)[number];
 
@@ -14,7 +16,16 @@ export type McpStdio = {
 
 export type OpenBayOptions = {
   engine: EngineId;
-  workDir: string;
+  /**
+   * Explicit cwd. Consumer-owned: `close()` does not delete it.
+   * Omit together with `workspaceId` for an ephemeral temp dir.
+   */
+  workDir?: string;
+  /**
+   * Named persistent workspace under `$XDG_DATA_HOME/enginebay/workspaces/<id>`.
+   * Do not set together with `workDir`.
+   */
+  workspaceId?: string;
   isolation?: { kind: IsolationKind };
   mcp?: McpStdio;
   /** Inline text. enginebay writes a temp file if the engine only accepts paths. */
@@ -54,6 +65,7 @@ export type DoctorReport = {
 export interface Bay {
   readonly engine: EngineId;
   readonly workDir: string;
+  readonly workspace: PreparedWorkspace;
   run(prompt: string): AsyncIterable<BayEvent>;
   /** Replace extraEnv (and rewrite isolated gitconfig if a token is present). */
   updateExtraEnv(
@@ -62,7 +74,10 @@ export interface Bay {
   ): Promise<void>;
   /** Kill a running child if any; keep isolation dirs. */
   abort(): Promise<void>;
-  /** Remove enginebay-owned temp dirs. Does not delete workDir. */
+  /**
+   * Remove enginebay-owned temp dirs. Deletes `workDir` only when it is
+   * ephemeral (no `workDir` / `workspaceId` was passed to `openBay`).
+   */
   close(): Promise<void>;
 }
 

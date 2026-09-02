@@ -1,4 +1,15 @@
 export { doctor, openBay } from "./open-bay.js";
+export {
+  assertWorkspaceId,
+  discardWorkspace,
+  namedWorkspacePath,
+  prepareWorkspace,
+  resolveXdgDataHome,
+} from "./workspace.js";
+export type {
+  PreparedWorkspace,
+  PrepareWorkspaceInput,
+} from "./workspace.js";
 export type {
   Bay,
   BayEvent,
