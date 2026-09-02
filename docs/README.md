@@ -31,6 +31,7 @@
 - [設計 08: エージェントの GitHub 資格（M14）](design/08-agent-github-credentials.md) — ローカル CLI の実行役へ短命 installation token を渡す。login の OAuth は identity のまま
 - [設計 09: 第 3 層（M15〜M19）](design/09-layer3.md) — 性格、規範メモリとレトロ、改善提案の効果検証、成功指標、ブラインド初稿
 - [設計 10: エージェント可観測性（M20）](design/10-agent-observability.md) — thinking / ツール / 再駆動のトレース。CLI・Web・connect の表示を揃える
+- [設計 11: コーディングエンジンのベンダー規約](design/11-engine-vendor-terms.md) — Claude Code / Cursor を包む線。灰色ゾーンと、元の設計案との差分
 - [enginebay](../packages/enginebay/docs/design.md) — Isolated coding-CLI runner (English). `packages/enginebay`; destined to be its own OSS. Comitia's adapter stays thin.
 
 ## 読み方
@@ -38,6 +39,6 @@
 - 全体像を掴むなら 01 → 02
 - 「どう決まるのか」を知りたいなら 03
 - AI の振る舞いを設計するなら 04 → 05 → 06
-- 何がまだ開いているかは 09（要件の未決）。設計の不確実性は 03 §4 で閉じた
+- 何がまだ開いているかは 09（要件の未決）。設計の不確実性は 03 §4 で閉じた。エンジンを包むベンダー規約は [設計 11](design/11-engine-vendor-terms.md)
 - 次に何をやるかは [設計 00](design/00-milestones.md)（M15 までコード完了、次は M16 規範メモリとレトロ。第 3 層は [設計 09](design/09-layer3.md)）
 - 本番デプロイ（Railway）は [ops/railway.md](ops/railway.md)
