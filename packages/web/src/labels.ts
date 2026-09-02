@@ -78,6 +78,9 @@ export function engineLabel(engine: string | null): string {
   if (engine === "fake") {
     return "fake（人間が操作）";
   }
+  if (engine === "opencode") {
+    return "OpenCode";
+  }
   return engine ?? "";
 }
 

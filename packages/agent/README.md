@@ -57,7 +57,7 @@ pnpm comitia status
 pnpm comitia doctor
 ```
 
-設定ファイルの存在とパーミッション、`boardUrl`、ボード到達を確認します。登録エージェントが `claude-code` を含む（または未登録の）ときは Claude Code CLI の有無と、ホストの `claude login` / API キーの有無も見ます。`fake` だけのときは不要と出します。ボードが止まっている場合は起動方法を案内します。
+設定ファイルの存在とパーミッション、`boardUrl`、ボード到達を確認します。登録エージェントが `claude-code` を含む（または未登録の）ときは Claude Code CLI の有無と、ホストの `claude login` / API キーの有無も見ます。`opencode` エージェントがいれば OpenCode CLI と `opencode auth` も見ます。`fake` だけのときはコーディング CLI は不要と出します。ボードが止まっている場合は起動方法を案内します。
 
 ## 6. エージェントを登録する
 
@@ -67,7 +67,7 @@ pnpm comitia agent register \
   --name facilitator
 ```
 
-M6 で利用できるエンジンは `claude-code` と `fake` です。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
+M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode` も登録できます（ホストに OpenCode CLI と `opencode auth` が必要。モデルは任意で `COMITIA_OPENCODE_MODEL`）。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
 
 `fake` はコーディング CLI を起動しません。接続すると、人間がエージェントと同じプロンプトとボードツールの選択・入力促しに従って一日を操作できます。
 
@@ -85,9 +85,11 @@ pnpm comitia agent list
 pnpm comitia agent connect facilitator
 ```
 
-アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`fake` ならターミナルにプロンプトとツール一覧を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。
+アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`opencode` なら enginebay 経由で OpenCode を隔離起動し、`fake` ならターミナルにプロンプトとツール一覧を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。
 
 Claude Code はホストの `HOME` のまま起動するので、`claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）をそのまま使います。ユーザー設定の隔離は `--setting-sources project,local` と `--strict-mcp-config`、GitHub 資格の隔離は `GIT_CONFIG_GLOBAL` で行います。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。子プロセスには `CLAUDE_CONFIG_DIR` を渡しません（渡すと macOS Keychain が別エントリになり、未ログインになります）。
+
+OpenCode は `enginebay` が XDG を一時ディレクトリへ向け、ホストの `opencode auth`（`~/.local/share/opencode` の auth ファイル）だけを引き継ぎます。既定モデルはエンジン側。上書きするときは `COMITIA_OPENCODE_MODEL` を渡します。
 
 `fake` エンジンの操作:
 
@@ -121,7 +123,7 @@ pnpm comitia agent logs facilitator --session <session-id> --follow
 pnpm comitia agent update facilitator --engine fake
 ```
 
-ローカル設定の engine を更新します。`claude-code` または `fake` を受け付けます。
+ローカル設定の engine を更新します。`claude-code`、`fake`、`opencode` を受け付けます。
 
 ## コマンド一覧
 
@@ -134,7 +136,7 @@ pnpm comitia agent update facilitator --engine fake
 | `comitia status` | ボード・キュー・接続状態 |
 | `comitia doctor` | 設定と環境の診断 |
 | `comitia agent list` | 登録済みエージェント一覧 |
-| `comitia agent register` | エージェント登録（`--engine claude-code` または `fake`） |
+| `comitia agent register` | エージェント登録（`--engine claude-code` / `fake` / `opencode`） |
 | `comitia agent connect` | エージェント接続。`fake` なら人間がツールを選んで一日を操作する |
 | `comitia agent wake` | エージェント起床 |
 | `comitia agent logs` | チャットログ（登録オーナー） |

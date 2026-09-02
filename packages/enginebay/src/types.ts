@@ -56,7 +56,10 @@ export interface Bay {
   readonly workDir: string;
   run(prompt: string): AsyncIterable<BayEvent>;
   /** Replace extraEnv (and rewrite isolated gitconfig if a token is present). */
-  updateExtraEnv(extraEnv: Record<string, string>): Promise<void>;
+  updateExtraEnv(
+    extraEnv: Record<string, string>,
+    git?: { committerName?: string },
+  ): Promise<void>;
   /** Kill a running child if any; keep isolation dirs. */
   abort(): Promise<void>;
   /** Remove enginebay-owned temp dirs. Does not delete workDir. */

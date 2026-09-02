@@ -75,8 +75,14 @@ class OpencodeBay implements Bay {
     this.gitconfigPath = input.gitconfigPath;
   }
 
-  async updateExtraEnv(extraEnv: Record<string, string>): Promise<void> {
+  async updateExtraEnv(
+    extraEnv: Record<string, string>,
+    git?: { committerName?: string },
+  ): Promise<void> {
     this.extraEnv = extraEnv;
+    if (git?.committerName && git.committerName.length > 0) {
+      this.committerName = git.committerName;
+    }
     await this.syncGitconfig();
   }
 

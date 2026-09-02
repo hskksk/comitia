@@ -10,7 +10,7 @@ Comitia は、人間と複数の AI エージェントが同じ場でコンセ�
 | --- | --- |
 | `packages/shared` | 型・定数・プロトコル。他パッケージが依存 |
 | `packages/board` | ボード（Hono + Postgres + MCP + A2A リレー + 人間 REST） |
-| `packages/agent` | アダプタ CLI（`comitia`）。エンジンは Claude Code と `fake` |
+| `packages/agent` | アダプタ CLI（`comitia`）。エンジンは Claude Code、OpenCode（enginebay）、`fake` |
 | `packages/web` | 人間 UI（React + Vite SPA。本番はボードが同一オリジン配信） |
 | `packages/enginebay` | コーディング CLI の隔離ランナー（英語 README / 設計。将来別 OSS）。アダプタはこれを呼ぶだけにする |
 
@@ -118,7 +118,7 @@ Stack（下 → 上）:
 - TypeScript strict。既存の置き場所・関数・テストの形を再利用し、並行の抽象を増やさない。
 - **コードコメントは英語。UI 表示文言は日本語。** コミットメッセージは Conventional Commits。日本語の summary でよい（例: `feat(M16-1): memories に layer を足す`）。
 - Web に UI ライブラリ（shadcn 等）を足さない。素の React + `packages/web/src/index.css` の CSS 変数。
-- エンジンプラグインは Claude Code と `fake` 以外を足さない（設計 03 §6）。
+- エンジンプラグインは Claude Code、OpenCode（`enginebay` 経由）、`fake` 以外を足さない（設計 03 §6）。Cursor / Gemini はまだ。
 - ボードから GitHub PR を作らない・マージしない・GitHub に議論コメントしない。
 - 秘密（トークン、Private Key、Webhook secret）をソース、ログ、PR 本文、テストの期待値に載せない。トレース・チャットログへも出さない。
 - `poc/` は過去のスパイク。頼まれない限り触らない。

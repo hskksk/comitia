@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -12,7 +12,7 @@ import { schema, startBoardServer } from "@comitia/board";
 import { parseCliArgs, runCli } from "./cli.js";
 import { USAGE_TEXT } from "./cli-usage.js";
 import { loadConfig } from "./config.js";
-import { doctorCommand } from "./commands/doctor.js";
+import { doctorCommand, opencodeDoctorFindings } from "./commands/doctor.js";
 import { statusCommand } from "./commands/status.js";
 import { tokenCommand } from "./commands/token.js";
 import { wakeCommand } from "./commands/wake.js";
@@ -631,6 +631,101 @@ describe("operator commands", () => {
     expect(output).toContain("エンジン: fake");
     expect(output).not.toContain("Claude Code CLI が見つかりません");
     expect(output).not.toContain("Claude 認証:");
+  });
+
+  it("maps enginebay doctor output into Japanese OpenCode findings", () => {
+    expect(
+      opencodeDoctorFindings({
+        ok: false,
+        engine: "opencode",
+        cli: { found: false, command: "opencode" },
+        auth: { found: false, detail: "missing" },
+        message: "opencode CLI is not on PATH",
+      }),
+    ).toEqual([
+      {
+        ok: false,
+        message:
+          "OpenCode CLI が見つかりません（PATH に opencode がありません）。エージェント接続には必要です。",
+      },
+      {
+        ok: true,
+        message: "OpenCode 認証: ホストで `opencode auth` を実行してください",
+      },
+    ]);
+  });
+
+  it("checks OpenCode when an agent uses that engine", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    const hostHome = await mkdtemp(join(tmpdir(), "comitia-doctor-oc-home-"));
+    const binDir = await mkdtemp(join(tmpdir(), "comitia-doctor-oc-bin-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    cleanups.push(() => rm(hostHome, { recursive: true }));
+    cleanups.push(() => rm(binDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          ownerToken: "comt_owner_test",
+          ownerId: "owner-1",
+          projectId: "project-1",
+          agents: {
+            sou: {
+              agentId: "agent-oc",
+              token: "comt_agent_test",
+              engine: "opencode",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+    const fake = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../enginebay/test/fake-opencode.mjs",
+    );
+    await chmod(fake, 0o755);
+    await symlink(fake, join(binDir, "opencode"));
+    await mkdir(join(hostHome, ".local", "share", "opencode"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(hostHome, ".local", "share", "opencode", "auth.json"),
+      '{"ok":true}\n',
+      { mode: 0o600 },
+    );
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "GitHub App is not configured" }),
+          { status: 503 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+      env: { PATH: `${binDir}:${process.env.PATH ?? ""}`, HOME: hostHome },
+      hostHome,
+    });
+    const output = chunks.join("");
+    expect(output).toContain("opencode が PATH にあります");
+    expect(output).toContain("OpenCode 認証: ホストの opencode auth を引き継ぎます");
+    expect(output).not.toContain("Claude Code CLI が見つかりません");
+    expect(output).not.toContain("エンジン: fake");
   });
 
   it("reports that a host claude login will be inherited", async () => {

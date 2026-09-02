@@ -8,6 +8,7 @@ import {
   type ProjectListItem,
 } from "../api.js";
 import { clearToken } from "../auth.js";
+import { ENGINES } from "@comitia/shared";
 import { credentialClientLabel, engineLabel } from "../labels.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 import { PersonalityField } from "../PersonalityField.js";
@@ -325,8 +326,11 @@ export function SettingsPage() {
                         value={editEngine}
                         onChange={(event) => setEditEngine(event.target.value)}
                       >
-                        <option value="claude-code">claude-code</option>
-                        <option value="fake">fake</option>
+                        {ENGINES.map((engine) => (
+                          <option key={engine} value={engine}>
+                            {engineLabel(engine)}
+                          </option>
+                        ))}
                       </select>
                     </label>
                     <PersonalityField
@@ -426,8 +430,11 @@ export function SettingsPage() {
               value={newAgentEngine}
               onChange={(event) => setNewAgentEngine(event.target.value)}
             >
-              <option value="claude-code">claude-code</option>
-              <option value="fake">fake</option>
+              {ENGINES.map((engine) => (
+                <option key={engine} value={engine}>
+                  {engineLabel(engine)}
+                </option>
+              ))}
             </select>
           </label>
           <label>

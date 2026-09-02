@@ -6,6 +6,7 @@ import {
   createInteractiveFakeEnginePlugin,
   type InteractiveIo,
 } from "./interactive-fake.js";
+import { createOpencodePlugin } from "./opencode.js";
 import type { EnginePlugin } from "./types.js";
 
 export function createEnginePlugin(options: {
@@ -34,6 +35,13 @@ export function createEnginePlugin(options: {
       stdin: options.stdin,
       stdout: options.stdout,
       onInterrupt: options.onInterrupt,
+    });
+  }
+  if (options.engine === "opencode") {
+    const model = process.env.COMITIA_OPENCODE_MODEL;
+    return createOpencodePlugin({
+      stdout: options.stdout,
+      model: model && model.length > 0 ? model : undefined,
     });
   }
   return createClaudeCodePlugin({ stdout: options.stdout });

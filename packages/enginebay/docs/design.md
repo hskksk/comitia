@@ -121,7 +121,7 @@ export interface Bay {
   readonly workDir: string;
   run(prompt: string): AsyncIterable<BayEvent>;
   /** Replace extraEnv (and rewrite isolated gitconfig if a token is present). */
-  updateExtraEnv(extraEnv: Record<string, string>): Promise<void>;
+  updateExtraEnv(extraEnv: Record<string, string>, git?: { committerName?: string }): Promise<void>;
   /** Kill a running child if any; keep isolation dirs. */
   abort(): Promise<void>;
   /** Remove enginebay-owned temp dirs. Does not delete workDir. */
@@ -146,7 +146,7 @@ Comitia keeps `EnginePlugin` (`start` / `run` / `report` / `stop` / `dispose`). 
 | `report()` | last `tokens` event |
 | `stop()` | `abort()` |
 | `dispose()` | `close()` |
-| `updateGithubAuth` | `bay.updateExtraEnv` |
+| `updateGithubAuth` | `bay.updateExtraEnv(extraEnv, git?)` |
 
 Comitia continues to own GitHub minting, the day loop, and prompt constants (`TOOLSET_OVERVIEW`, environment prompt). Those strings are passed in as `instructions`; enginebay does not import them.
 
