@@ -22,7 +22,7 @@ Comitia currently inlines this for Claude Code (`packages/agent/src/plugins/clau
 ## 2. Goals
 
 1. **One bay, one engine process.** `openBay` + `run(prompt)` is enough to drive a headless CLI.
-2. **Config and session records are disposable** unless the consumer opts into a persistent work dir. Closing the bay deletes enginebay-owned temp dirs.
+2. **Config and session records are disposable** unless the consumer opts into a persistent work dir. Closing the bay deletes enginebay-owned temp dirs (isolation plus an ephemeral workspace). Named / explicit workspaces survive `close()`.
 3. **Provider auth is inherited, narrowly.** The child can call the model. It cannot see the rest of the user's dotfiles by default.
 4. **MCP is session-scoped.** The consumer passes a stdio command; enginebay injects it with the engine's native mechanism. Nothing is written into the user's global MCP config.
 5. **Events are canonical.** Consumers do not parse `stream-json` or `opencode run --format json` themselves.
@@ -47,7 +47,7 @@ Comitia currently inlines this for Claude Code (`packages/agent/src/plugins/clau
 
 ```
 consumer (Comitia adapter, eval runner, …)
-    │  prompt, workDir, MCP stdio, extraEnv
+    │  prompt, workspace (id | path | ephemeral), MCP stdio, extraEnv
     ▼
 enginebay bay
     │  isolation env + auth attach + MCP inject
@@ -85,7 +85,9 @@ export type McpStdio = {
 
 export type OpenBayOptions = {
   engine: EngineId;
-  workDir: string;
+  workDir?: string;       // explicit path; close() does not delete
+  workspaceId?: string;   // named XDG workspace; close() does not delete
+  // neither → ephemeral temp; close() deletes
   isolation?: { kind: IsolationKind };
   mcp?: McpStdio;
   /** Inline text. enginebay writes a temp file if the engine only accepts paths. */
@@ -119,14 +121,20 @@ export type DoctorReport = {
 export interface Bay {
   readonly engine: EngineId;
   readonly workDir: string;
+  readonly workspace: PreparedWorkspace;
   run(prompt: string): AsyncIterable<BayEvent>;
-  /** Replace extraEnv (and rewrite isolated gitconfig if a token is present). */
   updateExtraEnv(extraEnv: Record<string, string>, git?: { committerName?: string }): Promise<void>;
-  /** Kill a running child if any; keep isolation dirs. */
   abort(): Promise<void>;
-  /** Remove enginebay-owned temp dirs. Does not delete workDir. */
+  /** Remove isolation temps. Deletes workDir only when it is ephemeral. */
   close(): Promise<void>;
 }
+
+export function prepareWorkspace(input?: {
+  id?: string;
+  path?: string;
+  hostEnv?: NodeJS.ProcessEnv;
+  hostHome?: string;
+}): Promise<PreparedWorkspace>;
 
 export function openBay(options: OpenBayOptions): Promise<Bay>;
 export function doctor(engine: EngineId, host?: {
@@ -141,7 +149,7 @@ Comitia keeps `EnginePlugin` (`start` / `run` / `report` / `stop` / `dispose`). 
 
 | `EnginePlugin` | enginebay |
 | --- | --- |
-| `start(session)` | `openBay({ workDir, mcp, instructions, extraEnv })` |
+| `start(session)` | `openBay({ workspaceId or workDir, mcp, instructions, extraEnv })` |
 | `run(prompt)` | iterate `bay.run(prompt)`, map `BayEvent` → `TraceEvent` |
 | `report()` | last `tokens` event |
 | `stop()` | `abort()` |
@@ -152,7 +160,7 @@ Comitia continues to own GitHub minting, the day loop, and prompt constants (`TO
 
 ### 5.2 Mapping to prism eval
 
-Eval keeps playgrounds, criteria, and collectors. It replaces `buildOpencodeRunArgs` / `buildEvalCliEnv` / stdout adapters with `openBay({ engine: "opencode", workDir: playground })`. Isolation must remain equivalent: no host `~/.config/opencode`, per-run session DB, host auth still visible.
+Eval keeps playgrounds, criteria, and collectors. It replaces `buildOpencodeRunArgs` / `buildEvalCliEnv` / stdout adapters with `openBay({ engine: "opencode", workDir: playground })` or a named `workspaceId`. Isolation must remain equivalent: no host `~/.config/opencode`, per-run session DB, host auth still visible.
 
 ## 6. Isolation backends
 
@@ -167,7 +175,7 @@ Shared rules:
 - Do not write into the consumer's `workDir` except as the engine's cwd (no `AGENTS.md` dropped into a user repo).
 - Strip `GH_TOKEN` and `GITHUB_TOKEN` from the inherited env, then apply `extraEnv`.
 - Set `GIT_TERMINAL_PROMPT=0`. If the consumer passes a git token in `extraEnv`, also isolate git config (see §7.2).
-- On `close()`, delete runtime and data dirs. Never delete `workDir`.
+- On `close()`, delete runtime and data dirs. Delete `workDir` only if it was ephemeral. Never delete a named or explicit workspace.
 
 **OpenCode**
 
@@ -193,6 +201,24 @@ Shared rules:
 `jai` (copy-on-write / empty home) and Anthropic `srt` (Seatbelt / bubblewrap) can wrap the same argv. They are isolation *backends*, selected by `isolation.kind`. enginebay still owns auth-attach allowlists; the backend must be configured to grant those paths and deny the rest of `$HOME`.
 
 Docker Sandboxes (`sbx`) is a **launcher**, not a backend we embed. Supporting it would mean the consumer calls `sbx` instead of enginebay, or enginebay grows a third backend that shells out to `sbx`. Out of scope until a consumer asks.
+
+### 6.3 Workspaces
+
+A **workspace** is the engine cwd (the tree the model edits). It is not the isolation dir.
+
+| Kind | When | Path | `close()` |
+| --- | --- | --- | --- |
+| Ephemeral | no `workDir`, no `workspaceId` | `mkdtemp(enginebay-work-)` | delete |
+| Named | `workspaceId` | `$XDG_DATA_HOME/enginebay/workspaces/<id>` | keep |
+| Explicit | `workDir` | that path (created if missing) | keep |
+
+`XDG_DATA_HOME` defaults to `~/.local/share`. This is **data**, not cache or state: a git clone between days is user data. Isolation config/session DB stays in throwaway runtime dirs so a named workspace is not polluted with OpenCode SQLite.
+
+IDs: one path segment, NFC, lowercased, max 80 characters. Unicode allowed. `/`, `\`, `.`, `..`, and control characters are rejected.
+
+Do not pass `workDir` and `workspaceId` together. `prepareWorkspace()` is the same helper `openBay` uses, for consumers that need the path before spawn (clone, then `openBay({ workDir })`).
+
+Comitia default: `workspaceId = comitia-{agent-name}` (config key, engine-independent). `COMITIA_WORK_DIR` remains an explicit-path override.
 
 ## 7. Credentials
 
