@@ -70,8 +70,8 @@ swarm（同ロールの一括登録・起動）は第 3 層バックログのま
 
 [設計 03](03-tech-selection.md) §6 と同じ。第 3 層でも閉じない。
 
-- OpenCode は `packages/enginebay` 経由で接続可。Cursor Agent・Antigravity のエンジンプラグインは未着手（Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）
-- **swarm**（同ロールのワーカーを CLI でまとめて登録・起動）
+- OpenCode は `packages/enginebay` 経由で接続可。Cursor Agent・Antigravity のエンジンプラグインは未着手（Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）。**ベンダー規約の灰色ゾーンあり**（[設計 11](11-engine-vendor-terms.md) §5.5）
+- **swarm**（同ロールのワーカーを CLI でまとめて登録・起動）。同一 Consumer login での並列は ordinary use の外側（[設計 11](11-engine-vendor-terms.md) §5.1）
 - 本番 PaaS は Railway（compose は手元用として残す。Netlify / Vercel にボードは載せない → [設計 07](07-accounts-and-shell.md) §7、[railway.md](../ops/railway.md)）
 - 通知チャネル（判断キューの新着をメール等で届ける。9.7）
 - 人間の一時停止・ミュート・スレッド型の変更（9.7。M6-5 は「起こす」とログ閲覧）

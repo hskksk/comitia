@@ -4,6 +4,8 @@ Isolated bays for coding-agent CLIs. This document is the design of record for t
 
 Status: **OpenCode and Claude Code implemented.**
 
+Vendor terms for wrapping Claude Code / Cursor are recorded in Comitia [design 11](../../../docs/design/11-engine-vendor-terms.md). This package stays on the safe line: unmodified CLI on `PATH`, inherit host login, do not copy Claude.ai OAuth files, do not pick up OpenCode's Claude Code integration. Cursor / hosted-on-behalf-of-users / vendoring binaries are gray or out — see that doc before adding them.
+
 ## 1. Problem
 
 Products that drive coding agents (a consensus board, an eval harness, a local orchestrator) keep re-implementing the same layer:
@@ -173,7 +175,7 @@ Shared rules:
 
 - `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME` → runtime/data temps.
 - `OPENCODE_DISABLE_GLOBAL_CONFIG=1`
-- `OPENCODE_DISABLE_CLAUDE_CODE=1` (do not pick up a host Claude integration).
+- `OPENCODE_DISABLE_CLAUDE_CODE=1` (do not pick up a host Claude integration; that path is the third-party harness Anthropic disallowed — Comitia [design 11](../../../docs/design/11-engine-vendor-terms.md) §5.7).
 - `OPENCODE_CONFIG_CONTENT` = JSON with `mcp` and `instructions` (path to the temp markdown).
 - Auth: attach host `~/.local/share/opencode` (`auth.json` / `auth-v2.json`) without pointing `XDG_DATA_HOME` at an empty temp that hides login. Prefer a dedicated data dir plus a symlink of the auth files, as in prism `eval/util/eval-cli-env.ts`.
 - argv: `opencode run --format json --dangerously-skip-permissions --dir <workDir> [--model <id>] <prompt>`
@@ -201,7 +203,7 @@ Docker Sandboxes (`sbx`) is a **launcher**, not a backend we embed. Supporting i
 | Engine | Host source | Attach method |
 | --- | --- | --- |
 | OpenCode | `~/.local/share/opencode/auth.json` (and `auth-v2.json`) | symlink or bind into the isolated data dir |
-| Claude Code | Keychain and/or `~/.claude` credentials | keep host `HOME`; copy only what Comitia already copies |
+| Claude Code | Keychain and/or `~/.claude` credentials | keep host `HOME`. **Do not copy `.credentials.json`** (Comitia [design 11](../../../docs/design/11-engine-vendor-terms.md) §5.2). The older “copy only what Comitia already copies” line is withdrawn |
 
 If attach fails, `openBay` still succeeds (the CLI may error on first `run()`). `doctor()` reports the miss in English so UIs can tell the human to log in.
 
@@ -263,7 +265,7 @@ Implementation order inside this package:
 1. **Types + `env` isolation helpers + `doctor` stubs** (no spawn).
 2. **OpenCode driver** — argv, config JSON, auth attach, JSON parser, tests with fixture transcripts.
 3. **Claude Code driver** — extract from Comitia plugin; Comitia wrapper shrinks.
-4. **Cursor / Gemini** — when prism or Comitia needs them; prism already has launchers to copy.
+4. **Cursor / Gemini** — when prism or Comitia needs them; prism already has launchers to copy. **Cursor is a vendor-terms gray zone:** official headless CLI is in-bounds, but ACP / SDK is the cleaner custom-client path. Do not run Cursor under a Comitia-owned account for other people (Comitia [design 11](../../../docs/design/11-engine-vendor-terms.md) §4・§5.5).
 
 Comitia product work that *consumes* slice 2: allow `opencode` in `ENGINES`, wire `createEnginePlugin`, doctor, English+Japanese UI labels as required by Comitia. That work stays in `@comitia/agent` / `@comitia/shared`, not here.
 
@@ -298,6 +300,7 @@ Extraction checklist (later):
 3. Publish `enginebay`.
 4. Comitia depends on the published (or git) package instead of `workspace:*`.
 5. prism-data-labs-agent depends on the same package and deletes its duplicated `eval` drivers.
+6. **README must state the vendor-terms boundary:** unmodified CLI, end-user credentials, no OAuth-file copy, no resale of model usage. Consumers who host Claude Code in a product need Anthropic Commercial Terms (Comitia [design 11](../../../docs/design/11-engine-vendor-terms.md) §5.5).
 
 ## 14. Security notes
 
@@ -319,8 +322,9 @@ Closed for v1 OpenCode:
 ## 16. References
 
 - Comitia adapter SPI: `packages/agent/src/plugins/types.ts`, Claude plugin: `packages/agent/src/plugins/claude-code.ts`
-- Comitia engine connection: `docs/design/02-agent-connection.md` §6, tech notes: `docs/design/03-tech-selection.md` §1
+- Comitia engine connection: `docs/design/02-agent-connection.md` §6, tech notes: `docs/design/03-tech-selection.md` §1, vendor terms: `docs/design/11-engine-vendor-terms.md`
 - Comitia GitHub credentials: `docs/design/08-agent-github-credentials.md`
 - OpenCode PoC: `poc/01-tool-injection/src/run-opencode.ts`
 - prism-data-labs-agent: `eval/util/eval-cli-env.ts`, `eval/config/resolve-primary-agent.ts` (`buildOpencodeRunArgs`), `eval/util/session-stream.ts`
 - Isolation catalog (context, not dependencies): [wincent gist, 2026-05](https://gist.github.com/wincent/2752d8d97727577050c043e4ff9e386e)
+- Vendor terms review: Comitia [docs/design/11-engine-vendor-terms.md](../../../docs/design/11-engine-vendor-terms.md)
