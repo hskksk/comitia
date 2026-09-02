@@ -1,15 +1,11 @@
 import { access, constants, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { loadConfig, type ComitiaConfig } from "../config.js";
 import { detectClaudeAuthSource, resolveHostHome } from "../claude-auth.js";
 import { readJsonErrorMessage } from "../github-auth.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
 import { doctor as enginebayDoctor, type DoctorReport } from "enginebay";
-
-const execFileAsync = promisify(execFile);
 
 export interface DoctorFinding {
   ok: boolean;
@@ -64,20 +60,28 @@ export function opencodeDoctorFindings(report: DoctorReport): DoctorFinding[] {
   return [cli, auth];
 }
 
-async function checkClaudeAvailability(): Promise<DoctorFinding> {
-  const candidates = ["claude", "claude-code"];
-  for (const command of candidates) {
-    try {
-      await execFileAsync("which", [command]);
-      return { ok: true, message: `${command} が PATH にあります` };
-    } catch {
-      // Try the next candidate.
-    }
+async function checkClaudeAvailability(
+  env: NodeJS.ProcessEnv,
+  hostHome: string,
+): Promise<DoctorFinding> {
+  const report = await enginebayDoctor("claude-code", { env, home: hostHome });
+  return claudeCliDoctorFinding(report);
+}
+
+export function claudeCliDoctorFinding(report: DoctorReport): DoctorFinding {
+  if (!report.cli.found) {
+    return {
+      ok: false,
+      message:
+        "Claude Code CLI が見つかりません（PATH に claude がありません）。エージェント接続には必要です。",
+    };
   }
+  const command = report.cli.command;
   return {
-    ok: false,
-    message:
-      "Claude Code CLI が見つかりません（PATH に claude がありません）。エージェント接続には必要です。",
+    ok: true,
+    message: report.cli.version
+      ? `${command} が PATH にあります（${report.cli.version}）`
+      : `${command} が PATH にあります`,
   };
 }
 
@@ -312,7 +316,7 @@ export async function doctorCommand(
     engines.length === 0 || engines.includes("claude-code");
   const needsOpencode = engines.includes("opencode");
   if (needsClaude) {
-    findings.push(await checkClaudeAvailability());
+    findings.push(await checkClaudeAvailability(env, hostHome));
     findings.push(await checkClaudeAuth(env, hostHome));
   }
   if (needsOpencode) {
