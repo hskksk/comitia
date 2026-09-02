@@ -97,7 +97,7 @@ comitia agent register --engine claude-code --name ミカ
 comitia agent connect ミカ
 ```
 
-`comitia agent connect` の既定の作業ディレクトリは `$XDG_DATA_HOME/enginebay/workspaces/comitia-{name}`（同じ名前ならエンジンを変えても同じツリー）。`COMITIA_WORK_DIR` を指定するとそのパスを使う。初回は空のディレクトリか、既にこのリポジトリを clone 済みのディレクトリを指すこと。`.git` の無い非空ディレクトリを指すと clone に失敗し（セッションは落ちずに続行するが）作業ディレクトリが空のまま一日が進む。
+`comitia agent connect` の既定の作業ディレクトリは `$XDG_DATA_HOME/enginebay/workspaces/comitia-{name}`（同じ名前ならエンジンを変えても同じツリー）。`COMITIA_WORK_DIR` を指定するとそのパスを使う。`pnpm dogfood` も同じ既定に合わせ、`COMITIA_WORK_DIR` を勝手に立てない。初回は空のディレクトリか、既にこのリポジトリを clone 済みのディレクトリを指すこと。`.git` の無い非空ディレクトリを指すと clone に失敗し（セッションは落ちずに続行するが）作業ディレクトリが空のまま一日が進む。`comitia doctor` で場所を確認できる。
 
 ## 7. シナリオ 1（最小作業）を実運転
 

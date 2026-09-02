@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertWorkspaceId, namedWorkspacePath } from "../../packages/enginebay/dist/index.js";
 
 const CONFIG_PATH = join(homedir(), ".comitia", "config.json");
 
@@ -180,8 +181,41 @@ export function parseRepoOwnerRepo(repoUrl) {
   return { owner: match[1], repo: match[2] };
 }
 
+export function comitiaWorkspaceId(agentName) {
+  const name = agentName.normalize("NFC").trim();
+  if (!name) {
+    throw new Error("comitia workspace id requires an agent name");
+  }
+  return `comitia-${name}`;
+}
+
+/**
+ * Dogfood work tree: COMITIA_WORK_DIR if the caller set it, otherwise the
+ * named XDG workspace for the dogfood agent (same as `comitia agent connect`).
+ */
+export function resolveDogfoodWorkspace(input = {}) {
+  const env = input.env ?? process.env;
+  const home = input.home ?? env.HOME ?? homedir();
+  const agentName = input.agentName ?? env.COMITIA_DOGFOOD_AGENT_NAME ?? "ミカ";
+  const override = env.COMITIA_WORK_DIR;
+  if (override && override.length > 0) {
+    return { kind: "override", path: override };
+  }
+  const id = assertWorkspaceId(comitiaWorkspaceId(agentName));
+  return {
+    kind: "named",
+    id,
+    path: namedWorkspacePath(id, env, home),
+  };
+}
+
 export async function printSummary(input) {
   const config = await loadConfig();
+  const workspace = resolveDogfoodWorkspace({
+    env: input.env ?? process.env,
+    home: input.home,
+    agentName: input.agentName,
+  });
   const lines = [];
   lines.push("");
   lines.push("=== Comitia M5 Dogfood ===");
@@ -191,6 +225,11 @@ export async function printSummary(input) {
   lines.push(`Health:        ${input.boardUrl}/healthz`);
   lines.push(`Inbox:         ${input.boardUrl}/inbox`);
   lines.push(`Config file:   ${CONFIG_PATH}`);
+  lines.push(
+    workspace.kind === "override"
+      ? `Workspace:     ${workspace.path} (COMITIA_WORK_DIR)`
+      : `Workspace:     ${workspace.path} (enginebay named: ${workspace.id})`,
+  );
   lines.push("");
 
   if (config?.ownerToken) {
@@ -214,9 +253,11 @@ export async function printSummary(input) {
     lines.push(
       `  export PATH="$HOME/.local/bin:$PATH"`,
     );
-    lines.push(
-      `  export COMITIA_WORK_DIR="${input.workDir}"`,
-    );
+    if (workspace.kind === "override") {
+      lines.push(
+        `  export COMITIA_WORK_DIR="${workspace.path}"`,
+      );
+    }
     lines.push(
       `  node packages/agent/dist/cli.js agent connect ${agentName}`,
     );
@@ -251,7 +292,11 @@ export async function printSummary(input) {
     const value = key === "WEB_DIST" ? input.webDist : process.env[key];
     lines.push(`  ${key}=${maskSecret(key, value)}`);
   }
-  lines.push(`  COMITIA_WORK_DIR=${input.workDir}`);
+  if (workspace.kind === "override") {
+    lines.push(`  COMITIA_WORK_DIR=${workspace.path}`);
+  } else {
+    lines.push("  COMITIA_WORK_DIR=(not set; named XDG workspace)");
+  }
   lines.push("");
 
   const missing = input.missingSecrets ?? [];
@@ -354,7 +399,6 @@ export async function runCommand() {
     case "summary": {
       await printSummary({
         boardUrl: process.env.COMITIA_DOGFOOD_BOARD_URL ?? "http://127.0.0.1:8787",
-        workDir: process.env.COMITIA_WORK_DIR ?? join(homedir(), ".comitia", "work"),
         webDist: process.env.WEB_DIST,
         agentName: process.env.COMITIA_DOGFOOD_AGENT_NAME ?? "ミカ",
         tmuxSessions: (process.env.COMITIA_DOGFOOD_TMUX_SESSIONS ?? "comitia-board,comitia-smee")
@@ -364,6 +408,10 @@ export async function runCommand() {
           .split(",")
           .filter(Boolean),
       });
+      return;
+    }
+    case "resolve-work-dir": {
+      process.stdout.write(resolveDogfoodWorkspace().path);
       return;
     }
     case "resolve-slug": {
