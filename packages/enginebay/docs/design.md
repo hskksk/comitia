@@ -2,7 +2,7 @@
 
 Isolated bays for coding-agent CLIs. This document is the design of record for the package. Implementation follows it; Comitia product docs do not override it.
 
-Status: **design**, no runtime code yet.
+Status: **v1 OpenCode implemented.** `claude-code` is listed but not implemented.
 
 ## 1. Problem
 
@@ -96,6 +96,7 @@ export type OpenBayOptions = {
   hostEnv?: NodeJS.ProcessEnv;
   hostHome?: string;
   model?: string;
+  git?: { committerName?: string };
 };
 
 export type BayEvent =
@@ -119,6 +120,8 @@ export interface Bay {
   readonly engine: EngineId;
   readonly workDir: string;
   run(prompt: string): AsyncIterable<BayEvent>;
+  /** Replace extraEnv (and rewrite isolated gitconfig if a token is present). */
+  updateExtraEnv(extraEnv: Record<string, string>): Promise<void>;
   /** Kill a running child if any; keep isolation dirs. */
   abort(): Promise<void>;
   /** Remove enginebay-owned temp dirs. Does not delete workDir. */
@@ -143,7 +146,7 @@ Comitia keeps `EnginePlugin` (`start` / `run` / `report` / `stop` / `dispose`). 
 | `report()` | last `tokens` event |
 | `stop()` | `abort()` |
 | `dispose()` | `close()` |
-| `updateGithubAuth` | next `run()` with updated `extraEnv` / gitconfig |
+| `updateGithubAuth` | `bay.updateExtraEnv` |
 
 Comitia continues to own GitHub minting, the day loop, and prompt constants (`TOOLSET_OVERVIEW`, environment prompt). Those strings are passed in as `instructions`; enginebay does not import them.
 
@@ -286,7 +289,7 @@ Test doubles: a fake `opencode` on `PATH` that writes stdin/env and prints fixtu
 | Engines field | Node (LTS), same as Comitia |
 | License | UNLICENSED until extraction; then a real OSS license |
 
-`pnpm` workspace already includes `packages/*`. Until there is `src/`, `build` / `test` / `typecheck` are no-ops so `pnpm -r` stays green.
+`pnpm` workspace already includes `packages/*`. `build` / `test` / `typecheck` run `tsc` and Vitest.
 
 Extraction checklist (later):
 
@@ -305,13 +308,13 @@ Extraction checklist (later):
 
 ## 15. Open questions
 
-These stay open until a slice has to close them. Do not silently pick a Comitia-only answer.
+Closed for v1 OpenCode:
 
-1. **Default model** for OpenCode if `options.model` is omitted — engine default vs a documented enginebay default vs required argument.
-2. **Whether `git.committerName` belongs in `OpenBayOptions`** or the consumer writes gitconfig itself.
-3. **Auth attach on Windows** for OpenCode (XDG vs `%APPDATA%`). v1 may be POSIX-first if that matches both consumers.
-4. **Event versioning.** Add `v: 1` on `BayEvent` now, or wait until a second parser exists.
-5. **License** at extraction (MIT vs Apache-2.0).
+1. **Default model** — omit `--model` when `options.model` is unset; the engine default applies.
+2. **`git.committerName`** — optional on `OpenBayOptions`. Isolated `.gitconfig` is written when `extraEnv` has a GitHub token. Email is `enginebay@users.noreply.github.com`.
+3. **Auth attach on Windows** — v1 is POSIX-first (`~/.local/share/opencode`).
+4. **Event versioning** — no `v` field on `BayEvent` until a second parser exists.
+5. **License** — UNLICENSED until extraction.
 
 ## 16. References
 

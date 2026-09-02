@@ -6,7 +6,7 @@ enginebay runs a host-installed coding agent (OpenCode, Claude Code, and later C
 
 It is not a product, a session loop, or a sandbox OS. Host applications — Comitia, eval harnesses, other adapters — stay thin.
 
-**Status:** design only. The public API below is a sketch. See [docs/design.md](docs/design.md).
+**Status:** v1 implements **OpenCode** (`openBay`, `doctor`, `env` isolation). `claude-code` is in the catalog but not implemented yet. See [docs/design.md](docs/design.md).
 
 ## Why
 
