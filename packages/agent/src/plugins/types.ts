@@ -20,7 +20,7 @@ export interface EnginePlugin {
   start(session: {
     sessionId: string;
     workDir: string;
-    /** True when workDir is owned by the caller (e.g. COMITIA_WORK_DIR) and must survive stop(). */
+    /** True when workDir must survive stop() (`COMITIA_WORK_DIR` or a named enginebay workspace). */
     workDirPersistent: boolean;
     mcp: { command: string; args: string[]; env: Record<string, string> };
     environmentPrompt?: string;

@@ -8,7 +8,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adoptDefaultFounding,
   bootstrapBoard,
@@ -27,9 +27,27 @@ import {
   createScriptedIo,
 } from "./plugins/interactive-fake.js";
 import type { EngineGithubAuth, EnginePlugin } from "./plugins/types.js";
-import { ensureRepoCheckout, runSessionLoop } from "./session-loop.js";
+import {
+  comitiaWorkspaceId,
+  ensureRepoCheckout,
+  runSessionLoop,
+} from "./session-loop.js";
 
 const cleanups: Array<() => Promise<void> | void> = [];
+
+beforeEach(async () => {
+  const dir = await mkdtemp(join(tmpdir(), "comitia-xdg-"));
+  const previous = process.env.XDG_DATA_HOME;
+  process.env.XDG_DATA_HOME = dir;
+  cleanups.push(async () => {
+    if (previous === undefined) {
+      delete process.env.XDG_DATA_HOME;
+    } else {
+      process.env.XDG_DATA_HOME = previous;
+    }
+    await rm(dir, { recursive: true, force: true });
+  });
+});
 
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) {
@@ -155,6 +173,13 @@ async function createFixtureRepo(): Promise<string> {
   return dir;
 }
 
+describe("comitiaWorkspaceId", () => {
+  it("prefixes the config key and keeps unicode names", () => {
+    expect(comitiaWorkspaceId("mika")).toBe("comitia-mika");
+    expect(comitiaWorkspaceId("  ミカ  ")).toBe("comitia-ミカ");
+  });
+});
+
 describe("ensureRepoCheckout", () => {
   it("clones into an empty work dir", async () => {
     const repo = await createFixtureRepo();
@@ -252,7 +277,16 @@ describe("session loop with fake engine", () => {
         expect(wrapped.environmentPrompt()).toContain("性格に合うロールを選ぶのではない");
         const dir = wrapped.workDir();
         expect(dir).toBeTruthy();
-        expect(existsSync(dir!)).toBe(false);
+        expect(wrapped.workDirPersistent()).toBe(true);
+        expect(dir).toBe(
+          join(
+            process.env.XDG_DATA_HOME!,
+            "enginebay",
+            "workspaces",
+            "comitia-mika",
+          ),
+        );
+        expect(existsSync(dir!)).toBe(true);
       },
       { timeout: 15_000 },
     );
