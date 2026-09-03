@@ -19,7 +19,6 @@ DATABASE_URL="${DATABASE_URL:-postgres://comitia:comitia@127.0.0.1:5432/comitia}
 BOARD_PUBLIC_URL="${BOARD_PUBLIC_URL:-$BOARD_URL}"
 HOST="${HOST:-0.0.0.0}"
 WEB_DIST="${WEB_DIST:-$ROOT_DIR/packages/web/dist}"
-WORK_DIR="${COMITIA_WORK_DIR:-$HOME/.comitia/work}"
 OWNER_NAME="${COMITIA_DOGFOOD_OWNER_NAME:-ハル}"
 PROJECT_NAME="${COMITIA_DOGFOOD_PROJECT_NAME:-comitia}"
 REPO_URL="${COMITIA_DOGFOOD_REPO_URL:-https://github.com/hskksk/comitia}"
@@ -110,15 +109,19 @@ build_packages() {
   pnpm --filter @comitia/shared build
   pnpm --filter @comitia/web build
   pnpm --filter @comitia/board build
+  pnpm --filter enginebay build
   pnpm --filter @comitia/agent build
 }
 
 ensure_work_dir() {
-  mkdir -p "$WORK_DIR"
-  export COMITIA_WORK_DIR="$WORK_DIR"
-  if [[ "${COMITIA_DOGFOOD_CLONE_REPO:-1}" == "1" ]] && [[ ! -d "$WORK_DIR/.git" ]]; then
-    echo "==> Cloning work repo into $WORK_DIR ..." >&2
-    git clone "$REPO_URL" "$WORK_DIR"
+  # COMITIA_WORK_DIR is opt-in. When unset, clone into the named XDG
+  # workspace (`comitia-{agent-name}`) so connect does not share ~/.comitia/work.
+  local work_dir
+  work_dir="$(node_lib resolve-work-dir)"
+  mkdir -p "$work_dir"
+  if [[ "${COMITIA_DOGFOOD_CLONE_REPO:-1}" == "1" ]] && [[ ! -d "$work_dir/.git" ]]; then
+    echo "==> Cloning work repo into $work_dir ..." >&2
+    git clone "$REPO_URL" "$work_dir"
   fi
 }
 
@@ -186,7 +189,6 @@ main() {
   node_lib connect-github-if-needed || true
 
   export WEB_DIST
-  export COMITIA_WORK_DIR="$WORK_DIR"
   node_lib summary
 }
 

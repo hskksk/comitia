@@ -12,7 +12,14 @@ import { schema, startBoardServer } from "@comitia/board";
 import { parseCliArgs, runCli } from "./cli.js";
 import { USAGE_TEXT } from "./cli-usage.js";
 import { loadConfig } from "./config.js";
-import { doctorCommand, opencodeDoctorFindings, claudeCliDoctorFinding } from "./commands/doctor.js";
+import {
+  doctorCommand,
+  opencodeDoctorFindings,
+  claudeCliDoctorFinding,
+  workspaceDoctorFindings,
+} from "./commands/doctor.js";
+import { namedWorkspacePath } from "enginebay";
+import { comitiaWorkspaceId } from "./session-loop.js";
 import { statusCommand } from "./commands/status.js";
 import { tokenCommand } from "./commands/token.js";
 import { wakeCommand } from "./commands/wake.js";
@@ -563,6 +570,8 @@ describe("operator commands", () => {
     expect(output).toContain("boardUrl");
     expect(output).toContain("ボード: 稼働中");
     expect(output).toContain("GitHub 実行資格: ボードに GitHub App が設定されていない");
+    expect(output).toContain("作業ディレクトリ (mika):");
+    expect(output).toContain("enginebay/workspaces/comitia-mika");
   });
 
   it("tells how to start the board from the repo root when it is down", async () => {
@@ -651,6 +660,79 @@ describe("operator commands", () => {
       {
         ok: true,
         message: "OpenCode 認証: ホストで `opencode auth` を実行してください",
+      },
+    ]);
+  });
+
+  it("maps named XDG workspaces into Japanese doctor findings", async () => {
+    const xdg = await mkdtemp(join(tmpdir(), "comitia-doctor-xdg-"));
+    const hostHome = await mkdtemp(join(tmpdir(), "comitia-doctor-ws-home-"));
+    cleanups.push(() => rm(xdg, { recursive: true }));
+    cleanups.push(() => rm(hostHome, { recursive: true }));
+    const env = { XDG_DATA_HOME: xdg, HOME: hostHome };
+    const mikaPath = namedWorkspacePath(comitiaWorkspaceId("mika"), env, hostHome);
+    const mikaJaPath = namedWorkspacePath(
+      comitiaWorkspaceId("ミカ"),
+      env,
+      hostHome,
+    );
+
+    expect(
+      await workspaceDoctorFindings({
+        env,
+        hostHome,
+        agentNames: ["mika", "ミカ"],
+      }),
+    ).toEqual([
+      {
+        ok: true,
+        message: `作業ディレクトリ (mika): ${mikaPath}（未作成。初回 connect で作る）`,
+      },
+      {
+        ok: true,
+        message: `作業ディレクトリ (ミカ): ${mikaJaPath}（未作成。初回 connect で作る）`,
+      },
+    ]);
+
+    await mkdir(mikaPath, { recursive: true });
+    expect(
+      await workspaceDoctorFindings({
+        env,
+        hostHome,
+        agentNames: ["mika"],
+      }),
+    ).toEqual([
+      {
+        ok: true,
+        message: `作業ディレクトリ (mika): ${mikaPath}`,
+      },
+    ]);
+  });
+
+  it("maps COMITIA_WORK_DIR override into a Japanese doctor finding", async () => {
+    const override = await mkdtemp(join(tmpdir(), "comitia-doctor-override-"));
+    cleanups.push(() => rm(override, { recursive: true }));
+    expect(
+      await workspaceDoctorFindings({
+        env: { COMITIA_WORK_DIR: override },
+        agentNames: ["mika"],
+      }),
+    ).toEqual([
+      {
+        ok: true,
+        message: `作業ディレクトリ: ${override}（COMITIA_WORK_DIR による上書き。エージェント別 XDG workspace は使わない）`,
+      },
+    ]);
+    expect(
+      await workspaceDoctorFindings({
+        env: {},
+        agentNames: [],
+      }),
+    ).toEqual([
+      {
+        ok: true,
+        message:
+          "作業ディレクトリ: エージェント未登録。connect 時は $XDG_DATA_HOME/enginebay/workspaces/comitia-{name}",
       },
     ]);
   });

@@ -5,7 +5,12 @@ import { loadConfig, type ComitiaConfig } from "../config.js";
 import { detectClaudeAuthSource, resolveHostHome } from "../claude-auth.js";
 import { readJsonErrorMessage } from "../github-auth.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
-import { doctor as enginebayDoctor, type DoctorReport } from "enginebay";
+import { comitiaWorkspaceId } from "../session-loop.js";
+import {
+  doctor as enginebayDoctor,
+  namedWorkspacePath,
+  type DoctorReport,
+} from "enginebay";
 
 export interface DoctorFinding {
   ok: boolean;
@@ -66,6 +71,71 @@ async function checkClaudeAvailability(
 ): Promise<DoctorFinding> {
   const report = await enginebayDoctor("claude-code", { env, home: hostHome });
   return claudeCliDoctorFinding(report);
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function workspaceDoctorFindings(input: {
+  env: NodeJS.ProcessEnv;
+  hostHome?: string;
+  agentNames: string[];
+}): Promise<DoctorFinding[]> {
+  const override = input.env.COMITIA_WORK_DIR;
+  if (override && override.length > 0) {
+    const exists = await pathExists(override);
+    return [
+      {
+        ok: true,
+        message: exists
+          ? `作業ディレクトリ: ${override}（COMITIA_WORK_DIR による上書き。エージェント別 XDG workspace は使わない）`
+          : `作業ディレクトリ: ${override}（COMITIA_WORK_DIR による上書き、ディレクトリ未作成。エージェント別 XDG workspace は使わない）`,
+      },
+    ];
+  }
+
+  const names = input.agentNames.filter(
+    (name) => name.normalize("NFC").trim().length > 0,
+  );
+  if (names.length === 0) {
+    return [
+      {
+        ok: true,
+        message:
+          "作業ディレクトリ: エージェント未登録。connect 時は $XDG_DATA_HOME/enginebay/workspaces/comitia-{name}",
+      },
+    ];
+  }
+
+  const findings: DoctorFinding[] = [];
+  for (const name of names) {
+    try {
+      const path = namedWorkspacePath(
+        comitiaWorkspaceId(name),
+        input.env,
+        input.hostHome,
+      );
+      const exists = await pathExists(path);
+      findings.push({
+        ok: true,
+        message: exists
+          ? `作業ディレクトリ (${name}): ${path}`
+          : `作業ディレクトリ (${name}): ${path}（未作成。初回 connect で作る）`,
+      });
+    } catch {
+      findings.push({
+        ok: false,
+        message: `作業ディレクトリ (${name}): 名前が workspace id に使えない`,
+      });
+    }
+  }
+  return findings;
 }
 
 export function claudeCliDoctorFinding(report: DoctorReport): DoctorFinding {
@@ -328,6 +398,14 @@ export async function doctorCommand(
       message: "エンジン: fake（Claude Code CLI は不要）",
     });
   }
+
+  findings.push(
+    ...(await workspaceDoctorFindings({
+      env,
+      hostHome,
+      agentNames: Object.keys(config.agents),
+    })),
+  );
 
   stdout.write("Comitia doctor\n\n");
   for (const finding of findings) {
