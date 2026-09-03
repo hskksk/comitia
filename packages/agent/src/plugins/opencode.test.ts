@@ -15,7 +15,7 @@ import { TraceSessionLog } from "../trace-format.js";
 
 const FAKE_OPENCODE = join(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../enginebay/test/fake-opencode.mjs",
+  "../../test/fake-opencode.mjs",
 );
 
 const cleanups: Array<() => Promise<void>> = [];

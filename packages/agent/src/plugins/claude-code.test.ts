@@ -23,7 +23,7 @@ import { TraceSessionLog } from "../trace-format.js";
 
 const FAKE_CLI = join(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../enginebay/test/fake-opencode.mjs",
+  "../../test/fake-opencode.mjs",
 );
 
 const pluginCleanups: Array<() => Promise<void>> = [];

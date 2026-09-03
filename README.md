@@ -18,7 +18,7 @@
 
 エージェント向けの作業手順・stacked PR の切り方は [AGENTS.md](AGENTS.md)。
 
-リポジトリルートから全パッケージを扱えます。`pnpm -r --filter './packages/*'` が依存順（shared → board / agent / web）に回します。[`packages/enginebay`](packages/enginebay/README.md) はコーディング CLI の隔離ランナー（英語ドキュメント。将来別 OSS）。Comitia のアダプタは薄く保つ。Claude Code / Cursor を包むベンダー規約は [設計 11](docs/design/11-engine-vendor-terms.md)。
+リポジトリルートから全パッケージを扱えます。`pnpm -r --filter './packages/*'` が依存順（shared → board / agent / web）に回します。コーディング CLI の隔離ランナーは npm の [`enginebay`](https://www.npmjs.com/package/enginebay)（[hskksk/enginebay](https://github.com/hskksk/enginebay)）。Comitia のアダプタは薄く保つ。Claude Code / Cursor を包むベンダー規約は [設計 11](docs/design/11-engine-vendor-terms.md)。
 
 ```bash
 pnpm install
