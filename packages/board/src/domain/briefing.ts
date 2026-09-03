@@ -1,4 +1,4 @@
-import { formatParticipantLabel } from "@comitia/shared";
+import { formatParticipantLabel, type PullRequestState } from "@comitia/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { threads, type HandoverProjectNote } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
@@ -22,8 +22,34 @@ import {
   listActiveProjectClaims,
   listUnclaimedDecidedImplementations,
 } from "./work-claims.js";
+import { listProjectPullRequestsForThreads } from "./pull-requests.js";
 
 const OPEN_THREAD_STATES = new Set(["discussing", "awaiting_decision"]);
+
+type LinkedPullRequest = {
+  number: number;
+  url: string;
+  title: string;
+  state: PullRequestState;
+};
+
+type BriefingThreadRow = {
+  id: string;
+  title: string;
+  type: string;
+  state: string;
+  pullRequests: LinkedPullRequest[];
+};
+
+function withPullRequests<T extends { id: string }>(
+  rows: T[],
+  prByThread: Map<string, LinkedPullRequest[]>,
+): Array<T & { pullRequests: LinkedPullRequest[] }> {
+  return rows.map((row) => ({
+    ...row,
+    pullRequests: prByThread.get(row.id) ?? [],
+  }));
+}
 
 export type ProjectBriefingSlice = {
   id: string;
@@ -34,18 +60,8 @@ export type ProjectBriefingSlice = {
   roles: string[];
   rules: string;
   situation: {
-    threads: Array<{
-      id: string;
-      title: string;
-      type: string;
-      state: string;
-    }>;
-    open_threads: Array<{
-      id: string;
-      title: string;
-      type: string;
-      state: string;
-    }>;
+    threads: BriefingThreadRow[];
+    open_threads: BriefingThreadRow[];
     work_claims: Awaited<ReturnType<typeof listActiveProjectClaims>>;
     unclaimed_decided: Awaited<ReturnType<typeof listUnclaimedDecidedImplementations>>;
     participants: Array<{
@@ -57,12 +73,7 @@ export type ProjectBriefingSlice = {
       conflict_citations_required: boolean;
       setup: Awaited<ReturnType<typeof getProjectSetup>>;
     };
-    awaiting_decision?: Array<{
-      id: string;
-      title: string;
-      type: string;
-      state: string;
-    }>;
+    awaiting_decision?: BriefingThreadRow[];
   };
 };
 
@@ -105,7 +116,7 @@ async function loadProjectSlice(
     ]);
 
   const you = participants.find((row) => row.id === input.participantId);
-  const openThreads = allThreads
+  const openThreadSummaries = allThreads
     .filter((thread) => OPEN_THREAD_STATES.has(thread.state))
     .map((thread) => ({
       id: thread.id,
@@ -113,6 +124,15 @@ async function loadProjectSlice(
       type: thread.type,
       state: thread.state,
     }));
+  const prByThread = await listProjectPullRequestsForThreads(db, [
+    ...new Set([
+      ...ownedThreads.map((thread) => thread.id),
+      ...openThreadSummaries.map((thread) => thread.id),
+    ]),
+  ]);
+  const ownedWithPrs = withPullRequests(ownedThreads, prByThread);
+  const openThreads = withPullRequests(openThreadSummaries, prByThread);
+  const awaitingDecisionWithPrs = withPullRequests(awaitingDecision, prByThread);
 
   return {
     id: project.id,
@@ -123,7 +143,7 @@ async function loadProjectSlice(
     roles: you?.roles ?? [],
     rules: bindingAgreements.map((agreement) => agreement.summary).join("\n"),
     situation: {
-      threads: ownedThreads,
+      threads: ownedWithPrs,
       open_threads: openThreads,
       work_claims: workClaims,
       unclaimed_decided: unclaimedDecided,
@@ -136,7 +156,9 @@ async function loadProjectSlice(
         conflict_citations_required: bindingAgreements.length > 0,
         setup,
       },
-      ...(awaitingDecision.length > 0 ? { awaiting_decision: awaitingDecision } : {}),
+      ...(awaitingDecisionWithPrs.length > 0
+        ? { awaiting_decision: awaitingDecisionWithPrs }
+        : {}),
     },
   };
 }

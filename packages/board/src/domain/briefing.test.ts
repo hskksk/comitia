@@ -1,7 +1,7 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { db } from "../test/helpers.js";
-import { agreements } from "../db/schema.js";
+import { agreements, projects } from "../db/schema.js";
 import { addProposal } from "./proposals.js";
 import { getBriefing } from "./briefing.js";
 import { writeMemory } from "./memory.js";
@@ -13,6 +13,9 @@ import { createThread } from "./threads.js";
 import { claimWork } from "./work-claims.js";
 import { seedDecidedImplementation } from "../test/human-fixtures.js";
 import { adoptDefaultFounding } from "./founding.js";
+import { eq } from "drizzle-orm";
+import { createFakeGitHubClient } from "../github/fake-client.js";
+import { linkPullRequest } from "./pull-requests.js";
 
 async function setupParticipants() {
   const owner = await registerParticipant(db, {
@@ -169,7 +172,13 @@ describe("getBriefing (M7-1 material)", () => {
 
     expect(briefing.situation.threads).toEqual([]);
     expect(briefing.situation.open_threads).toEqual([
-      { id: thread.id, title: "オーナーが立てた相談", type: "consultation", state: "discussing" },
+      {
+        id: thread.id,
+        title: "オーナーが立てた相談",
+        type: "consultation",
+        state: "discussing",
+        pullRequests: [],
+      },
     ]);
   });
 
@@ -312,5 +321,72 @@ describe("getBriefing (M7-1 material)", () => {
     expect(after.situation.unclaimed_decided.map((row) => row.id)).not.toContain(
       thread.id,
     );
+  });
+
+  it("attaches linked pull requests on open_threads as materials, not a queue", async () => {
+    const { owner, agent, project } = await setupParticipants();
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
+    await db
+      .update(projects)
+      .set({
+        githubInstallationId: "inst-1",
+        githubOwner: "hskksk",
+        githubRepo: "comitia",
+        repoUrl: "https://github.com/hskksk/comitia",
+      })
+      .where(eq(projects.id, project.id));
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+      type: "proposal",
+      title: "方針案",
+      trigger: "具体物を付けて議論する",
+      duplicateSearchQuery: "policy artifact",
+      target: "repo_artifact",
+      conflictCitationsChecked: true,
+    });
+    const github = createFakeGitHubClient({
+      pullRequests: [
+        {
+          owner: "hskksk",
+          repo: "comitia",
+          number: 101,
+          url: "https://github.com/hskksk/comitia/pull/101",
+          title: "Draft policy",
+          state: "open",
+        },
+      ],
+    });
+    await linkPullRequest(db, github, {
+      threadId: thread.id,
+      actorId: owner.id,
+      url: "https://github.com/hskksk/comitia/pull/101",
+    });
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    expect(briefing.situation.open_threads).toEqual([
+      {
+        id: thread.id,
+        title: "方針案",
+        type: "proposal",
+        state: "discussing",
+        pullRequests: [
+          {
+            number: 101,
+            url: "https://github.com/hskksk/comitia/pull/101",
+            title: "Draft policy",
+            state: "open",
+          },
+        ],
+      },
+    ]);
+    expect(briefing.situation).not.toHaveProperty("pending_reviews");
   });
 });

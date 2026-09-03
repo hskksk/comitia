@@ -3,6 +3,7 @@ import { posts, proposalVersions } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { getDecisionView } from "./decision-view.js";
 import { getThreadRow } from "./helpers.js";
+import { listThreadPullRequests } from "./pull-requests.js";
 
 export async function readThread(db: Db, threadId: string) {
   const thread = await getThreadRow(db, threadId);
@@ -41,6 +42,8 @@ export async function readThread(db: Db, threadId: string) {
     }
   }
 
+  const pullRequests = await listThreadPullRequests(db, threadId);
+
   const threadPosts = await db
     .select({
       id: posts.id,
@@ -65,6 +68,7 @@ export async function readThread(db: Db, threadId: string) {
     synthesis: latestSynthesis ?? null,
     candidate_proposal: candidateProposal,
     posts: threadPosts,
+    pullRequests,
     decision_view: await getDecisionView(db, threadId),
   };
 }
