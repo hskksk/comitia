@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { GATEWAY, type TraceEvent } from "@comitia/shared";
+import { prepareWorkspace } from "enginebay";
 import { judgeContinue, type LoopPhase } from "./continue-judgment.js";
 import type { ToolLogEntry } from "./idle-detection.js";
 import type { McpProxyToolResult } from "./mcp-proxy.js";
@@ -49,6 +49,8 @@ export interface SessionLoopOptions {
   sessionId: string;
   boardUrl: string;
   agentToken: string;
+  /** Named enginebay workspace (e.g. `comitia-mika`). Ignored when COMITIA_WORK_DIR is set. */
+  workspaceId?: string;
 }
 
 function hasEndSession(entries: ToolLogEntry[]): boolean {
@@ -76,13 +78,23 @@ async function postSessionJson(
   }
 }
 
-async function resolveWorkDir(): Promise<{ path: string; persistent: boolean }> {
-  const configured = process.env.COMITIA_WORK_DIR;
-  if (configured) {
-    return { path: configured, persistent: true };
+export function comitiaWorkspaceId(agentName: string): string {
+  const name = agentName.normalize("NFC").trim();
+  if (!name) {
+    throw new Error("comitia workspace id requires an agent name");
   }
-  const path = await mkdtemp(join(tmpdir(), "comitia-work-"));
-  return { path, persistent: false };
+  return `comitia-${name}`;
+}
+
+async function resolveWorkDir(workspaceId?: string) {
+  const configured = process.env.COMITIA_WORK_DIR;
+  if (configured && configured.length > 0) {
+    return prepareWorkspace({ path: configured });
+  }
+  if (workspaceId && workspaceId.length > 0) {
+    return prepareWorkspace({ id: workspaceId });
+  }
+  return prepareWorkspace();
 }
 
 async function fetchIdentity(
@@ -170,6 +182,7 @@ export async function runSessionLoop(
     sessionId,
     boardUrl,
     agentToken,
+    workspaceId,
     onChatLog,
     onChatLogError,
     onTraceEntries,
@@ -215,7 +228,9 @@ export async function runSessionLoop(
     }
   }
 
-  const { path: workDir, persistent: keepWorkDir } = await resolveWorkDir();
+  const { path: workDir, persistent: keepWorkDir } = await resolveWorkDir(
+    workspaceId,
+  );
   const entries: ToolLogEntry[] = [];
   let phase: LoopPhase = "work";
   let stopReason = "最大 run 数に到達";

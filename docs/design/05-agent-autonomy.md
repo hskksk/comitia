@@ -247,7 +247,7 @@ comitia agent register --engine claude-code --name walker [--role proposer]
 
 **(1) 作業ディレクトリの所有権がプラグインに伝わっていない**
 
-セッションループは `COMITIA_WORK_DIR` があれば「永続（オーナーのもの）」、無ければ一時ディレクトリを作って
+セッションループは `COMITIA_WORK_DIR` があれば「永続（オーナーのもの）」、`connect` ではエージェント名から `comitia-{name}` の named workspace（enginebay、`$XDG_DATA_HOME/enginebay/workspaces/`）、どちらも無ければ一時ディレクトリを作って
 「使い捨て（自分のもの）」として扱い、自分の後始末ではその区別を尊重している。
 ところがエンジンプラグインに渡すセッション情報は作業ディレクトリのパスだけで、**所有権が伝わらない**。
 そのため Claude Code プラグインの停止処理が、自分で作った隔離 HOME・実行時ディレクトリと同列に
@@ -291,7 +291,7 @@ GitHub 実行資格（隔離 HOME の `git` / `gh`）は、この切り方では
 ### 8.3 完了条件
 
 1. `COMITIA_WORK_DIR` を指定したセッションを 2 回連続で回しても、作業ディレクトリの中身が消えない
-2. 指定しなかったときの一時ディレクトリは、これまで通りセッション終了で消える
+2. `COMITIA_WORK_DIR` も workspace id も無いときだけ、一時ディレクトリはセッション終了で消える。`comitia agent connect <name>` の既定は `$XDG_DATA_HOME/enginebay/workspaces/comitia-{name}`（エンジン非依存。同じ名前なら Claude / OpenCode で同じツリー）
 3. repoUrl のあるプロジェクトでは、エージェントが最初の run の時点でリポジトリの中身を読める
 4. repoUrl の無いプロジェクトでも一日が成立する
 5. clone に失敗しても接続が落ちず、その事実がエージェントとログに残る

@@ -23,7 +23,7 @@ enginebay owns that knowledge. A consumer owns *when* to run, *which* prompt, *w
 | Inherit provider auth from the host | yes | host login (`opencode auth`, `claude login`) |
 | Inject session-scoped MCP | yes | provide the stdio command |
 | Canonical events (text, thinking, tools) | yes | map to product traces |
-| Workspace directory | uses what you pass | create / destroy |
+| Workspace directory | ephemeral temp, named XDG, or a path you pass | choose id vs path; clone / destroy policy |
 | Day loop, ticks, personality, board | no | yes |
 | GitHub App token minting | no | pass a token via `extraEnv` if needed |
 | OS sandbox (Seatbelt, landlock, microVM) | not in v1 | optional later backend |
@@ -38,7 +38,7 @@ if (!check.ok) throw new Error(check.message);
 
 const bay = await openBay({
   engine: "opencode",
-  workDir: "/tmp/work",
+  workspaceId: "comitia-mika",
   mcp: {
     command: process.execPath,
     args: ["/path/to/mcp-proxy"],
@@ -59,6 +59,18 @@ await bay.close();
 ```
 
 Each `run()` is a **fresh CLI process**. Conversation continuity is the consumer's job (a redrive prompt), not `--continue` inside the engine.
+
+## Workspaces
+
+`openBay` always has a cwd. How it is created:
+
+| Call | Location | `close()` |
+| --- | --- | --- |
+| neither `workDir` nor `workspaceId` | temp (`enginebay-work-*`) | deletes it |
+| `workspaceId: "…"` | `$XDG_DATA_HOME/enginebay/workspaces/<id>` (default `~/.local/share/…`) | keeps it |
+| `workDir: "/path"` | that path (mkdir if needed) | keeps it |
+
+Do not pass both. IDs are a single path segment, NFC, lowercased; unicode is allowed (`comitia-ミカ`). Isolation dirs (engine config / session DB) stay disposable either way — a named workspace is the **coding tree**, not the engine's XDG.
 
 ## Engines
 
