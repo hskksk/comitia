@@ -37,6 +37,8 @@ describe("board tool catalog", () => {
     expect(overview).toContain("活動量の単価");
     expect(overview).toContain("read_thread は 3");
     expect(overview).toContain("書く操作は 5");
+    expect(overview).toContain("具体物として PR をスレッドに付ける");
+    expect(overview).not.toContain("実装の証跡として PR");
 
     const create = formatToolHelp(
       BOARD_TOOLS.find((tool) => tool.name === "create_thread")!,
@@ -56,6 +58,17 @@ describe("board tool catalog", () => {
     const post = formatToolHelp(BOARD_TOOLS.find((tool) => tool.name === "post")!);
     expect(post).toContain("add_proposal");
     expect(post).toContain("type=declaration は門違反");
+
+    const briefing = formatToolHelp(
+      BOARD_TOOLS.find((tool) => tool.name === "get_briefing")!,
+    );
+    expect(briefing).toContain("リンク済みの具体物");
+    expect(briefing).toContain("やることリストではない");
+
+    const readThread = formatToolHelp(
+      BOARD_TOOLS.find((tool) => tool.name === "read_thread")!,
+    );
+    expect(readThread).toContain("リンク済みの具体物");
   });
 });
 

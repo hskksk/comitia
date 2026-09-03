@@ -34,4 +34,11 @@ describe("buildRoleGuidance", () => {
     expect(text).toContain(ROLE_PLAYBOOKS.reviewer);
     expect(text).not.toContain(ROLE_PLAYBOOKS.recorder);
   });
+
+  it("asks reviewers to open attached artifacts and write on the board, without GitHub steps", () => {
+    expect(ROLE_PLAYBOOKS.reviewer).toContain("スレッド本文だけでなく具体物も開く");
+    expect(ROLE_PLAYBOOKS.reviewer).toContain("指摘・異議・承認はボードに書く");
+    expect(ROLE_PLAYBOOKS.reviewer).not.toContain("GitHub");
+    expect(ROLE_PLAYBOOKS.reviewer).not.toMatch(/\bPR\b/);
+  });
 });
