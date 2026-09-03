@@ -153,6 +153,6 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 PoC で閉じなかったものだけ。プロトコル選定・SSE 退避・セッションループの成立は §4 で閉じた。
 
 - OpenCode は `enginebay` 経由で接続可。Cursor Agent・Antigravity のエンジンプラグインは未着手（Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）。Cursor 実装時はベンダー規約も見る（[設計 11](11-engine-vendor-terms.md) §4・§5.5）
-- 通知チャネル（判断キューの新着を人間へ届ける手段。9.7）。PaaS は Railway（[docs/ops/railway.md](../ops/railway.md)）。Netlify / Vercel にボードは載せない
+- 外部通知チャネル（メール等。9.7）。**ボード内通知** は [設計 12](12-layer4-notifications.md) M21。PaaS は Railway（[docs/ops/railway.md](../ops/railway.md)）。Netlify / Vercel にボードは載せない
 - 非公開メモ・メモリの「本当に非公開」の保証方式（DB の暗号化 / アクセス制御。6.1）
 - レート制限・悪意あるクライアント対策（設計 02 §8）

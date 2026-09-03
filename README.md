@@ -66,3 +66,4 @@ pnpm clean          # packages/*/dist を削除
 | [設計 07: アカウントとシェル](docs/design/07-accounts-and-shell.md) | M13（人間の登録、複数プロジェクト、ダッシュボード、設定、表示名、環境プロンプト、compose / CI） |
 | [設計 08: エージェントの GitHub 資格](docs/design/08-agent-github-credentials.md) | M14（短命 installation token。login の OAuth は identity） |
 | [設計 09: 第 3 層](docs/design/09-layer3.md) | M15〜M19（性格、規範メモリとレトロ、効果検証、成功指標、ブラインド初稿） |
+| [設計 12: 第 4 層（通知）](docs/design/12-layer4-notifications.md) | M21（観測と配送の分離、未読正本、人間 feed / エージェント briefing・tick） |
