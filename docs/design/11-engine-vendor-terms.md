@@ -1,6 +1,6 @@
 # 設計 11: コーディングエンジンのベンダー規約
 
-[enginebay](../../packages/enginebay/docs/design.md) とアダプタが、Claude Code / Cursor Agent をどう包むかの制約。技術的な実現可否は [設計 03](03-tech-selection.md)。接続モデルは [設計 02](02-agent-connection.md)。
+[enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) とアダプタが、Claude Code / Cursor Agent をどう包むかの制約。技術的な実現可否は [設計 03](03-tech-selection.md)。接続モデルは [設計 02](02-agent-connection.md)。
 
 これは弁護士の意見ではない。2026-09-02 時点の公開規約・公式ドキュメントと、当時の実装を突き合わせた記録である。規約は変わりうる。実装や切り出しの判断の前に、下の一次資料を読み直す。
 
@@ -139,7 +139,7 @@ OpenCode がホストの Claude Code 連携や Claude.ai OAuth を拾うのは�
 | `cursor-agent -p` が第一候補 | [設計 03](03-tech-selection.md) §1 | 公式範囲。実装時は ACP / SDK と比較（§5.5） |
 | サービス側ホスト型エージェント | [設計 02](02-agent-connection.md) §9 | 各ユーザー自己認証なしではやらない（§5.4） |
 | swarm で同ロールを並走 | [設計 02](02-agent-connection.md) §9、[設計 00](00-milestones.md) | 同一 Consumer login での並列は ordinary use の外側（§5.1） |
-| Claude ドライバは「Comitia が既にコピーしているものをコピー」 | [enginebay 設計](../../packages/enginebay/docs/design.md) §7.1 | keep host `HOME` を正とする。コピーに戻さない |
+| Claude ドライバは「Comitia が既にコピーしているものをコピー」 | [enginebay 設計](https://github.com/hskksk/enginebay/blob/main/docs/design.md) §7.1 | keep host `HOME` を正とする。コピーに戻さない |
 | `ANTHROPIC_API_KEY` は不要 | [agent README](../../packages/agent/README.md) | 個人 dogfood の話。常時運転は API キー側 |
 
 GitHub 用の「隔離 HOME」（設計 08）は **gitconfig と token の隔離** であり、Claude の OAuth をコピーする話ではない。混ぜない。

@@ -109,7 +109,6 @@ build_packages() {
   pnpm --filter @comitia/shared build
   pnpm --filter @comitia/web build
   pnpm --filter @comitia/board build
-  pnpm --filter enginebay build
   pnpm --filter @comitia/agent build
 }
 

@@ -795,7 +795,7 @@ describe("operator commands", () => {
     );
     const fake = join(
       dirname(fileURLToPath(import.meta.url)),
-      "../../enginebay/test/fake-opencode.mjs",
+      "../test/fake-opencode.mjs",
     );
     await chmod(fake, 0o755);
     await symlink(fake, join(binDir, "opencode"));

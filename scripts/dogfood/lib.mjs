@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertWorkspaceId, namedWorkspacePath } from "../../packages/enginebay/dist/index.js";
+import { assertWorkspaceId, namedWorkspacePath } from "enginebay";
 
 const CONFIG_PATH = join(homedir(), ".comitia", "config.json");
 
