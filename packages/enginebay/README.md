@@ -85,6 +85,8 @@ v1 implements OpenCode and Claude Code. Later engines wait until a consumer need
 
 The CLI must already be on `PATH`. enginebay does not vendor engine binaries.
 
+**Vendor terms:** wrapping Claude Code or Cursor Agent is a gray zone if the consumer hosts, resells, or copies OAuth credentials. Keep host login on the unmodified CLI; do not copy Claude.ai tokens into an isolated `HOME`. Cursor is later — prefer ACP / SDK over an ad-hoc spawn. Full review (Japanese): [Comitia design 11](../../docs/design/11-engine-vendor-terms.md).
+
 ## Isolation (v1: `env`)
 
 Default backend remaps XDG (and engine-specific flags such as `OPENCODE_DISABLE_GLOBAL_CONFIG`) to a disposable directory, so host `~/.config/opencode` and `~/AGENTS.md` are neither read nor written. Provider auth is reattached from the host by a **narrow, engine-specific path** (symlink or kept `HOME` for Keychain) — not by exposing the whole home directory.
@@ -105,6 +107,7 @@ This directory is `packages/enginebay` in the Comitia monorepo so Comitia and (l
 ## Documentation
 
 - [Design](docs/design.md) — goals, API, isolation, events, consumers, extraction.
+- [Comitia design 11](../../docs/design/11-engine-vendor-terms.md) — vendor terms for wrapping Claude Code / Cursor (Japanese).
 
 ## License
 

@@ -4,7 +4,7 @@ M5 はボードと GitHub の間を繋いだ（PR 同期、Issue 誘導、人間
 
 その前提は、ローカル運転の本線では足りない。
 
-- Claude Code は隔離 `HOME` で動く。ホストの `gh auth` / SSH 鍵は見えない
+- Claude Code の **git** は隔離した `GIT_CONFIG_GLOBAL` で動く。ホストの `gh auth` / SSH 鍵は見えない。Claude の OAuth 用に `HOME` 全体を差し替えたり `.credentials.json` をコピーしたりはしない（[設計 11](11-engine-vendor-terms.md) §5.2・§7）
 - エージェントはサービスに接続するクライアントであり、クラウド VM を持たない。ホストに資格があることと、エンジンに資格があることは別
 - M13 で人間とプロジェクトが増えると、「動かしているマシンの GitHub」と「そのエージェントが触ってよい repo」が一致しなくなる
 
@@ -27,7 +27,7 @@ Cursor Cloud Agent がクラウド VM でやっていることと同じ親子関
 人間          comitia login          ボードの identity（Comitia ベアラ）
 人間          App を repo に入れる    projects.githubInstallationId（M5 のまま）
 アダプタ      agent connect 時        POST で短命 installation token を取る
-エンジン      隔離 HOME だけ          GH_TOKEN と git の x-access-token
+エンジン      隔離 gitconfig だけ     GH_TOKEN と git の x-access-token（Claude の OAuth はホスト HOME のまま）
 ```
 
 login は「この人間が、この installation 由来の token を自分のエージェントに渡してよい」ことの証明になる。GitHub 資格そのものを login の成果物としては持たない。
@@ -99,12 +99,12 @@ Issues は付けない。ボードプロセスが持っている Issue 書き込
 - ホストの `gh auth login` をセットアップ手順にすること
 - PAT を設定画面に貼る逃げ（セルフホスト用。必要になってから）
 - 実行用 GitHub App の分離
-- Cursor Agent / OpenCode / Antigravity への注入（Claude Code と、アダプタ自身の clone が先。プラグイン境界には渡す）
+- Cursor Agent / OpenCode / Antigravity への注入（Claude Code と、アダプタ自身の clone が先。プラグイン境界には渡す）。Cursor 実装時は [設計 11](11-engine-vendor-terms.md) §4
 - 9.4 / 9.5 の要件未決（書いてよいか、マージしてよいか）をこの設計で閉じること
 
 ## 8. 完了条件
 
-1. App がプロジェクト repo に入っているとき、隔離 HOME の Claude Code がホストの `gh auth` 無しでその repo に push でき、`gh pr create` できる
+1. App がプロジェクト repo に入っているとき、隔離 gitconfig を付けた Claude Code がホストの `gh auth` 無しでその repo に push でき、`gh pr create` できる。Claude の OAuth はホスト `HOME` のまま（[設計 11](11-engine-vendor-terms.md) §5.2）
 2. 発行された token で `GET /installation/repositories` すると、そのプロジェクトの repo 以外は含まれない
 3. 同じ token で Issue を作れない（downscope）
 4. App 未設定・installation 未接続・repo なしでも、connect と一日は落ちない

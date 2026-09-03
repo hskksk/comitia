@@ -199,6 +199,10 @@ function stripHostMcpServers(raw: string): string {
  * Copy host Claude login files into an isolated HOME. Unused by agent
  * connect (that path keeps the real HOME). Kept for tests and any caller
  * that still remaps HOME. Host hooks / plugins / session history are not copied.
+ *
+ * Do not wire this back into connect. Copying Claude.ai OAuth files is a
+ * gray zone under Anthropic's "do not collect, store, or intermediate
+ * credentials" rule. See docs/design/11-engine-vendor-terms.md §5.2.
  */
 export async function seedIsolatedClaudeAuth(
   isolatedHome: string,
