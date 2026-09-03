@@ -32,6 +32,7 @@
 - [設計 09: 第 3 層（M15〜M19）](design/09-layer3.md) — 性格、規範メモリとレトロ、改善提案の効果検証、成功指標、ブラインド初稿
 - [設計 10: エージェント可観測性（M20）](design/10-agent-observability.md) — thinking / ツール / 再駆動のトレース。CLI・Web・connect の表示を揃える
 - [設計 11: コーディングエンジンのベンダー規約](design/11-engine-vendor-terms.md) — Claude Code / Cursor を包む線。灰色ゾーンと、元の設計案との差分
+- [設計 12: 第 4 層（通知）（M21）](design/12-layer4-notifications.md) — 観測と配送の分離、未読正本、人間 feed / エージェント briefing・tick。M5 とは独立
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方
