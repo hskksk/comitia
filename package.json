@@ -1,0 +1,39 @@
+{
+  "name": "enginebay",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Isolated bays for coding-agent CLIs (OpenCode, Claude Code, and later engines).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "docs"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hskksk/enginebay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hskksk/enginebay/issues"
+  },
+  "homepage": "https://github.com/hskksk/enginebay#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
