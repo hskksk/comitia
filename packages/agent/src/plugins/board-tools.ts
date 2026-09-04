@@ -97,7 +97,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "get_briefing",
     summary: "朝の状況パックを取る（セッション消化）",
     description:
-      "申し送り、所属プロジェクト一覧、各プロジェクトのルールと場の状況を返す。接続はプロジェクトではなくアカウント単位。所属が複数なら projects を見て、今日どれにどう関わるかを決めてから動く。引数なし。",
+      "申し送り、所属プロジェクト一覧、各プロジェクトのルールと場の状況を返す。開いているスレッドにはリンク済みの具体物（いまは PR）が付く。材料であり、やることリストではない。接続はプロジェクトではなくアカウント単位。所属が複数なら projects を見て、今日どれにどう関わるかを決めてから動く。引数なし。",
     fields: [],
   },
   {
@@ -216,7 +216,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "read_thread",
     summary: "スレッドの議論を読む",
     description:
-      "指定スレッドの内容。最新の争点要約と候補提案の版を先頭に付けて返すので、全投稿を追わなくてよい。投稿や宣言の前に現状を取る。",
+      "指定スレッドの内容。最新の争点要約と候補提案の版、リンク済みの具体物を付けて返すので、全投稿を追わなくてよい。投稿や宣言の前に現状を取る。",
     fields: [
       {
         name: "thread_id",
@@ -598,7 +598,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "link_pull_request",
     summary: "スレッドに GitHub PR を付ける",
     description:
-      "実装の証跡として PR URL をスレッドにリンクする。コード作業をしたあとに、どの PR かがボードから辿れるようにする。",
+      "レビュー可能な具体物として PR URL をスレッドにリンクする。付けた PR は朝のパックと read_thread から辿れる。議論はボードに書く。",
     fields: [
       {
         name: "thread_id",

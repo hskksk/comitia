@@ -61,7 +61,7 @@ M7-1 はその宿題を返す。
 | `previous_projects` | なし | 前回の申し送りに残したプロジェクトごとの要約 |
 | `rules` | `""` ハードコード | 所属が 1 つのときの拘束的な有効決定の要約。複数なら空（混ぜない）。各 `projects[].rules` が正 |
 | `situation.threads` | 自分がオーナーのスレッドのみ | 維持（所属 1 つのとき）。複数なら各 `projects[].situation` |
-| `situation.open_threads` | なし | プロジェクト全体の `discussing` / `awaiting_decision`。自分のスレッドが 0 件でも場が見える |
+| `situation.open_threads` | なし | プロジェクト全体の `discussing` / `awaiting_decision`。自分のスレッドが 0 件でも場が見える。各行にリンク済み具体物（いまは PR）が付く。材料であり、レビュー待ちキューではない |
 | `situation.participants` | なし | 他の参加者と役割。誰がいて誰が何を担うか |
 | `situation.gates` | なし | `conflict_citations_required` — `create_thread` の衝突チェック門が武装しているか |
 | `handover` / `awaiting_decision` / `incomplete_goals` / `previous_interrupted` / `remaining_budget` | あり | 維持。`handover` は本文。場所は `previous_projects` |
@@ -72,6 +72,7 @@ M7-1 はその宿題を返す。
 - `searchThreads({ projectId })` — `projectId` だけで絞る実装なので全スレッドが取れる
 - `listProjectParticipants(projectId)` — ロールと接続状態を含む
 - `getProject(projectId)`
+- `listProjectPullRequestsForThreads(threadIds)` — 開いているスレッドに付いた具体物（いまは PR）
 
 活動量は 0 のまま（`TOOL_COSTS.get_briefing = 0`）。
 `search_threads` と `search_decisions` も 0、`read_thread` だけ 3、書く操作は 5。
