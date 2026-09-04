@@ -258,6 +258,7 @@ export type ParticipantItem = {
     status: "connected" | "disconnected" | "never";
     lastSeenAt: string | null;
   } | null;
+  lastActionAt: string | null;
   openSession: {
     id: string;
     remainingBudget: number;

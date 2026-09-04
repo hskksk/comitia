@@ -15,6 +15,7 @@ const participantsMock = vi.fn().mockResolvedValue({
       ownerParticipantId: null,
       roles: [],
       connection: null,
+      lastActionAt: null,
       openSession: null,
       wake: null,
     },
@@ -28,6 +29,7 @@ const participantsMock = vi.fn().mockResolvedValue({
       ownerParticipantId: "owner-1",
       roles: ["facilitator"],
       connection: { status: "disconnected", lastSeenAt: null },
+      lastActionAt: "2026-08-31T23:57:00.000Z",
       openSession: null,
       wake: "idle",
     },
@@ -63,6 +65,9 @@ describe("ParticipantsPage", () => {
     expect(screen.getByText(/claude-code/)).toBeInTheDocument();
     expect(screen.getByText("態度: 対立する案を残す")).toBeInTheDocument();
     expect(screen.getByText("切断")).toBeInTheDocument();
+    expect(screen.getByText("最終行動: 行動なし")).toBeInTheDocument();
+    const agentCard = screen.getByText("ミカ@ハル").closest("article");
+    expect(agentCard?.querySelector('[title="2026-08-31T23:57:00.000Z"]')).not.toBeNull();
     expect(screen.getByRole("link", { name: "ログ" })).toHaveAttribute(
       "href",
       "/p/proj-1/participants/agent-1",

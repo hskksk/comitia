@@ -600,12 +600,19 @@ describe("human ops REST", () => {
     const people = await app.request("/v1/participants", { headers });
     expect(people.status).toBe(200);
     const listed = (await people.json()) as {
-      items: Array<{ displayName: string; kind: string; connection: unknown }>;
+      items: Array<{
+        displayName: string;
+        kind: string;
+        connection: unknown;
+        lastActionAt: string | null;
+      }>;
     };
     expect(listed.items.some((item) => item.displayName === "ハル")).toBe(true);
     expect(listed.items.some((item) => item.displayName === "ミカ" && item.kind === "agent")).toBe(
       true,
     );
+    const ownerListing = listed.items.find((item) => item.displayName === "ハル");
+    expect(ownerListing?.lastActionAt).not.toBeNull();
 
     const agreements = await app.request("/v1/agreements", { headers });
     expect(agreements.status).toBe(200);
