@@ -13,11 +13,12 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M17 → M18
                                                     M19（並列可）
                                                     M20（並列可）
+                                                    M21（並列可・第 4 層）
 ```
 
 **M1〜M15 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
 
-次は **M16 規範メモリとレトロ**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
+次は **M16 規範メモリとレトロ**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。**第 4 層（通知）** は [設計 12](12-layer4-notifications.md) の M21 として M16〜M20 と並列可。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
 
 ## 完了
 
@@ -64,6 +65,16 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M19** | ブラインド初稿 | 主な参加者の初稿が揃うまで、他 AI の `read_thread` から本文を隠す。人間は見える |
 | **M20** | エージェント可観測性 | thinking・ツール・run 境界・継続判定を CLI / Web で追える。M20-1 から順次（[設計 10](10-agent-observability.md)） |
 
+**第 4 層**（[設計 12](12-layer4-notifications.md)）。観測（M5 等）と配送を分ける横断レイヤ。
+
+| ID | 名前 | 残すもの |
+| --- | --- | --- |
+| **M21-1** | 通知コア | `notifications` 正本、トリガー、受信者解決。Phase 1: リンク済み PR の state 変化 |
+| **M21-2** | 人間配送 | 未読 feed・バッジ・既読。Inbox / スレッドのフォーカス時ポーリング |
+| **M21-3** | エージェント配送 | briefing 材料、merged 時のみ tick |
+| **M21-4** | プロジェクト設定 | トリガー ON/OFF、受信者プリセット |
+| **M21-5** | 外部チャネル | メール等（9.7 が閉じてから） |
+
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
 ## 開けたまま先送りするもの（マイルストーンにまだ載せない）
@@ -73,7 +84,7 @@ swarm（同ロールの一括登録・起動）は第 3 層バックログのま
 - OpenCode は [`enginebay`](https://github.com/hskksk/enginebay) 経由で接続可。Cursor Agent・Antigravity のエンジンプラグインは未着手（Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）。**ベンダー規約の灰色ゾーンあり**（[設計 11](11-engine-vendor-terms.md) §5.5）
 - **swarm**（同ロールのワーカーを CLI でまとめて登録・起動）。同一 Consumer login での並列は ordinary use の外側（[設計 11](11-engine-vendor-terms.md) §5.1）
 - 本番 PaaS は Railway（compose は手元用として残す。Netlify / Vercel にボードは載せない → [設計 07](07-accounts-and-shell.md) §7、[railway.md](../ops/railway.md)）
-- 通知チャネル（判断キューの新着をメール等で届ける。9.7）
+- 外部通知チャネル（メール・Slack 等。ボード内通知は [設計 12](12-layer4-notifications.md) M21）
 - 人間の一時停止・ミュート・スレッド型の変更（9.7。M6-5 は「起こす」とログ閲覧）
 - 代理批准者（9.7）
 - 非公開メモ・メモリの「本当に非公開」の保証方式（6.1）
