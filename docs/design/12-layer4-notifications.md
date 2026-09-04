@@ -58,14 +58,14 @@
 | --- | --- | --- |
 | 判断キュー | 人間の **blocking** 判断 | Phase 1 では通知トリガーに **含めない**（キュー自体が pull UI）。将来「キュー新着バッジ」は M21-2 以降で検討 |
 | 非ブロッキング Inbox | 人間の **non-blocking** 作業一覧 | PR 行は M5。第 4 層は **未読通知** で「Inbox を見ろ」を補助。Inbox の membership ルールは変えない |
-| `awaiting_entered_at` | 人間の時間合意の **通知起点** | 別系統のまま（[設計 06](06-layer2.md) §13）。第 4 層に吸収しない |
+| `awaiting_entered_at` | 人間の時間合意の **通知起点** | 別系統のまま（[設計 06](06-layer2.md) §6.4・§13）。第 4 層の `notifications` に吸収しない |
 | Dashboard `GET /v1/events` | プロジェクト全体の直近 Event | ドメインイベントの窓。`notifications` の未読とは別 |
 | `claim_work` の overlap | 着手者への **即時ツール応答** | 通知レイヤではない（同期フィードバック） |
 | M5 `pull_request_synced` | 同期の監査 | 通知発火の **入力** にできるが、1:1 対応させない（diff なし Event は通知にしない） |
 
 ## 6. マイルストーンの切り方（M21）
 
-第 3 層（M16〜M19）・M20 と **並列可**。依存は薄いが、**M21-1 の前に M5 側の diff 品質**（無変更 sync で Event を出さない、`linked_by` 列）を small PR で入れてよい。
+第 3 層（M16〜M19）・M20 と **並列可**。M21-1 の前に、M5 側の diff 品質（無変更 sync で Event を出さない）と `linkedByParticipantId` 列を **small PR** で入れてよい（下記 §6.1）。
 
 ```
 M21-1 通知コア ──→ M21-2 人間配送 ──→ M21-3 エージェント配送 ──→ M21-4 プロジェクト設定
@@ -74,7 +74,7 @@ M21-1 通知コア ──→ M21-2 人間配送 ──→ M21-3 エージェン�
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
-| **M21-1** | 通知コア | `notifications` 表、トリガー catalog v1、受信者解決、重複排除。入力: リンク済み PR の **意味ある state/title 変化** |
+| **M21-1** | 通知コア | `notifications` 表、トリガー catalog v1、受信者解決、重複排除。入力: リンク済み PR の **state 変化** |
 | **M21-2** | 人間配送 | `GET /v1/notifications`、既読、未読バッジ、一覧 UI。Inbox / スレッド PR 行のフォーカス時ポーリング |
 | **M21-3** | エージェント配送 | `get_briefing` への通知サマリ。`merged` 等のみ tick |
 | **M21-4** | プロジェクト設定 | トリガー ON/OFF、受信者プリセット（owner / 主な参加者 / linker） |
@@ -82,13 +82,15 @@ M21-1 通知コア ──→ M21-2 人間配送 ──→ M21-3 エージェン�
 
 ### 6.1 Stacked PR（実装時）
 
+線形の鎖。`sync-quality` を入れない場合は **`notify-core` に `linkedByParticipantId` 列追加を含める**。
+
 ```
 main
- └── m21-1-sync-quality     # 任意: PR diff + linked_by（M5 観測の前提）
- └── m21-1-notify-core      # schema + domain + PR トリガー
-      └── m21-2-human
-           └── m21-3-agent
-                └── m21-4-settings
+ └── m21-1-sync-quality     # 任意: PR diff + linkedByParticipantId（M5 観測の前提）
+      └── m21-1-notify-core # schema + domain + PR トリガー
+           └── m21-2-human
+                └── m21-3-agent
+                     └── m21-4-settings
 ```
 
 ## 7. M21-1 通知コア
@@ -109,13 +111,15 @@ main
 | `readAt` | timestamptz null |
 | `createdAt` | timestamptz |
 
-Unique `(recipientParticipantId, trigger, subjectKey, digest)` — 同一変化の二重配送を防ぐ。`digest` は payload の正規化ハッシュ、または `newState` 等の明示列。
+Unique `(recipientParticipantId, trigger, subjectKey, digest)` — 同一変化の二重配送を防ぐ。Phase 1 では **`digest = newState`**（`linked_pr.state_changed` のみのため十分）。将来トリガーが増えたら catalog ごとに digest 規則を足す。
 
-**`thread_pull_requests` への追加（M21-1 前提パッチ）**
+**`thread_pull_requests` への追加**
 
 | 列 | 意味 |
 | --- | --- |
 | `linkedByParticipantId` | FK nullable。`link_pull_request` / human REST link の actor |
+
+`sync-quality` PR で入れない場合は **`notify-core` PR の schema 変更に含める**。
 
 GitHub 上の PR author とは限らない。**board linker** として記録する。
 
@@ -124,9 +128,10 @@ GitHub 上の PR author とは限らない。**board linker** として記録す
 | trigger ID | 発火条件 | 優先度 |
 | --- | --- | --- |
 | `linked_pr.state_changed` | リンク済み PR の `state` が変化（open / merged / closed） | 高 |
-| `linked_pr.title_changed` | `state` 不変で `title` のみ変化 | 低（Phase 1 では **通知しない** でもよい。実装時にどちらか固定） |
 
-**通知しない（明示）:** GitHub `synchronize`、review comment のみ、CI check のみ、未リンク PR、state/title 不変の sync。
+**Phase 1 では catalog は上記 1 種のみ。** `title` のみの変化は通知しない（将来 `linked_pr.title_changed` を足す場合は M21-4 以降）。
+
+**通知しない（明示）:** PR `title` のみの変化、GitHub `synchronize`、review comment のみ、CI check のみ、未リンク PR、state 不変の sync。
 
 発火点: M5 `syncPullRequest` が **diff を検知した後**、通知関数 `emitNotifications(...)` を呼ぶ。webhook handler 直書きはしない。
 
@@ -294,8 +299,9 @@ Phase 5 まで **要件 09 は外部チャネル部分を開けたまま** に�
 
 - [設計 00](00-milestones.md) — 第 4 層 M21 を「次」に追記。先送りリストからボード内通知を外す
 - [docs/README.md](../README.md) — 設計 12 一行
+- [設計 04](04-human-usability.md) §1・§7.5 — M6 のスコープ外は **外部** 通知チャネルのまま。ボード内未読 feed は設計 12 M21
 - [設計 09](09-layer3.md) §2 — 「通知は先送り」を「第 4 層（設計 12）」へ
-- [設計 03](03-tech-selection.md) §6 — 通知チャネルを設計 12 へリンク
+- [設計 03](03-tech-selection.md) §6 — 外部通知チャネルを設計 12 M21-5 へリンク
 - [09](../09-open-questions.md) 9.7 — ボード内は設計 12、外部は未決のまま
 
 ## 15. この設計が終わったときの姿（Phase 1〜3 完了時）
