@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -364,6 +365,11 @@ export function createCursorAgentPlugin(
         : TOOLSET_OVERVIEW;
       const dir = await ensureRuntime();
       const mcpEntrypoint = resolveMcpStdioEntrypoint();
+      if (!existsSync(mcpEntrypoint)) {
+        throw new Error(
+          `MCP stdio entry not found at ${mcpEntrypoint}. Build @comitia/agent first.`,
+        );
+      }
       await writeRuntimeMcpConfig(dir, session.mcp, mcpEntrypoint);
       await applyGithubAuth(session.github ?? null);
       runIndex = 0;
@@ -443,20 +449,22 @@ export function createCursorAgentPlugin(
 
       const emit = (partial: Omit<TraceEvent, "v" | "seq" | "at">) => {
         if (partial.kind === "tool_result") {
+          const toolName =
+            typeof partial.tool === "string" ? partial.tool : "unknown";
           if (typeof partial.remainingBudget === "number") {
             remainingBudget = partial.remainingBudget;
           }
           let prior: { tool: string; args: unknown } | undefined;
           for (const entry of toolByCall.values()) {
-            if (entry.tool === partial.tool) {
+            if (entry.tool === toolName) {
               prior = entry;
             }
           }
           toolLog.push({
             run: runIndex,
-            tool: partial.tool,
+            tool: toolName,
             args: prior?.args,
-            ...(partial.isError ? { isError: true } : {}),
+            ...(partial.isError === true ? { isError: true } : {}),
             result: partial.result,
           });
         }
