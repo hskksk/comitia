@@ -170,7 +170,7 @@ M6-6 の原則の維持: 設計 04 §11.3 の「接続した人間が、エー�
 
 - MCP ツールの一行説明（ツール一覧の見え方）
 - 門の意味論そのもの
-- OpenCode / Cursor Agent / Antigravity のプラグイン（引き続き先送り）
+- Antigravity のプラグイン（引き続き先送り）。OpenCode / Cursor Agent は接続可
 
 ### 5.3 完了条件
 

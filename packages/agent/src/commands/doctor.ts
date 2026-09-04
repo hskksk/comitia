@@ -1,4 +1,5 @@
 import { access, constants, stat } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadConfig, type ComitiaConfig } from "../config.js";
@@ -11,6 +12,7 @@ import {
   namedWorkspacePath,
   type DoctorReport,
 } from "enginebay";
+import { resolveCursorCliCommand } from "../plugins/cursor-agent.js";
 
 export interface DoctorFinding {
   ok: boolean;
@@ -153,6 +155,36 @@ export function claudeCliDoctorFinding(report: DoctorReport): DoctorFinding {
       ? `${command} が PATH にあります（${report.cli.version}）`
       : `${command} が PATH にあります`,
   };
+}
+
+export function cursorDoctorFindings(input: {
+  cliCommand: string | null;
+  cliVersion?: string;
+  apiKey: boolean;
+}): DoctorFinding[] {
+  const cli: DoctorFinding = input.cliCommand
+    ? {
+        ok: true,
+        message: input.cliVersion
+          ? `${input.cliCommand} が PATH にあります（${input.cliVersion}）`
+          : `${input.cliCommand} が PATH にあります`,
+      }
+    : {
+        ok: false,
+        message:
+          "Cursor Agent CLI が見つかりません（PATH に cursor-agent / agent がありません）。エージェント接続には必要です。",
+      };
+  const auth: DoctorFinding = input.apiKey
+    ? {
+        ok: true,
+        message: "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）",
+      }
+    : {
+        ok: false,
+        message:
+          "Cursor 認証: CURSOR_API_KEY がありません。Cursor Dashboard の API Keys で自分のキーを発行する。Comitia のアカウントで他人の作業を回さない",
+      };
+  return [cli, auth];
 }
 
 async function checkClaudeAuth(
@@ -385,6 +417,7 @@ export async function doctorCommand(
   const needsClaude =
     engines.length === 0 || engines.includes("claude-code");
   const needsOpencode = engines.includes("opencode");
+  const needsCursor = engines.includes("cursor-agent");
   if (needsClaude) {
     findings.push(await checkClaudeAvailability(env, hostHome));
     findings.push(await checkClaudeAuth(env, hostHome));
@@ -392,7 +425,29 @@ export async function doctorCommand(
   if (needsOpencode) {
     findings.push(...(await checkOpencodeAvailability(env, hostHome)));
   }
-  if (!needsClaude && !needsOpencode) {
+  if (needsCursor) {
+    const cliCommand = resolveCursorCliCommand(env);
+    let cliVersion: string | undefined;
+    if (cliCommand) {
+      const version = spawnSync(cliCommand, ["--version"], {
+        env: { ...process.env, ...env },
+        encoding: "utf8",
+        timeout: 15_000,
+      });
+      const text = `${version.stdout ?? ""}${version.stderr ?? ""}`.trim();
+      if (text.length > 0) {
+        cliVersion = text.split("\n")[0]?.trim();
+      }
+    }
+    findings.push(
+      ...cursorDoctorFindings({
+        cliCommand,
+        cliVersion,
+        apiKey: Boolean(env.CURSOR_API_KEY && env.CURSOR_API_KEY.length > 0),
+      }),
+    );
+  }
+  if (!needsClaude && !needsOpencode && !needsCursor) {
     findings.push({
       ok: true,
       message: "エンジン: fake（Claude Code CLI は不要）",

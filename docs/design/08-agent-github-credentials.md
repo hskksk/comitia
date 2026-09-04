@@ -99,7 +99,7 @@ Issues は付けない。ボードプロセスが持っている Issue 書き込
 - ホストの `gh auth login` をセットアップ手順にすること
 - PAT を設定画面に貼る逃げ（セルフホスト用。必要になってから）
 - 実行用 GitHub App の分離
-- Cursor Agent / OpenCode / Antigravity への注入（Claude Code と、アダプタ自身の clone が先。プラグイン境界には渡す）。Cursor 実装時は [設計 11](11-engine-vendor-terms.md) §4
+- Antigravity への注入（Claude Code / OpenCode / Cursor Agent はプラグイン境界で `GH_TOKEN` を渡す）。Cursor は隔離ランタイム `HOME` の gitconfig（[設計 11](11-engine-vendor-terms.md) §4）
 - 9.4 / 9.5 の要件未決（書いてよいか、マージしてよいか）をこの設計で閉じること
 
 ## 8. 完了条件

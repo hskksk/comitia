@@ -97,6 +97,45 @@ describe("SettingsPage", () => {
     expect(await screen.findByText("ウォーカー")).toBeInTheDocument();
   });
 
+  it("offers Cursor Agent in the engine select", async () => {
+    const user = userEvent.setup();
+    listOwnedAgentsMock
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: "a1",
+            displayName: "レン",
+            engine: "cursor-agent",
+            personality: null,
+            ownerParticipantId: "p1",
+          },
+        ],
+      });
+    createAgentMock.mockResolvedValueOnce({
+      agent: { id: "a1", displayName: "レン", engine: "cursor-agent" },
+      agentToken: "comt_once",
+    });
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+    await user.type(await screen.findByLabelText("名前"), "レン");
+    const select = screen.getByLabelText("エンジン");
+    expect(select).toHaveValue("claude-code");
+    await user.selectOptions(select, "cursor-agent");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    expect(createAgentMock).toHaveBeenCalledWith({
+      displayName: "レン",
+      engine: "cursor-agent",
+      projectId: "proj-1",
+      role: undefined,
+      personality: undefined,
+    });
+    expect(await screen.findByText("Cursor Agent")).toBeInTheDocument();
+  });
+
   it("offers OpenCode in the engine select", async () => {
     const user = userEvent.setup();
     listOwnedAgentsMock

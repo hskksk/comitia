@@ -104,8 +104,8 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   project list      所属プロジェクト一覧
   project use       いまのプロジェクトを切替
   agent list        登録済みエージェント一覧
-  agent register    エージェントを登録（--engine claude-code | fake | opencode、任意 --project --role --personality）
-  agent connect     エージェントを接続（claude-code / fake / opencode）
+  agent register    エージェントを登録（--engine claude-code | fake | opencode | cursor-agent、任意 --project --role --personality）
+  agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
   agent trace       構造化トレースを読む（--json で JSON 出力）
@@ -131,6 +131,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia agent register --engine claude-code --name walker --role proposer
   comitia agent register --engine fake --name walker --personality 慎重
   comitia agent register --engine opencode --name sou
+  comitia agent register --engine cursor-agent --name ren
   comitia agent update walker --personality ./attitude.txt
   comitia agent update walker --personality ""
   comitia agent connect walker

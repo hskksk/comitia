@@ -6,6 +6,7 @@ import {
   createInteractiveFakeEnginePlugin,
   type InteractiveIo,
 } from "./interactive-fake.js";
+import { createCursorAgentPlugin } from "./cursor-agent.js";
 import { createOpencodePlugin } from "./opencode.js";
 import type { EnginePlugin } from "./types.js";
 
@@ -40,6 +41,13 @@ export function createEnginePlugin(options: {
   if (options.engine === "opencode") {
     const model = process.env.COMITIA_OPENCODE_MODEL;
     return createOpencodePlugin({
+      stdout: options.stdout,
+      model: model && model.length > 0 ? model : undefined,
+    });
+  }
+  if (options.engine === "cursor-agent") {
+    const model = process.env.COMITIA_CURSOR_MODEL;
+    return createCursorAgentPlugin({
       stdout: options.stdout,
       model: model && model.length > 0 ? model : undefined,
     });

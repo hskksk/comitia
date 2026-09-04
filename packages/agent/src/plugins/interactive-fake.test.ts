@@ -49,7 +49,7 @@ describe("createEnginePlugin", () => {
   it("rejects unsupported engines", () => {
     expect(() =>
       createEnginePlugin({
-        engine: "cursor-agent",
+        engine: "antigravity",
         callTool: async () => jsonResult({}),
       }),
     ).toThrow(/Unsupported engine/);

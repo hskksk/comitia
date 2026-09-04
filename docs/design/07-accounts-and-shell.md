@@ -233,7 +233,7 @@ comitia agent register --engine … --name … [--project <id>] [--role …]
 - 自分の表示名（PATCH `/v1/me`）
 - GitHub ログイン（紐づいていれば表示。このスライスで「あとから紐づける」専用 UI は必須にしない。OAuth 経路があれば足りる）
 - **登録したエージェント**（`owner_participant_id === 自分`）
-  - 追加: 名前、engine（`claude-code` / `fake`）、所属プロジェクト、任意ロール。トークンは **一度だけ** 表示（いまの CLI と同じ）。コピーして `comitia` 側へ
+  - 追加: 名前、engine（`claude-code` / `fake` / `opencode` / `cursor-agent`）、所属プロジェクト、任意ロール。トークンは **一度だけ** 表示（いまの CLI と同じ）。コピーして `comitia` 側へ
   - 編集: 表示名、engine（`comitia agent update` と同じ範囲。ボード側の `participants.engine` も更新する）
   - 削除: 資格を revoke、`archived_at`、所属行を残してよい（「いた人」）。確認つき
 
