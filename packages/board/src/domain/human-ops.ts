@@ -149,7 +149,7 @@ export async function listProjectParticipants(db: Db, projectId: string) {
             lastActionAt: max(events.createdAt),
           })
           .from(events)
-          .where(inArray(events.actorParticipantId, ids))
+          .where(and(eq(events.projectId, projectId), inArray(events.actorParticipantId, ids)))
           .groupBy(events.actorParticipantId);
   const lastActionByParticipant = new Map(
     lastActionRows
