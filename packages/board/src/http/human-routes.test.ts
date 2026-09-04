@@ -624,10 +624,21 @@ describe("human ops REST", () => {
     expect(decidedAgreement?.proposalContent).toBe("Comittia → Comitia");
     expect(decidedAgreement?.summary).toBe("表記修正を採用");
 
-    const events = await app.request("/v1/events?limit=10", { headers });
+    const events = await app.request("/v1/events?limit=50", { headers });
     expect(events.status).toBe(200);
-    const eventBody = (await events.json()) as { items: Array<{ kind: string }> };
+    const eventBody = (await events.json()) as {
+      items: Array<{
+        kind: string;
+        actorDisplayName: string | null;
+        targetDisplayName: string | null;
+      }>;
+    };
     expect(eventBody.items.length).toBeGreaterThan(0);
+    const membershipEvent = eventBody.items.find(
+      (item) => item.kind === "project_membership_added",
+    );
+    expect(membershipEvent?.actorDisplayName).toBe("ハル");
+    expect(membershipEvent?.targetDisplayName).toBe("ミカ@ハル");
   });
 
   it("derives wake status: queued tick, undigested session, idle, and digested (null)", async () => {

@@ -400,6 +400,11 @@ export async function listHumanAgreements(
   }));
 }
 
+const MEMBERSHIP_EVENT_KINDS = new Set([
+  "project_membership_added",
+  "project_membership_removed",
+]);
+
 export async function listRecentEvents(
   db: Db,
   input: { projectId: string; limit: number },
@@ -410,12 +415,78 @@ export async function listRecentEvents(
     .where(eq(events.projectId, input.projectId))
     .orderBy(desc(events.createdAt), desc(events.id))
     .limit(input.limit);
-  return rows.map((row) => ({
-    id: row.id,
-    kind: row.kind,
-    threadId: row.threadId,
-    actorParticipantId: row.actorParticipantId,
-    payload: row.payload,
-    createdAt: row.createdAt.toISOString(),
-  }));
+
+  const targetIdByRowId = new Map<number, string>();
+  for (const row of rows) {
+    if (!MEMBERSHIP_EVENT_KINDS.has(row.kind)) continue;
+    const participantId = (row.payload as { participantId?: unknown } | null)
+      ?.participantId;
+    if (typeof participantId === "string") {
+      targetIdByRowId.set(row.id, participantId);
+    }
+  }
+
+  const relevantIds = [
+    ...new Set(
+      [
+        ...rows.map((row) => row.actorParticipantId),
+        ...targetIdByRowId.values(),
+      ].filter((id): id is string => typeof id === "string"),
+    ),
+  ];
+  const people =
+    relevantIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: participants.id,
+            kind: participants.kind,
+            displayName: participants.displayName,
+            ownerParticipantId: participants.ownerParticipantId,
+          })
+          .from(participants)
+          .where(inArray(participants.id, relevantIds));
+  const ownerIds = [
+    ...new Set(
+      people
+        .filter((row) => row.kind === "agent" && row.ownerParticipantId)
+        .map((row) => row.ownerParticipantId!),
+    ),
+  ];
+  const ownerRows =
+    ownerIds.length === 0
+      ? []
+      : await db
+          .select({ id: participants.id, displayName: participants.displayName })
+          .from(participants)
+          .where(inArray(participants.id, ownerIds));
+  const ownerNameById = new Map(ownerRows.map((row) => [row.id, row.displayName]));
+  const labelById = new Map(
+    people.map((person) => [
+      person.id,
+      formatParticipantLabel({
+        kind: person.kind,
+        displayName: person.displayName,
+        ownerDisplayName: person.ownerParticipantId
+          ? ownerNameById.get(person.ownerParticipantId)
+          : undefined,
+      }),
+    ]),
+  );
+
+  return rows.map((row) => {
+    const targetId = targetIdByRowId.get(row.id);
+    return {
+      id: row.id,
+      kind: row.kind,
+      threadId: row.threadId,
+      actorParticipantId: row.actorParticipantId,
+      actorDisplayName: row.actorParticipantId
+        ? labelById.get(row.actorParticipantId) ?? null
+        : null,
+      targetDisplayName: targetId ? labelById.get(targetId) ?? null : null,
+      payload: row.payload,
+      createdAt: row.createdAt.toISOString(),
+    };
+  });
 }

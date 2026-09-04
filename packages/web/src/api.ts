@@ -72,6 +72,8 @@ export type EventItem = {
   kind: string;
   threadId: string | null;
   actorParticipantId: string | null;
+  actorDisplayName: string | null;
+  targetDisplayName: string | null;
   payload: unknown;
   createdAt: string;
 };
