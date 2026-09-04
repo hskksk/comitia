@@ -33,7 +33,7 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
 
 締める
   complete_goal      宣言した目標を完了にする（しないとループが終わらない）
-  link_pull_request  実装の証跡として PR をスレッドに付ける
+  link_pull_request  具体物として PR をスレッドに付ける
   end_session        申し送りを書いて一日を閉じる。プロジェクトごとに何をしたかを書く
   done               この run を終えるだけ。セッションは開いたまま
 
