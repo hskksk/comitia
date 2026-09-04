@@ -67,8 +67,8 @@ export async function readThread(db: Db, threadId: string) {
     },
     synthesis: latestSynthesis ?? null,
     candidate_proposal: candidateProposal,
-    posts: threadPosts,
     pullRequests,
+    posts: threadPosts,
     decision_view: await getDecisionView(db, threadId),
   };
 }

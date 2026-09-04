@@ -17,6 +17,59 @@ import { eq } from "drizzle-orm";
 import { createFakeGitHubClient } from "../github/fake-client.js";
 import { linkPullRequest } from "./pull-requests.js";
 
+const PR_A = {
+  owner: "hskksk",
+  repo: "comitia",
+  number: 101,
+  url: "https://github.com/hskksk/comitia/pull/101",
+  title: "Draft A",
+  state: "open" as const,
+};
+const PR_B = {
+  owner: "hskksk",
+  repo: "comitia",
+  number: 102,
+  url: "https://github.com/hskksk/comitia/pull/102",
+  title: "Draft B",
+  state: "open" as const,
+};
+
+async function connectGithub(projectId: string) {
+  await db
+    .update(projects)
+    .set({
+      githubInstallationId: "inst-1",
+      githubOwner: "hskksk",
+      githubRepo: "comitia",
+      repoUrl: "https://github.com/hskksk/comitia",
+    })
+    .where(eq(projects.id, projectId));
+}
+
+async function linkPrs(
+  threadId: string,
+  actorId: string,
+  prs: Array<typeof PR_A>,
+) {
+  const github = createFakeGitHubClient({ pullRequests: prs });
+  for (const pr of prs) {
+    await linkPullRequest(db, github, {
+      threadId,
+      actorId,
+      url: pr.url,
+    });
+  }
+}
+
+function prRow(pr: typeof PR_A) {
+  return {
+    number: pr.number,
+    url: pr.url,
+    title: pr.title,
+    state: pr.state,
+  };
+}
+
 async function setupParticipants() {
   const owner = await registerParticipant(db, {
     kind: "human",
@@ -329,15 +382,7 @@ describe("getBriefing (M7-1 material)", () => {
       projectId: project.id,
       ownerId: owner.id,
     });
-    await db
-      .update(projects)
-      .set({
-        githubInstallationId: "inst-1",
-        githubOwner: "hskksk",
-        githubRepo: "comitia",
-        repoUrl: "https://github.com/hskksk/comitia",
-      })
-      .where(eq(projects.id, project.id));
+    await connectGithub(project.id);
     const thread = await createThread(db, {
       projectId: project.id,
       ownerId: owner.id,
@@ -348,45 +393,77 @@ describe("getBriefing (M7-1 material)", () => {
       target: "repo_artifact",
       conflictCitationsChecked: true,
     });
-    const github = createFakeGitHubClient({
-      pullRequests: [
-        {
-          owner: "hskksk",
-          repo: "comitia",
-          number: 101,
-          url: "https://github.com/hskksk/comitia/pull/101",
-          title: "Draft policy",
-          state: "open",
-        },
-      ],
-    });
-    await linkPullRequest(db, github, {
-      threadId: thread.id,
-      actorId: owner.id,
-      url: "https://github.com/hskksk/comitia/pull/101",
-    });
+    await linkPrs(thread.id, owner.id, [PR_A, PR_B]);
 
     const briefing = await getBriefing(db, {
       participantId: agent.id,
       projectId: project.id,
     });
 
+    expect(briefing.situation.threads).toEqual([]);
     expect(briefing.situation.open_threads).toEqual([
       {
         id: thread.id,
         title: "方針案",
         type: "proposal",
         state: "discussing",
-        pullRequests: [
-          {
-            number: 101,
-            url: "https://github.com/hskksk/comitia/pull/101",
-            title: "Draft policy",
-            state: "open",
-          },
-        ],
+        pullRequests: [prRow(PR_A), prRow(PR_B)],
       },
     ]);
     expect(briefing.situation).not.toHaveProperty("pending_reviews");
+  });
+
+  it("attaches the same links on owned threads, and empty when none are linked", async () => {
+    const { owner, agent, project } = await setupParticipants();
+    await adoptDefaultFounding(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+    });
+    await connectGithub(project.id);
+    const bare = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "consultation",
+      title: "自分の相談",
+      trigger: "確認",
+      duplicateSearchQuery: "own consult",
+      conflictCitationsChecked: true,
+    });
+    const withArtifacts = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "proposal",
+      title: "自分の方針案",
+      trigger: "具体物を付けて議論する",
+      duplicateSearchQuery: "own policy",
+      target: "repo_artifact",
+      conflictCitationsChecked: true,
+    });
+    await linkPrs(withArtifacts.id, agent.id, [PR_A, PR_B]);
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    expect(briefing.situation.threads).toHaveLength(2);
+    expect(briefing.situation.threads).toEqual(
+      expect.arrayContaining([
+        {
+          id: bare.id,
+          title: "自分の相談",
+          type: "consultation",
+          state: "discussing",
+          pullRequests: [],
+        },
+        {
+          id: withArtifacts.id,
+          title: "自分の方針案",
+          type: "proposal",
+          state: "discussing",
+          pullRequests: [prRow(PR_A), prRow(PR_B)],
+        },
+      ]),
+    );
   });
 });

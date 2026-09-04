@@ -37,7 +37,7 @@ describe("buildRoleGuidance", () => {
 
   it("asks reviewers to open attached artifacts and write on the board, without GitHub steps", () => {
     expect(ROLE_PLAYBOOKS.reviewer).toContain("スレッド本文だけでなく具体物も開く");
-    expect(ROLE_PLAYBOOKS.reviewer).toContain("指摘・異議・承認はボードに書く");
+    expect(ROLE_PLAYBOOKS.reviewer).toContain("指摘・異議・承認は根拠を付けてボードに書く");
     expect(ROLE_PLAYBOOKS.reviewer).not.toContain("GitHub");
     expect(ROLE_PLAYBOOKS.reviewer).not.toMatch(/\bPR\b/);
   });

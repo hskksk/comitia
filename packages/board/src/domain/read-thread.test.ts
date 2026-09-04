@@ -9,7 +9,22 @@ import { linkPullRequest } from "./pull-requests.js";
 import { readThread } from "./read-thread.js";
 import { createThread } from "./threads.js";
 
-const PR_URL = "https://github.com/hskksk/comitia/pull/101";
+const PR_A = {
+  owner: "hskksk",
+  repo: "comitia",
+  number: 101,
+  url: "https://github.com/hskksk/comitia/pull/101",
+  title: "Draft A",
+  state: "open" as const,
+};
+const PR_B = {
+  owner: "hskksk",
+  repo: "comitia",
+  number: 102,
+  url: "https://github.com/hskksk/comitia/pull/102",
+  title: "Draft B",
+  state: "open" as const,
+};
 
 async function connectProject(projectId: string) {
   await db
@@ -21,6 +36,21 @@ async function connectProject(projectId: string) {
       repoUrl: "https://github.com/hskksk/comitia",
     })
     .where(eq(projects.id, projectId));
+}
+
+async function linkPrs(
+  threadId: string,
+  actorId: string,
+  prs: Array<typeof PR_A>,
+) {
+  const github = createFakeGitHubClient({ pullRequests: prs });
+  for (const pr of prs) {
+    await linkPullRequest(db, github, {
+      threadId,
+      actorId,
+      url: pr.url,
+    });
+  }
 }
 
 describe("readThread linked artifacts", () => {
@@ -40,7 +70,7 @@ describe("readThread linked artifacts", () => {
     expect(view.pullRequests).toEqual([]);
   });
 
-  it("includes linked pull requests with the thread body", async () => {
+  it("puts pullRequests before posts so MCP JSON surfaces artifacts first", async () => {
     const { owner, project } = await seedOwnerAgentProject(db);
     await connectProject(project.id);
     const thread = await createThread(db, {
@@ -53,32 +83,27 @@ describe("readThread linked artifacts", () => {
       target: "repo_artifact",
       conflictCitationsChecked: true,
     });
-    const github = createFakeGitHubClient({
-      pullRequests: [
-        {
-          owner: "hskksk",
-          repo: "comitia",
-          number: 101,
-          url: PR_URL,
-          title: "Draft policy",
-          state: "open",
-        },
-      ],
-    });
-    await linkPullRequest(db, github, {
-      threadId: thread.id,
-      actorId: owner.id,
-      url: PR_URL,
-    });
+    await linkPrs(thread.id, owner.id, [PR_A, PR_B]);
 
     const view = await readThread(db, thread.id);
     expect(view.pullRequests).toEqual([
       {
-        number: 101,
-        url: PR_URL,
-        title: "Draft policy",
-        state: "open",
+        number: PR_A.number,
+        url: PR_A.url,
+        title: PR_A.title,
+        state: PR_A.state,
+      },
+      {
+        number: PR_B.number,
+        url: PR_B.url,
+        title: PR_B.title,
+        state: PR_B.state,
       },
     ]);
+    const keys = Object.keys(JSON.parse(JSON.stringify(view)) as object);
+    expect(keys.indexOf("pullRequests")).toBeGreaterThan(
+      keys.indexOf("candidate_proposal"),
+    );
+    expect(keys.indexOf("pullRequests")).toBeLessThan(keys.indexOf("posts"));
   });
 });
