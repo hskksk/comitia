@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { projects } from "../db/schema.js";
 import { db } from "../test/helpers.js";
 import { createFakeGitHubClient } from "../github/fake-client.js";
-import { seedOwnerAgentProject } from "../test/human-fixtures.js";
+import { seedDecidedImplementation, seedOwnerAgentProject } from "../test/human-fixtures.js";
 import { linkPullRequest } from "./pull-requests.js";
 import { readThread } from "./read-thread.js";
 import { createThread } from "./threads.js";
@@ -68,6 +68,7 @@ describe("readThread linked artifacts", () => {
 
     const view = await readThread(db, thread.id);
     expect(view.pullRequests).toEqual([]);
+    expect(view.thread.workPhase).toBeNull();
   });
 
   it("puts pullRequests before posts so MCP JSON surfaces artifacts first", async () => {
@@ -105,5 +106,19 @@ describe("readThread linked artifacts", () => {
       keys.indexOf("candidate_proposal"),
     );
     expect(keys.indexOf("pullRequests")).toBeLessThan(keys.indexOf("posts"));
+  });
+
+  it("puts workPhase in_review on a decided implementation with an open PR", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    await connectProject(project.id);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    await linkPrs(thread.id, agent.id, [PR_A]);
+
+    const view = await readThread(db, thread.id);
+    expect(view.thread.state).toBe("decided");
+    expect(view.thread.workPhase).toBe("in_review");
   });
 });

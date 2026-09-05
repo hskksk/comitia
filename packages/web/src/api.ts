@@ -115,6 +115,7 @@ export type InboxItem = {
   title: string;
   type: string;
   kind: "merge_wait" | "post_review";
+  workPhase: "unclaimed" | "in_progress" | "in_review" | "merged" | null;
   decidedAt: string;
   latestReport: { id: string; body: string; createdAt: string } | null;
   pullRequests: Array<{
@@ -130,6 +131,7 @@ export type ThreadListItem = {
   title: string;
   type: string;
   state: string;
+  workPhase: "unclaimed" | "in_progress" | "in_review" | "merged" | null;
   consensusType: string | null;
   ownerParticipantId: string;
   createdAt: string;
@@ -195,6 +197,7 @@ export type HumanThreadView = {
     timingEndsAt: string | null;
     target?: string | null;
     sharedArtifactKind?: string | null;
+    workPhase: "unclaimed" | "in_progress" | "in_review" | "merged" | null;
   };
   consensusReasons: string[];
   synthesis: { id: string; body: string; createdAt: string } | null;

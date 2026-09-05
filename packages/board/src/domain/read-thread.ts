@@ -4,6 +4,8 @@ import type { Db } from "../db/test-setup.js";
 import { getDecisionView } from "./decision-view.js";
 import { getThreadRow } from "./helpers.js";
 import { listThreadPullRequests } from "./pull-requests.js";
+import { listActiveThreadClaims } from "./work-claims.js";
+import { deriveWorkPhase } from "./work-phase.js";
 
 export async function readThread(db: Db, threadId: string) {
   const thread = await getThreadRow(db, threadId);
@@ -42,7 +44,10 @@ export async function readThread(db: Db, threadId: string) {
     }
   }
 
-  const pullRequests = await listThreadPullRequests(db, threadId);
+  const [pullRequests, workClaims] = await Promise.all([
+    listThreadPullRequests(db, threadId),
+    listActiveThreadClaims(db, threadId),
+  ]);
 
   const threadPosts = await db
     .select({
@@ -64,6 +69,12 @@ export async function readThread(db: Db, threadId: string) {
       title: thread.title,
       type: thread.type,
       state: thread.state,
+      workPhase: deriveWorkPhase({
+        threadType: thread.type,
+        threadState: thread.state,
+        hasActiveClaim: workClaims.length > 0,
+        pullRequestStates: pullRequests.map((pr) => pr.state),
+      }),
     },
     synthesis: latestSynthesis ?? null,
     candidate_proposal: candidateProposal,

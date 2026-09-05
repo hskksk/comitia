@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type InboxItem } from "../api.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
-import { pullRequestStateLabel } from "../labels.js";
+import { pullRequestStateLabel, workPhaseLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 
@@ -61,7 +61,7 @@ export function InboxPage() {
     <section>
       <h1>非ブロッキング</h1>
       <p className="muted">
-        判断ではない人間作業。決定済みの実装・レビュースレッドとリンク済み PR が並ぶ。
+        判断ではない人間作業。決定済みの実装・レビュースレッドとリンク済み PR が並ぶ。見出しは作業局面（未着手 / 実装中 / レビュー中 / マージ済み）。
       </p>
       {items.map((item) => (
         <article key={item.threadId} className="card">
@@ -70,7 +70,11 @@ export function InboxPage() {
               {item.title}
             </Link>
           </h2>
-          <p className="muted">{KIND_LABEL[item.kind]}</p>
+          <p className="muted">
+            {item.workPhase
+              ? workPhaseLabel(item.workPhase)
+              : KIND_LABEL[item.kind]}
+          </p>
           {item.latestReport ? (
             <MarkdownBody source={item.latestReport.body} />
           ) : null}

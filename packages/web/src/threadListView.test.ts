@@ -8,6 +8,7 @@ function item(
   return {
     type: "consultation",
     state: "discussing",
+    workPhase: null,
     consensusType: null,
     ownerParticipantId: "p1",
     createdAt: "2026-09-01T00:00:00.000Z",
