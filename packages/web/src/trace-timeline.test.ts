@@ -53,9 +53,9 @@ describe("trace-timeline", () => {
     ).toEqual([{ type: "trace", event: entries[1]! }]);
   });
 
-  it("pretty-prints tool args as the body", () => {
+  it("formats tool args as key: value in the body", () => {
     expect(traceEntryTitle(entries[1]!)).toBe("get_briefing");
-    expect(traceEntryBody(entries[1]!)).toBe('{\n  "threadId": "abc"\n}');
+    expect(traceEntryBody(entries[1]!)).toBe("threadId: abc");
   });
 
   it("unwraps MCP tool results and flags errors", () => {
@@ -71,7 +71,7 @@ describe("trace-timeline", () => {
       result: [{ type: "text", text: '{"you":{"name":"mika"}}' }],
     };
     expect(traceEntryStatus(ok)).toBe("ok · 残量 12");
-    expect(traceEntryBody(ok)).toBe('{\n  "you": {\n    "name": "mika"\n  }\n}');
+    expect(traceEntryBody(ok)).toBe("you:\n  name: mika");
     expect(isTraceResultError(ok)).toBe(false);
 
     const failed = {

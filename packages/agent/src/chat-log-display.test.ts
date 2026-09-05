@@ -30,7 +30,7 @@ describe("chat-log-display", () => {
   it("formats a mixed chat log blob", () => {
     const chatLog = ["legacy note", traceLine].join("\n");
     expect(formatChatLogForDisplay(chatLog, false)).toBe(
-      "legacy note\n[tool] get_briefing\n",
+      "legacy note\n\n[tool] get_briefing\n\n",
     );
   });
 
@@ -43,10 +43,10 @@ describe("chat-log-display", () => {
       run: 1,
       text: "hmm",
     })}\n`;
-    expect(formatChatLogDelta(delta, false)).toBe("[thinking] hmm\n");
+    expect(formatChatLogDelta(delta, false)).toBe("[thinking] hmm\n\n");
   });
 
-  it("pretty-prints tool args in the human blob", () => {
+  it("formats tool args as key: value in the human blob", () => {
     const chatLog = `@json ${JSON.stringify({
       v: TRACE_VERSION,
       seq: 3,
@@ -57,7 +57,7 @@ describe("chat-log-display", () => {
       args: { threadId: "t1" },
     })}`;
     expect(formatChatLogForDisplay(chatLog, false)).toBe(
-      '[tool] read_thread\n{\n  "threadId": "t1"\n}\n',
+      "[tool] read_thread\nthreadId: t1\n\n",
     );
   });
 });

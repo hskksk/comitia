@@ -63,7 +63,7 @@ describe("trace", () => {
     ).toBe("[thinking] considering");
   });
 
-  it("pretty-prints tool args on following lines", () => {
+  it("formats tool args as key: value lines, not JSON", () => {
     expect(
       formatTraceHuman({
         v: TRACE_VERSION,
@@ -75,15 +75,7 @@ describe("trace", () => {
         args: { foo: "bar", nested: { n: 1 } },
       }),
     ).toBe(
-      [
-        "[tool] get_briefing",
-        "{",
-        '  "foo": "bar",',
-        '  "nested": {',
-        '    "n": 1',
-        "  }",
-        "}",
-      ].join("\n"),
+      ["[tool] get_briefing", "foo: bar", "nested:", "  n: 1"].join("\n"),
     );
   });
 
@@ -117,12 +109,9 @@ describe("trace", () => {
     ).toBe(
       [
         "[tool-result] get_briefing ok remaining=820",
-        "{",
-        '  "remaining_budget": 3,',
-        '  "you": {',
-        '    "name": "mika"',
-        "  }",
-        "}",
+        "remaining_budget: 3",
+        "you:",
+        "  name: mika",
       ].join("\n"),
     );
   });
@@ -139,14 +128,10 @@ describe("trace", () => {
         isError: true,
         result: { message: "not found" },
       }),
-    ).toBe(
-      ['[tool-result] read_thread ERROR', "{", '  "message": "not found"', "}"].join(
-        "\n",
-      ),
-    );
+    ).toBe("[tool-result] read_thread ERROR\nmessage: not found");
   });
 
-  it("inserts a blank line before a new run", () => {
+  it("puts a blank line after each entry", () => {
     expect(
       formatTraceHumanList([
         {
@@ -166,7 +151,7 @@ describe("trace", () => {
           remainingBudget: 9,
         },
       ]),
-    ).toBe("[run end] n=1 tokens=10\n\n[run start] n=2 remaining=9\n");
+    ).toBe("[run end] n=1 tokens=10\n\n[run start] n=2 remaining=9\n\n");
   });
 
   it("unwraps nested JSON strings and MCP text blocks", () => {
@@ -175,7 +160,11 @@ describe("trace", () => {
       unwrapTraceValue([{ type: "text", text: '{"remaining_budget":3}' }]),
     ).toEqual({ remaining_budget: 3 });
     expect(prettyTraceValue({})).toBeNull();
-    expect(prettyTraceValue({ z: 2, a: 1 })).toBe('{\n  "z": 2,\n  "a": 1\n}');
+    expect(prettyTraceValue({ z: 2, a: 1 })).toBe("z: 2\na: 1");
+    expect(prettyTraceValue(["スレッドAを読む", "投稿する"])).toBe(
+      "- スレッドAを読む\n- 投稿する",
+    );
+    expect(prettyTraceValue([{ body: "hello" }])).toBe("- body: hello");
   });
 
   it("describes continue_decision goals as a body", () => {
@@ -193,7 +182,7 @@ describe("trace", () => {
     ).toEqual({
       kind: "continue_decision",
       headline: "[adapter] continue: goals_incomplete",
-      body: '[\n  "スレッドAを読む"\n]',
+      body: "- スレッドAを読む",
     });
   });
 });

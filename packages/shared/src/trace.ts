@@ -133,23 +133,97 @@ function isEmptyPrettyValue(value: unknown): boolean {
   return false;
 }
 
-/** Pretty-print a trace payload for humans (CLI and Web). */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function formatListItem(item: unknown, indent: number): string {
+  const pad = "  ".repeat(indent);
+  if (isEmptyPrettyValue(item)) {
+    return "";
+  }
+  if (
+    (typeof item === "string" && !item.includes("\n")) ||
+    typeof item === "number" ||
+    typeof item === "boolean" ||
+    item === null
+  ) {
+    return `${pad}- ${String(item)}`;
+  }
+  const nested = formatHumanValue(item, indent + 1);
+  if (!nested) {
+    return `${pad}-`;
+  }
+  const [first = "", ...rest] = nested.split("\n");
+  const firstUnpadded = first.replace(/^\s+/, "");
+  return rest.length > 0
+    ? `${pad}- ${firstUnpadded}\n${rest.join("\n")}`
+    : `${pad}- ${firstUnpadded}`;
+}
+
+function formatObjectField(
+  key: string,
+  child: unknown,
+  indent: number,
+): string {
+  const pad = "  ".repeat(indent);
+  if (typeof child === "string" && !child.includes("\n")) {
+    return `${pad}${key}: ${child}`;
+  }
+  if (typeof child === "number" || typeof child === "boolean") {
+    return `${pad}${key}: ${String(child)}`;
+  }
+  if (child === null) {
+    return `${pad}${key}: null`;
+  }
+  const nested = formatHumanValue(child, indent + 1);
+  if (!nested) {
+    return `${pad}${key}:`;
+  }
+  return `${pad}${key}:\n${nested}`;
+}
+
+function formatHumanValue(value: unknown, indent: number): string {
+  const pad = "  ".repeat(indent);
+  if (typeof value === "string") {
+    return value
+      .split("\n")
+      .map((line) => `${pad}${line}`)
+      .join("\n");
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return `${pad}${String(value)}`;
+  }
+  if (value === null) {
+    return `${pad}null`;
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => formatListItem(item, indent))
+      .filter((line) => line.length > 0)
+      .join("\n");
+  }
+  if (isPlainObject(value)) {
+    const lines: string[] = [];
+    for (const [key, child] of Object.entries(value)) {
+      if (isEmptyPrettyValue(child)) {
+        continue;
+      }
+      lines.push(formatObjectField(key, child, indent));
+    }
+    return lines.join("\n");
+  }
+  return `${pad}${String(value)}`;
+}
+
+/** Human-readable payload: YAML-like keys/values, not JSON. */
 export function prettyTraceValue(value: unknown): string | null {
   const unwrapped = unwrapTraceValue(value);
   if (isEmptyPrettyValue(unwrapped)) {
     return null;
   }
-  if (typeof unwrapped === "string") {
-    return unwrapped;
-  }
-  if (typeof unwrapped === "number" || typeof unwrapped === "boolean") {
-    return String(unwrapped);
-  }
-  try {
-    return JSON.stringify(unwrapped, null, 2);
-  } catch {
-    return String(unwrapped);
-  }
+  const formatted = formatHumanValue(unwrapped, 0);
+  return formatted.length > 0 ? formatted : null;
 }
 
 export type TraceHumanParts = {
@@ -267,7 +341,15 @@ export function formatTraceHuman(event: TraceEvent): string | null {
   return `${parts.headline}\n${parts.body}`;
 }
 
-/** Format a sequence of events for CLI, with a blank line before each new run. */
+/** Join human log blocks with a blank line after each entry. */
+export function joinTraceHumanLines(parts: string[]): string {
+  if (parts.length === 0) {
+    return "";
+  }
+  return `${parts.join("\n\n")}\n\n`;
+}
+
+/** Format a sequence of events for CLI, with a blank line after each entry. */
 export function formatTraceHumanList(events: TraceEvent[]): string {
   const parts: string[] = [];
   for (const event of events) {
@@ -275,12 +357,9 @@ export function formatTraceHumanList(events: TraceEvent[]): string {
     if (!human) {
       continue;
     }
-    if (event.kind === "run_start" && parts.length > 0) {
-      parts.push("");
-    }
     parts.push(human);
   }
-  return parts.length > 0 ? `${parts.join("\n")}\n` : "";
+  return joinTraceHumanLines(parts);
 }
 
 export function parseChatLogTraceLines(chatLog: string): TraceEvent[] {

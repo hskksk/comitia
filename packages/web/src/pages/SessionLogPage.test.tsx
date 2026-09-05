@@ -67,9 +67,9 @@ describe("SessionLogPage", () => {
 
     expect(await screen.findByText("ツール")).toBeInTheDocument();
     expect(screen.getAllByText("read_thread")).toHaveLength(2);
-    expect(screen.getByText(/"threadId": "thread-abc"/)).toBeInTheDocument();
+    expect(screen.getByText(/threadId: thread-abc/)).toBeInTheDocument();
     expect(screen.getByText("ok · 残量 800")).toBeInTheDocument();
-    expect(screen.getByText(/"body": "hello"/)).toBeInTheDocument();
+    expect(screen.getByText(/body: hello/)).toBeInTheDocument();
     expect(screen.queryByText("@json")).not.toBeInTheDocument();
   });
 });

@@ -6,7 +6,7 @@ import { SessionTraceTimeline } from "./SessionTraceTimeline.js";
 describe("SessionTraceTimeline", () => {
   afterEach(cleanup);
 
-  it("renders kind labels, pretty JSON, and tool result bodies", () => {
+  it("renders kind labels, formatted bodies, and tool results", () => {
     render(
       <SessionTraceTimeline
         filters={{ hideThinking: false, toolsOnly: false }}
@@ -54,10 +54,10 @@ describe("SessionTraceTimeline", () => {
 
     expect(screen.getByText("ツール")).toBeInTheDocument();
     expect(screen.getAllByText("get_briefing")).toHaveLength(2);
-    expect(screen.getByText(/"foo": "bar"/)).toBeInTheDocument();
+    expect(screen.getByText(/foo: bar/)).toBeInTheDocument();
     expect(screen.getByText("結果")).toBeInTheDocument();
     expect(screen.getByText("ok · 残量 820")).toBeInTheDocument();
-    expect(screen.getByText(/"name": "mika"/)).toBeInTheDocument();
+    expect(screen.getByText(/name: mika/)).toBeInTheDocument();
     expect(screen.getByText("応答")).toBeInTheDocument();
     expect(screen.getByText("ブリーフィングを確認した。")).toBeInTheDocument();
     expect(screen.queryByText("@json")).not.toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("SessionTraceTimeline", () => {
     );
 
     expect(screen.getByText("エラー")).toBeInTheDocument();
-    expect(screen.getByText(/"message": "not found"/)).toBeInTheDocument();
+    expect(screen.getByText(/message: not found/)).toBeInTheDocument();
     expect(screen.getByRole("listitem")).toHaveClass("is-error");
   });
 });
