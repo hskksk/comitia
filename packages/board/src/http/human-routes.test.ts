@@ -377,12 +377,15 @@ describe("human REST", () => {
 
     const before = await app.request("/v1/threads", { headers });
     const beforeBody = (await before.json()) as {
-      items: Array<{ id: string; activeWorkClaimants: string[] }>;
+      items: Array<{
+        id: string;
+        activeWorkClaimants: string[];
+        lastEventAt: string;
+      }>;
     };
-    expect(
-      beforeBody.items.find((item) => item.id === seeded.thread.id)
-        ?.activeWorkClaimants,
-    ).toEqual([]);
+    const listed = beforeBody.items.find((item) => item.id === seeded.thread.id);
+    expect(listed?.activeWorkClaimants).toEqual([]);
+    expect(listed?.lastEventAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
     await app.request(`/v1/threads/${seeded.thread.id}/work-claims`, {
       method: "POST",

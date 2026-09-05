@@ -17,7 +17,7 @@ import { claimWork } from "./work-claims.js";
 
 import { createFakeGitHubClient } from "../github/fake-client.js";
 import { eq } from "drizzle-orm";
-import { projects } from "../db/schema.js";
+import { events, projects } from "../db/schema.js";
 import { linkPullRequest } from "./pull-requests.js";
 import { addProposal } from "./proposals.js";
 import { createThread } from "./threads.js";
@@ -312,6 +312,47 @@ describe("listProjectThreads", () => {
     const rows = await listProjectThreads(db, { projectId: project.id });
     const row = rows.find((r) => r.id === thread.id);
     expect(row?.activeWorkClaimants).toEqual([agent.displayName]);
+  });
+
+  it("orders threads by latest event descending, not createdAt", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const stale = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "consultation",
+      title: "古い作成・新しい動き",
+      trigger: "確認用",
+      duplicateSearchQuery: "stale created recent event",
+      conflictCitationsChecked: true,
+    });
+    const freshCreated = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "consultation",
+      title: "新しい作成・古い動き",
+      trigger: "確認用",
+      duplicateSearchQuery: "fresh created stale event",
+      conflictCitationsChecked: true,
+    });
+
+    await db
+      .update(events)
+      .set({ createdAt: new Date("2026-01-01T00:00:00.000Z") })
+      .where(eq(events.threadId, freshCreated.id));
+    await db
+      .update(events)
+      .set({ createdAt: new Date("2026-01-02T00:00:00.000Z") })
+      .where(eq(events.threadId, stale.id));
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    const ids = rows.map((row) => row.id);
+    expect(ids.indexOf(stale.id)).toBeLessThan(ids.indexOf(freshCreated.id));
+    expect(rows.find((row) => row.id === stale.id)?.lastEventAt.toISOString()).toBe(
+      "2026-01-02T00:00:00.000Z",
+    );
+    expect(
+      rows.find((row) => row.id === freshCreated.id)?.lastEventAt.toISOString(),
+    ).toBe("2026-01-01T00:00:00.000Z");
   });
 });
 
