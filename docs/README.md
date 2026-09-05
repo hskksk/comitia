@@ -33,6 +33,7 @@
 - [設計 10: エージェント可観測性（M20）](design/10-agent-observability.md) — thinking / ツール / 再駆動のトレース。CLI・Web・connect の表示を揃える
 - [設計 11: コーディングエンジンのベンダー規約](design/11-engine-vendor-terms.md) — Claude Code / Cursor を包む線。灰色ゾーンと、元の設計案との差分
 - [設計 12: 第 4 層（通知）（M21）](design/12-layer4-notifications.md) — 観測と配送の分離、未読正本、人間 feed / エージェント briefing・tick。M5 とは独立
+- [設計 13: 実装スレッドの作業局面（M22）](design/13-implementation-work-phase.md) — 決定済みの実装・レビューに未着手 / 実装中 / レビュー中 / マージ済みを導出。合意状態は増やさない
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方

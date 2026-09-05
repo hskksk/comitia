@@ -1,4 +1,4 @@
-import { formatParticipantLabel, type PullRequestState } from "@comitia/shared";
+import { formatParticipantLabel, type PullRequestState, type WorkPhase } from "@comitia/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { threads, type HandoverProjectNote } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
@@ -23,6 +23,7 @@ import {
   listUnclaimedDecidedImplementations,
 } from "./work-claims.js";
 import { listProjectPullRequestsForThreads } from "./pull-requests.js";
+import { deriveWorkPhase } from "./work-phase.js";
 
 const OPEN_THREAD_STATES = new Set(["discussing", "awaiting_decision"]);
 
@@ -38,6 +39,7 @@ type BriefingThreadRow = {
   title: string;
   type: string;
   state: string;
+  workPhase: WorkPhase | null;
   pullRequests: LinkedPullRequest[];
 };
 
@@ -48,6 +50,28 @@ function withPullRequests<T extends { id: string }>(
   return rows.map((row) => ({
     ...row,
     pullRequests: prByThread.get(row.id) ?? [],
+  }));
+}
+
+function withWorkPhase<
+  T extends {
+    id: string;
+    type: string;
+    state: string;
+    pullRequests: LinkedPullRequest[];
+  },
+>(
+  rows: T[],
+  claimedThreadIds: Set<string>,
+): Array<T & { workPhase: WorkPhase | null }> {
+  return rows.map((row) => ({
+    ...row,
+    workPhase: deriveWorkPhase({
+      threadType: row.type,
+      threadState: row.state,
+      hasActiveClaim: claimedThreadIds.has(row.id),
+      pullRequestStates: row.pullRequests.map((pr) => pr.state),
+    }),
   }));
 }
 
@@ -130,9 +154,19 @@ async function loadProjectSlice(
       ...openThreadSummaries.map((thread) => thread.id),
     ]),
   ]);
-  const ownedWithPrs = withPullRequests(ownedThreads, prByThread);
-  const openThreads = withPullRequests(openThreadSummaries, prByThread);
-  const awaitingDecisionWithPrs = withPullRequests(awaitingDecision, prByThread);
+  const claimedThreadIds = new Set(workClaims.map((claim) => claim.threadId));
+  const ownedWithPrs = withWorkPhase(
+    withPullRequests(ownedThreads, prByThread),
+    claimedThreadIds,
+  );
+  const openThreads = withWorkPhase(
+    withPullRequests(openThreadSummaries, prByThread),
+    claimedThreadIds,
+  );
+  const awaitingDecisionWithPrs = withWorkPhase(
+    withPullRequests(awaitingDecision, prByThread),
+    claimedThreadIds,
+  );
 
   return {
     id: project.id,
