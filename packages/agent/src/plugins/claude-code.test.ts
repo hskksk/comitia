@@ -213,7 +213,7 @@ describe("formatClaudeStreamLineForConsole", () => {
       },
     });
     expect(formatClaudeStreamLineForConsole(line)).toBe(
-      "[thinking] considering the options",
+      "[thinking]\nconsidering the options",
     );
   });
 
@@ -253,7 +253,7 @@ describe("formatClaudeStreamLineForConsole", () => {
         ],
       },
     });
-    expect(formatClaudeStreamLineForConsole(line)).toBe("[thinking] hmm\n\nok");
+    expect(formatClaudeStreamLineForConsole(line)).toBe("[thinking]\nhmm\n\nok");
   });
 });
 

@@ -288,7 +288,7 @@ export function describeTraceEvent(event: TraceEvent): TraceHumanParts | null {
       if (typeof event.text !== "string") {
         return null;
       }
-      return { kind: event.kind, ...splitPrefixedText("[thinking]", event.text) };
+      return { kind: event.kind, headline: "[thinking]", body: event.text };
     case "text":
       if (typeof event.text !== "string") {
         return null;

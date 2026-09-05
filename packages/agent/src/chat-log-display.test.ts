@@ -43,7 +43,7 @@ describe("chat-log-display", () => {
       run: 1,
       text: "hmm",
     })}\n`;
-    expect(formatChatLogDelta(delta, false)).toBe("[thinking] hmm\n\n");
+    expect(formatChatLogDelta(delta, false)).toBe("[thinking]\nhmm\n\n");
   });
 
   it("formats tool args as key: value in the human blob", () => {

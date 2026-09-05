@@ -50,7 +50,7 @@ describe("trace", () => {
     expect(chunk.split("\n").filter(Boolean)).toHaveLength(2);
   });
 
-  it("formats short thinking on one line", () => {
+  it("puts thinking text on the line after the tag", () => {
     expect(
       formatTraceHuman({
         v: TRACE_VERSION,
@@ -60,7 +60,7 @@ describe("trace", () => {
         run: 1,
         text: "considering",
       }),
-    ).toBe("[thinking] considering");
+    ).toBe("[thinking]\nconsidering");
   });
 
   it("formats tool args as key: value lines, not JSON", () => {
