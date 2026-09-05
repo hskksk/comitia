@@ -39,7 +39,7 @@ Comitia の原則は「エージェントは外で動くクライアント。サ
 | --- | --- |
 | enginebay | OpenCode と Claude Code ドライバ。OpenCode はホストの `opencode auth` だけ引き継ぎ、**Claude Code 連携は `OPENCODE_DISABLE_CLAUDE_CODE=1` で切っている**。Claude はホスト `HOME` を維持し、OAuth ファイルはコピーしない |
 | Claude Code（アダプタ） | 未改造の `claude` を PATH から `claude -p --mcp-config --strict-mcp-config --permission-mode bypassPermissions --output-format stream-json`。バイナリは同梱しない。`claude login` をホスト `HOME` のまま使う。設定隔離は `--setting-sources`、Git 隔離は `GIT_CONFIG_GLOBAL` |
-| Cursor Agent | 未改造の `agent` / `cursor-agent` を PATH から `agent -p --force --approve-mcps --trust --output-format stream-json --workspace <workDir>`。バイナリは同梱しない。認証はユーザー自身の `CURSOR_API_KEY`。ボード MCP はランタイム一時 `HOME/.cursor/mcp.json` のみ（作業ツリーとホスト `~/.cursor` には書かない）。Git 隔離は `GIT_CONFIG_GLOBAL`。ACP / `@cursor/sdk` は採らない（[設計 03](03-tech-selection.md) §1） |
+| Cursor Agent | 未改造の `agent` / `cursor-agent` を PATH から `agent -p --force --approve-mcps --trust --output-format stream-json --workspace <workDir>`。バイナリは同梱しない。認証はホストの `agent login`（`~/.cursor/auth.json` をランタイム HOME へシンボリックリンク。コピーしない。macOS Keychain はサービス名が固定なので隔離 HOME でも届く）またはユーザー自身の `CURSOR_API_KEY` / `CURSOR_AUTH_TOKEN`。ボード MCP はランタイム一時 `HOME/.cursor/mcp.json` のみ（作業ツリーとホスト `~/.cursor` には書かない）。Git 隔離は `GIT_CONFIG_GLOBAL`。ACP / `@cursor/sdk` は採らない（[設計 03](03-tech-selection.md) §1） |
 
 本番アダプタは Claude の OAuth ファイルをコピーしない。`seedIsolatedClaudeAuth` はテスト用で、connect は使わない（`packages/agent/src/claude-auth.ts`）。
 
@@ -65,7 +65,7 @@ Legal ページが禁止している核:
 
 公式経路:
 
-- Headless CLI（`agent -p` / `cursor-agent -p`、`CURSOR_API_KEY`）
+- Headless CLI（`agent -p` / `cursor-agent -p`、`agent login` または `CURSOR_API_KEY`）
 - TypeScript / Python SDK（製品バックエンドへの埋め込みをスタッフが intended use と回答している）
 - ACP（`agent acp`）＝カスタムクライアント
 
@@ -73,7 +73,7 @@ Legal ページが禁止している核:
 
 AUP の「automated or non-human means」は公式 Headless / SDK と併存している。公式 CLI 経由は許可された自動化と読む。スクレイピング用 bot の禁止条項。
 
-実装した経路は公式 Headless CLI（`agent -p` / `cursor-agent -p`、`CURSOR_API_KEY`）。ACP はカスタムクライアントとして条文には素直だが、`session/new` の MCP が通らず `--approve-mcps` が ACP に配線されていない。`@cursor/sdk` は埋め込みの intended use だが、`@bufbuild/protobuf` 1.x がアダプタの A2A SDK（protobuf 2）と衝突するので同梱しない。spawn は公式範囲。認証はユーザー自身のキー。Comitia の Cursor アカウントで他人の作業を回すのは再販・アカウント共有。ボード上のエージェントを Cursor 公式エージェントであるかのように出してはいけない。
+実装した経路は公式 Headless CLI（`agent -p` / `cursor-agent -p`）。ACP はカスタムクライアントとして条文には素直だが、`session/new` の MCP が通らず `--approve-mcps` が ACP に配線されていない。`@cursor/sdk` は埋め込みの intended use だが、`@bufbuild/protobuf` 1.x がアダプタの A2A SDK（protobuf 2）と衝突するので同梱しない。spawn は公式範囲。認証は同じマシンの `agent login`（ファイルはリンク、コピーしない）またはユーザー自身のキー。Comitia の Cursor アカウントで他人の作業を回すのは再販・アカウント共有。ボード上のエージェントを Cursor 公式エージェントであるかのように出してはいけない。
 
 ## 5. 灰色ゾーン（今後の拡張で踏むところ）
 
@@ -89,7 +89,7 @@ tick → セッションループ → 再駆動は公式 `-p` の連打であり
 
 PoC-1 と設計 03 は「隔離 `HOME` + コピーした `.credentials.json`」だった。Anthropic は「developers may not collect, store, or intermediate Claude.ai credentials or session tokens」と書いている。connect はホスト `HOME` を維持する方向へ既に寄っている。**コピーを connect に戻さない。** 隔離は `--setting-sources` と `GIT_CONFIG_GLOBAL` で足す（設計 08 の GitHub token もこの口）。
 
-`seedIsolatedClaudeAuth` はテスト用に残してよい。本番経路から呼んではいけない。
+`seedIsolatedClaudeAuth` はテスト用に残してよい。本番経路から呼んではいけない。Cursor の `~/.cursor/auth.json` もコピーせず、ランタイム HOME へシンボリックリンクする。
 
 ### 5.3 エンジンバイナリの同梱（preinstall）
 

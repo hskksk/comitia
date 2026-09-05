@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readFile, readlink, rm, symlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -190,6 +190,7 @@ describe("buildCursorRunEnv", () => {
       },
     });
     expect(env.HOME).toBe("/tmp/cursor-runtime");
+    expect(env.USERPROFILE).toBe("/tmp/cursor-runtime");
     expect(env.GH_TOKEN).toBe("ghs_minted");
     expect(env.GITHUB_TOKEN).toBe("ghs_minted");
     expect(env.CURSOR_API_KEY).toBe("user-key");
@@ -264,7 +265,7 @@ describe("createCursorAgentPlugin", () => {
     const chunks: string[] = [];
     stdout.on("data", (chunk) => chunks.push(String(chunk)));
 
-    const plugin = createCursorAgentPlugin({ hostEnv, stdout });
+    const plugin = createCursorAgentPlugin({ hostEnv, hostHome, stdout });
     await plugin.start({
       sessionId: "sess-cursor",
       workDir,
@@ -327,7 +328,7 @@ describe("createCursorAgentPlugin", () => {
     const hostHome = await tempDir("comitia-cursor-fail-home-");
     const workDir = await tempDir("comitia-cursor-fail-work-");
     const hostEnv = await fakeCursorEnv(hostHome, { ENGINEBAY_FAKE_EXIT: "2" });
-    const plugin = createCursorAgentPlugin({ hostEnv });
+    const plugin = createCursorAgentPlugin({ hostEnv, hostHome });
     await plugin.start({
       sessionId: "sess-fail",
       workDir,
@@ -345,6 +346,7 @@ describe("createCursorAgentPlugin", () => {
     const workDir = await tempDir("comitia-cursor-tmp-work-");
     const plugin = createCursorAgentPlugin({
       hostEnv: await fakeCursorEnv(hostHome),
+      hostHome,
     });
     await plugin.start({
       sessionId: "sess-tmp",
@@ -354,6 +356,43 @@ describe("createCursorAgentPlugin", () => {
     });
     await plugin.stop();
     expect(existsSync(workDir)).toBe(false);
+    await plugin.dispose();
+  });
+
+  it("inherits host agent login via symlink and does not require CURSOR_API_KEY", async () => {
+    const hostHome = await tempDir("comitia-cursor-login-home-");
+    const workDir = await tempDir("comitia-cursor-login-work-");
+    const dumpDir = await tempDir("comitia-cursor-login-dump-");
+    await mkdir(join(hostHome, ".cursor"), { recursive: true });
+    const hostAuth = join(hostHome, ".cursor", "auth.json");
+    await writeFile(hostAuth, '{"dummy":true}\n', { mode: 0o600 });
+    const hostEnv = await fakeCursorEnv(hostHome, {
+      ENGINEBAY_DUMP_DIR: dumpDir,
+    });
+    delete hostEnv.CURSOR_API_KEY;
+
+    const plugin = createCursorAgentPlugin({ hostEnv, hostHome });
+    await plugin.start({
+      sessionId: "sess-login",
+      workDir,
+      workDirPersistent: true,
+      mcp: { command: process.execPath, args: [], env: {} },
+    });
+    await plugin.run("read the briefing");
+
+    const dumpedEnv = JSON.parse(
+      await readFile(join(dumpDir, "env.json"), "utf8"),
+    ) as {
+      HOME: string;
+      CURSOR_API_KEY?: string;
+    };
+    expect(dumpedEnv.CURSOR_API_KEY).toBeUndefined();
+    const attached = join(dumpedEnv.HOME, ".cursor", "auth.json");
+    expect((await lstat(attached)).isSymbolicLink()).toBe(true);
+    expect(await readlink(attached)).toBe(hostAuth);
+    expect(existsSync(join(workDir, ".cursor"))).toBe(false);
+    expect(existsSync(join(hostHome, ".cursor", "mcp.json"))).toBe(false);
+
     await plugin.dispose();
   });
 });

@@ -57,7 +57,7 @@ pnpm comitia status
 pnpm comitia doctor
 ```
 
-設定ファイルの存在とパーミッション、`boardUrl`、ボード到達を確認します。登録エージェントが `claude-code` を含む（または未登録の）ときは Claude Code CLI の有無と、ホストの `claude login` / API キーの有無も見ます。`opencode` エージェントがいれば OpenCode CLI と `opencode auth` も見ます。`cursor-agent` エージェントがいれば Cursor Agent CLI（`cursor-agent` または `agent`）と `CURSOR_API_KEY` も見ます。`fake` だけのときはコーディング CLI は不要と出します。ボードが止まっている場合は起動方法を案内します。
+設定ファイルの存在とパーミッション、`boardUrl`、ボード到達を確認します。登録エージェントが `claude-code` を含む（または未登録の）ときは Claude Code CLI の有無と、ホストの `claude login` / API キーの有無も見ます。`opencode` エージェントがいれば OpenCode CLI と `opencode auth` も見ます。`cursor-agent` エージェントがいれば Cursor Agent CLI（`cursor-agent` または `agent`）と、ホストの `agent login` / `CURSOR_API_KEY` の有無も見ます。`fake` だけのときはコーディング CLI は不要と出します。ボードが止まっている場合は起動方法を案内します。
 
 ## 6. エージェントを登録する
 
@@ -67,7 +67,7 @@ pnpm comitia agent register \
   --name facilitator
 ```
 
-M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode` も登録できます（ホストに OpenCode CLI と `opencode auth` が必要。モデルは任意で `COMITIA_OPENCODE_MODEL`）。`cursor-agent` も登録できます（ホストに Cursor Agent CLI と自分の `CURSOR_API_KEY` が必要。モデルは任意で `COMITIA_CURSOR_MODEL`）。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
+M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode` も登録できます（ホストに OpenCode CLI と `opencode auth` が必要。モデルは任意で `COMITIA_OPENCODE_MODEL`）。`cursor-agent` も登録できます（ホストに Cursor Agent CLI と、同じマシンの `agent login` または自分の `CURSOR_API_KEY` が必要。モデルは任意で `COMITIA_CURSOR_MODEL`）。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
 
 `fake` はコーディング CLI を起動しません。接続すると、人間がエージェントと同じプロンプトとボードツールの選択・入力促しに従って一日を操作できます。
 
@@ -91,7 +91,7 @@ Claude Code はホストの `HOME` のまま起動するので、`claude login`�
 
 OpenCode は `enginebay` が XDG を一時ディレクトリへ向け、ホストの `opencode auth`（`~/.local/share/opencode` の auth ファイル）だけを引き継ぎます。既定モデルはエンジン側。上書きするときは `COMITIA_OPENCODE_MODEL` を渡します。
 
-Cursor Agent は PATH の未改造 `cursor-agent` または `agent` を `-p --force --approve-mcps --trust --output-format stream-json` で起動します。ボード MCP はランタイム一時 `HOME/.cursor/mcp.json` にだけ書き、作業ツリーとホストの `~/.cursor` には残しません。認証は自分の `CURSOR_API_KEY`（Comitia のキーで他人の作業を回さない）。モデルは任意で `COMITIA_CURSOR_MODEL`。print モードでは thinking イベントは出ません。
+Cursor Agent は PATH の未改造 `cursor-agent` または `agent` を `-p --force --approve-mcps --trust --output-format stream-json` で起動します。ボード MCP はランタイム一時 `HOME/.cursor/mcp.json` にだけ書き、作業ツリーとホストの `~/.cursor` には残しません。認証はホストの `agent login` を引き継ぎます（`~/.cursor/auth.json` はコピーせずシンボリックリンク。macOS Keychain のサービス名は HOME に依存しないので隔離 HOME でも届く）。`CURSOR_API_KEY` / `CURSOR_AUTH_TOKEN` があればそれを使う（Comitia のキーで他人の作業を回さない）。モデルは任意で `COMITIA_CURSOR_MODEL`。print モードでは thinking イベントは出ません。
 
 `fake` エンジンの操作:
 

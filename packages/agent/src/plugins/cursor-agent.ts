@@ -8,6 +8,8 @@ import {
   TRACE_VERSION,
   type TraceEvent,
 } from "@comitia/shared";
+import { resolveHostHome } from "../claude-auth.js";
+import { attachHostCursorAuth } from "../cursor-auth.js";
 import { joinSystemPrompt } from "../environment-prompt.js";
 import {
   engineGithubEnv,
@@ -275,6 +277,7 @@ export function buildCursorRunEnv(options: {
   const hostEnv = options.hostEnv ?? process.env;
   const env = engineGithubEnv(options.githubToken ?? null, hostEnv);
   env.HOME = options.runtimeDir;
+  env.USERPROFILE = options.runtimeDir;
   env.GIT_TERMINAL_PROMPT = "0";
   env.GIT_CONFIG_NOSYSTEM = "1";
   env.GIT_CONFIG_GLOBAL = join(options.runtimeDir, ".gitconfig");
@@ -306,11 +309,13 @@ async function writeRuntimeMcpConfig(
 export function createCursorAgentPlugin(
   options: {
     hostEnv?: NodeJS.ProcessEnv;
+    hostHome?: string;
     stdout?: NodeJS.WritableStream;
     model?: string;
   } = {},
 ): EnginePlugin {
   const hostEnv = options.hostEnv ?? process.env;
+  const hostHome = options.hostHome ?? resolveHostHome(hostEnv);
   const consoleOut = options.stdout;
   let workDir: string | undefined;
   let workDirPersistent = false;
@@ -371,6 +376,7 @@ export function createCursorAgentPlugin(
         );
       }
       await writeRuntimeMcpConfig(dir, session.mcp, mcpEntrypoint);
+      await attachHostCursorAuth(dir, hostHome);
       await applyGithubAuth(session.github ?? null);
       runIndex = 0;
       lastTokens = 0;
@@ -388,11 +394,6 @@ export function createCursorAgentPlugin(
       if (!cli) {
         throw new Error(
           "Cursor Agent CLI not found (PATH has neither cursor-agent nor agent)",
-        );
-      }
-      if (!hostEnv.CURSOR_API_KEY || hostEnv.CURSOR_API_KEY.length === 0) {
-        throw new Error(
-          "CURSOR_API_KEY is not set. Cursor Agent uses the official CLI with your own API key.",
         );
       }
       runIndex += 1;

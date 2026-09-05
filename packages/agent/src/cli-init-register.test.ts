@@ -766,11 +766,11 @@ describe("operator commands", () => {
     });
   });
 
-  it("maps Cursor CLI and API key into Japanese doctor findings", () => {
+  it("maps Cursor CLI and login source into Japanese doctor findings", () => {
     expect(
       cursorDoctorFindings({
         cliCommand: null,
-        apiKey: false,
+        auth: "none",
       }),
     ).toEqual([
       {
@@ -779,16 +779,16 @@ describe("operator commands", () => {
           "Cursor Agent CLI が見つかりません（PATH に cursor-agent / agent がありません）。エージェント接続には必要です。",
       },
       {
-        ok: false,
+        ok: true,
         message:
-          "Cursor 認証: CURSOR_API_KEY がありません。Cursor Dashboard の API Keys で自分のキーを発行する。Comitia のアカウントで他人の作業を回さない",
+          "Cursor 認証: ホストの `agent login`（Keychain または ~/.cursor/auth.json）を使う。未ログインなら `agent login` するか、CURSOR_API_KEY を設定してください",
       },
     ]);
     expect(
       cursorDoctorFindings({
         cliCommand: "agent",
         cliVersion: "1.0.0-fake",
-        apiKey: true,
+        auth: "api-key",
       }),
     ).toEqual([
       {
@@ -798,6 +798,21 @@ describe("operator commands", () => {
       {
         ok: true,
         message: "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）",
+      },
+    ]);
+    expect(
+      cursorDoctorFindings({
+        cliCommand: "agent",
+        auth: "auth-file",
+      }),
+    ).toEqual([
+      {
+        ok: true,
+        message: "agent が PATH にあります",
+      },
+      {
+        ok: true,
+        message: "Cursor 認証: ホストの agent login を引き継ぎます",
       },
     ]);
   });
@@ -944,6 +959,79 @@ describe("operator commands", () => {
     );
     expect(output).not.toContain("Claude Code CLI が見つかりません");
     expect(output).not.toContain("エンジン: fake");
+  });
+
+  it("reports that a host agent login will be inherited", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    const hostHome = await mkdtemp(join(tmpdir(), "comitia-doctor-cursor-login-"));
+    const binDir = await mkdtemp(join(tmpdir(), "comitia-doctor-cursor-login-bin-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    cleanups.push(() => rm(hostHome, { recursive: true }));
+    cleanups.push(() => rm(binDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          ownerToken: "comt_owner_test",
+          ownerId: "owner-1",
+          projectId: "project-1",
+          agents: {
+            ren: {
+              agentId: "agent-cursor",
+              token: "comt_agent_test",
+              engine: "cursor-agent",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+    await mkdir(join(hostHome, ".cursor"), { recursive: true });
+    await writeFile(
+      join(hostHome, ".cursor", "auth.json"),
+      '{"dummy":true}\n',
+      { mode: 0o600 },
+    );
+    const fake = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../test/fake-opencode.mjs",
+    );
+    await chmod(fake, 0o755);
+    await symlink(fake, join(binDir, "agent"));
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "GitHub App is not configured" }),
+          { status: 503 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+      env: {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        HOME: hostHome,
+      },
+      hostHome,
+    });
+    const output = chunks.join("");
+    expect(output).toContain("agent が PATH にあります");
+    expect(output).toContain("Cursor 認証: ホストの agent login を引き継ぎます");
+    expect(output).not.toContain("CURSOR_API_KEY が設定されています");
   });
 
   it("reports that a host claude login will be inherited", async () => {

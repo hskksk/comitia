@@ -4,6 +4,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadConfig, type ComitiaConfig } from "../config.js";
 import { detectClaudeAuthSource, resolveHostHome } from "../claude-auth.js";
+import {
+  detectCursorAuthSource,
+  type CursorAuthSource,
+} from "../cursor-auth.js";
 import { readJsonErrorMessage } from "../github-auth.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
 import { comitiaWorkspaceId } from "../session-loop.js";
@@ -157,10 +161,43 @@ export function claudeCliDoctorFinding(report: DoctorReport): DoctorFinding {
   };
 }
 
+export function cursorAuthDoctorFinding(
+  auth: CursorAuthSource["kind"],
+): DoctorFinding {
+  switch (auth) {
+    case "api-key":
+      return {
+        ok: true,
+        message: "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）",
+      };
+    case "auth-token":
+      return {
+        ok: true,
+        message: "Cursor 認証: CURSOR_AUTH_TOKEN が設定されています",
+      };
+    case "auth-file":
+      return {
+        ok: true,
+        message: "Cursor 認証: ホストの agent login を引き継ぎます",
+      };
+    case "keychain":
+      return {
+        ok: true,
+        message: "Cursor 認証: macOS Keychain の agent login を引き継ぎます",
+      };
+    default:
+      return {
+        ok: true,
+        message:
+          "Cursor 認証: ホストの `agent login`（Keychain または ~/.cursor/auth.json）を使う。未ログインなら `agent login` するか、CURSOR_API_KEY を設定してください",
+      };
+  }
+}
+
 export function cursorDoctorFindings(input: {
   cliCommand: string | null;
   cliVersion?: string;
-  apiKey: boolean;
+  auth: CursorAuthSource["kind"];
 }): DoctorFinding[] {
   const cli: DoctorFinding = input.cliCommand
     ? {
@@ -174,17 +211,7 @@ export function cursorDoctorFindings(input: {
         message:
           "Cursor Agent CLI が見つかりません（PATH に cursor-agent / agent がありません）。エージェント接続には必要です。",
       };
-  const auth: DoctorFinding = input.apiKey
-    ? {
-        ok: true,
-        message: "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）",
-      }
-    : {
-        ok: false,
-        message:
-          "Cursor 認証: CURSOR_API_KEY がありません。Cursor Dashboard の API Keys で自分のキーを発行する。Comitia のアカウントで他人の作業を回さない",
-      };
-  return [cli, auth];
+  return [cli, cursorAuthDoctorFinding(input.auth)];
 }
 
 async function checkClaudeAuth(
@@ -439,11 +466,12 @@ export async function doctorCommand(
         cliVersion = text.split("\n")[0]?.trim();
       }
     }
+    const auth = await detectCursorAuthSource(env, hostHome);
     findings.push(
       ...cursorDoctorFindings({
         cliCommand,
         cliVersion,
-        apiKey: Boolean(env.CURSOR_API_KEY && env.CURSOR_API_KEY.length > 0),
+        auth: auth.kind,
       }),
     );
   }
