@@ -1,13 +1,8 @@
 import { access, constants, stat } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadConfig, type ComitiaConfig } from "../config.js";
 import { detectClaudeAuthSource, resolveHostHome } from "../claude-auth.js";
-import {
-  detectCursorAuthSource,
-  type CursorAuthSource,
-} from "../cursor-auth.js";
 import { readJsonErrorMessage } from "../github-auth.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
 import { comitiaWorkspaceId } from "../session-loop.js";
@@ -16,7 +11,6 @@ import {
   namedWorkspacePath,
   type DoctorReport,
 } from "enginebay";
-import { resolveCursorCliCommand } from "../plugins/cursor-agent.js";
 
 export interface DoctorFinding {
   ok: boolean;
@@ -35,6 +29,14 @@ export interface DoctorCommandOptions {
 
 function defaultConfigDir(): string {
   return join(homedir(), ".comitia");
+}
+
+async function checkCursorAvailability(
+  env: NodeJS.ProcessEnv,
+  hostHome: string,
+): Promise<DoctorFinding[]> {
+  const report = await enginebayDoctor("cursor-agent", { env, home: hostHome });
+  return cursorDoctorFindings(report);
 }
 
 async function checkOpencodeAvailability(
@@ -161,57 +163,32 @@ export function claudeCliDoctorFinding(report: DoctorReport): DoctorFinding {
   };
 }
 
-export function cursorAuthDoctorFinding(
-  auth: CursorAuthSource["kind"],
-): DoctorFinding {
-  switch (auth) {
-    case "api-key":
-      return {
-        ok: true,
-        message: "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）",
-      };
-    case "auth-token":
-      return {
-        ok: true,
-        message: "Cursor 認証: CURSOR_AUTH_TOKEN が設定されています",
-      };
-    case "auth-file":
-      return {
-        ok: true,
-        message: "Cursor 認証: ホストの agent login を引き継ぎます",
-      };
-    case "keychain":
-      return {
-        ok: true,
-        message: "Cursor 認証: macOS Keychain の agent login を引き継ぎます",
-      };
-    default:
-      return {
-        ok: true,
-        message:
-          "Cursor 認証: ホストの `agent login`（Keychain または ~/.cursor/auth.json）を使う。未ログインなら `agent login` するか、CURSOR_API_KEY を設定してください",
-      };
-  }
-}
-
-export function cursorDoctorFindings(input: {
-  cliCommand: string | null;
-  cliVersion?: string;
-  auth: CursorAuthSource["kind"];
-}): DoctorFinding[] {
-  const cli: DoctorFinding = input.cliCommand
+export function cursorDoctorFindings(report: DoctorReport): DoctorFinding[] {
+  const cli: DoctorFinding = report.cli.found
     ? {
         ok: true,
-        message: input.cliVersion
-          ? `${input.cliCommand} が PATH にあります（${input.cliVersion}）`
-          : `${input.cliCommand} が PATH にあります`,
+        message: report.cli.version
+          ? `${report.cli.command} が PATH にあります（${report.cli.version}）`
+          : `${report.cli.command} が PATH にあります`,
       }
     : {
         ok: false,
         message:
           "Cursor Agent CLI が見つかりません（PATH に cursor-agent / agent がありません）。エージェント接続には必要です。",
       };
-  return [cli, cursorAuthDoctorFinding(input.auth)];
+  const auth: DoctorFinding = report.auth.found
+    ? {
+        ok: true,
+        message: report.auth.detail.includes("CURSOR_API_KEY")
+          ? "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）"
+          : "Cursor 認証: ホストの agent login を引き継ぎます",
+      }
+    : {
+        ok: true,
+        message:
+          "Cursor 認証: ホストの `agent login`（Keychain または ~/.cursor/auth.json）を使う。未ログインなら `agent login` するか、CURSOR_API_KEY を設定してください",
+      };
+  return [cli, auth];
 }
 
 async function checkClaudeAuth(
@@ -453,27 +430,7 @@ export async function doctorCommand(
     findings.push(...(await checkOpencodeAvailability(env, hostHome)));
   }
   if (needsCursor) {
-    const cliCommand = resolveCursorCliCommand(env);
-    let cliVersion: string | undefined;
-    if (cliCommand) {
-      const version = spawnSync(cliCommand, ["--version"], {
-        env: { ...process.env, ...env },
-        encoding: "utf8",
-        timeout: 15_000,
-      });
-      const text = `${version.stdout ?? ""}${version.stderr ?? ""}`.trim();
-      if (text.length > 0) {
-        cliVersion = text.split("\n")[0]?.trim();
-      }
-    }
-    const auth = await detectCursorAuthSource(env, hostHome);
-    findings.push(
-      ...cursorDoctorFindings({
-        cliCommand,
-        cliVersion,
-        auth: auth.kind,
-      }),
-    );
+    findings.push(...(await checkCursorAvailability(env, hostHome)));
   }
   if (!needsClaude && !needsOpencode && !needsCursor) {
     findings.push({

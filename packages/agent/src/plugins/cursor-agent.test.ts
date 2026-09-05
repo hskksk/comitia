@@ -6,15 +6,7 @@ import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { createEnginePlugin } from "./create-engine.js";
-import {
-  buildCursorArgs,
-  buildCursorMcpConfig,
-  buildCursorRunEnv,
-  createCursorAgentPlugin,
-  cursorStreamLineToPartialEvents,
-  normalizeCursorToolName,
-  parseCursorToolCallEnvelope,
-} from "./cursor-agent.js";
+import { createCursorAgentPlugin } from "./cursor-agent.js";
 import { TraceSessionLog } from "../trace-format.js";
 
 const FAKE_CLI = join(
@@ -43,160 +35,20 @@ async function fakeCursorEnv(
 ): Promise<NodeJS.ProcessEnv> {
   const binDir = await tempDir("comitia-cursor-bin-");
   await chmod(FAKE_CLI, 0o755);
-  await symlink(FAKE_CLI, join(binDir, "agent"));
-  await chmod(join(binDir, "agent"), 0o755);
+  await symlink(FAKE_CLI, join(binDir, "cursor-agent"));
+  await chmod(join(binDir, "cursor-agent"), 0o755);
+  await mkdir(join(hostHome, ".cursor"), { recursive: true });
+  await writeFile(
+    join(hostHome, ".cursor", "auth.json"),
+    '{"dummy":true}\n',
+    { mode: 0o600 },
+  );
   return {
     HOME: hostHome,
     PATH: `${binDir}:${process.env.PATH ?? ""}`,
-    CURSOR_API_KEY: "test-cursor-key",
     ...extra,
   };
 }
-
-describe("buildCursorArgs", () => {
-  it("uses print mode with MCP auto-approve and stream-json", () => {
-    expect(
-      buildCursorArgs({
-        prompt: "read the briefing",
-        workDir: "/tmp/work",
-        model: "composer-2.5",
-      }),
-    ).toEqual([
-      "-p",
-      "read the briefing",
-      "--force",
-      "--approve-mcps",
-      "--trust",
-      "--sandbox",
-      "disabled",
-      "--output-format",
-      "stream-json",
-      "--workspace",
-      "/tmp/work",
-      "--model",
-      "composer-2.5",
-    ]);
-  });
-});
-
-describe("parseCursorToolCallEnvelope", () => {
-  it("reads MCP function payloads and built-in *ToolCall envelopes", () => {
-    expect(
-      parseCursorToolCallEnvelope({
-        function: {
-          name: "mcp__comitia-board__get_briefing",
-          arguments: "{}",
-        },
-      }),
-    ).toEqual({
-      name: "get_briefing",
-      args: {},
-    });
-    expect(
-      parseCursorToolCallEnvelope({
-        readToolCall: {
-          args: { path: "README.md" },
-          result: { success: { totalLines: 4 } },
-        },
-      }),
-    ).toEqual({
-      name: "read",
-      args: { path: "README.md" },
-      result: { totalLines: 4 },
-    });
-  });
-});
-
-describe("normalizeCursorToolName", () => {
-  it("strips board MCP prefixes", () => {
-    expect(normalizeCursorToolName("mcp__comitia-board__get_briefing")).toBe(
-      "get_briefing",
-    );
-    expect(normalizeCursorToolName("get_briefing")).toBe("get_briefing");
-  });
-});
-
-describe("cursorStreamLineToPartialEvents", () => {
-  it("maps assistant text and MCP tool completion onto trace kinds", () => {
-    expect(
-      cursorStreamLineToPartialEvents(
-        JSON.stringify({
-          type: "assistant",
-          message: {
-            role: "assistant",
-            content: [{ type: "text", text: "briefing next" }],
-          },
-        }),
-        1,
-      ),
-    ).toEqual([{ kind: "text", text: "briefing next", run: 1 }]);
-    expect(
-      cursorStreamLineToPartialEvents(
-        JSON.stringify({
-          type: "tool_call",
-          subtype: "completed",
-          call_id: "c1",
-          tool_call: {
-            function: {
-              name: "mcp__comitia-board__get_briefing",
-              arguments: "{}",
-              result: '{"remaining_budget":42}',
-            },
-          },
-        }),
-        2,
-      ),
-    ).toMatchObject({
-      0: {
-        kind: "tool_result",
-        tool: "get_briefing",
-        remainingBudget: 42,
-        run: 2,
-      },
-    });
-  });
-});
-
-describe("buildCursorMcpConfig", () => {
-  it("injects a session-scoped comitia-board stdio server", () => {
-    expect(
-      buildCursorMcpConfig({
-        command: "/usr/bin/node",
-        args: ["proxy.js"],
-        env: { COMITIA_BOARD_URL: "http://127.0.0.1:8787" },
-      }),
-    ).toEqual({
-      mcpServers: {
-        "comitia-board": {
-          command: "/usr/bin/node",
-          args: ["proxy.js"],
-          env: { COMITIA_BOARD_URL: "http://127.0.0.1:8787" },
-        },
-      },
-    });
-  });
-});
-
-describe("buildCursorRunEnv", () => {
-  it("isolates HOME, passes minted GitHub tokens, and drops the host token", () => {
-    const env = buildCursorRunEnv({
-      runtimeDir: "/tmp/cursor-runtime",
-      githubToken: "ghs_minted",
-      hostEnv: {
-        HOME: "/home/host",
-        GH_TOKEN: "host-secret",
-        CURSOR_API_KEY: "user-key",
-        PATH: "/bin",
-      },
-    });
-    expect(env.HOME).toBe("/tmp/cursor-runtime");
-    expect(env.USERPROFILE).toBe("/tmp/cursor-runtime");
-    expect(env.GH_TOKEN).toBe("ghs_minted");
-    expect(env.GITHUB_TOKEN).toBe("ghs_minted");
-    expect(env.CURSOR_API_KEY).toBe("user-key");
-    expect(env.GIT_CONFIG_GLOBAL).toBe("/tmp/cursor-runtime/.gitconfig");
-  });
-});
 
 describe("createEnginePlugin", () => {
   it("builds a Cursor Agent plugin for --engine cursor-agent", () => {
@@ -210,7 +62,7 @@ describe("createEnginePlugin", () => {
 });
 
 describe("createCursorAgentPlugin", () => {
-  it("runs a fake agent CLI, maps tools, and keeps MCP out of the work dir", async () => {
+  it("runs a fake cursor-agent, maps tools, and keeps MCP out of the work dir", async () => {
     const hostHome = await tempDir("comitia-cursor-home-");
     const workDir = await tempDir("comitia-cursor-work-");
     const dumpDir = await tempDir("comitia-cursor-dump-");
@@ -297,19 +149,25 @@ describe("createCursorAgentPlugin", () => {
     expect(chunks.join("")).toContain("get_briefing");
     expect(existsSync(join(workDir, ".cursor", "mcp.json"))).toBe(false);
     expect(existsSync(join(workDir, "keep.txt"))).toBe(true);
+    expect(existsSync(join(hostHome, ".cursor", "mcp.json"))).toBe(false);
 
     const dumpedEnv = JSON.parse(
       await readFile(join(dumpDir, "env.json"), "utf8"),
     ) as {
       HOME: string;
       GH_TOKEN: string;
+      CURSOR_CONFIG_DIR?: string;
     };
-    expect(dumpedEnv.HOME).not.toBe(hostHome);
+    expect(dumpedEnv.HOME).toBe(hostHome);
     expect(dumpedEnv.GH_TOKEN).toBe("ghs_mintedtokenvalue");
-    expect(existsSync(join(dumpedEnv.HOME, ".cursor", "mcp.json"))).toBe(true);
-    expect(
-      existsSync(join(dumpedEnv.HOME, ".cursor", ".credentials.json")),
-    ).toBe(false);
+    expect(dumpedEnv.CURSOR_CONFIG_DIR).toBeTruthy();
+    expect(dumpedEnv.CURSOR_CONFIG_DIR).not.toBe(join(hostHome, ".cursor"));
+    expect(existsSync(join(dumpedEnv.CURSOR_CONFIG_DIR ?? "", "mcp.json"))).toBe(
+      true,
+    );
+    const attached = join(dumpedEnv.CURSOR_CONFIG_DIR ?? "", "auth.json");
+    expect((await lstat(attached)).isSymbolicLink()).toBe(true);
+    expect(await readlink(attached)).toBe(join(hostHome, ".cursor", "auth.json"));
     const argv = JSON.parse(
       await readFile(join(dumpDir, "argv.json"), "utf8"),
     ) as string[];
@@ -321,7 +179,7 @@ describe("createCursorAgentPlugin", () => {
     expect(existsSync(join(workDir, "keep.txt"))).toBe(true);
     await plugin.dispose();
     expect(existsSync(join(workDir, "keep.txt"))).toBe(true);
-    expect(existsSync(dumpedEnv.HOME)).toBe(false);
+    expect(existsSync(dumpedEnv.CURSOR_CONFIG_DIR ?? "")).toBe(false);
   });
 
   it("throws when the fake CLI exits non-zero", async () => {
@@ -356,43 +214,6 @@ describe("createCursorAgentPlugin", () => {
     });
     await plugin.stop();
     expect(existsSync(workDir)).toBe(false);
-    await plugin.dispose();
-  });
-
-  it("inherits host agent login via symlink and does not require CURSOR_API_KEY", async () => {
-    const hostHome = await tempDir("comitia-cursor-login-home-");
-    const workDir = await tempDir("comitia-cursor-login-work-");
-    const dumpDir = await tempDir("comitia-cursor-login-dump-");
-    await mkdir(join(hostHome, ".cursor"), { recursive: true });
-    const hostAuth = join(hostHome, ".cursor", "auth.json");
-    await writeFile(hostAuth, '{"dummy":true}\n', { mode: 0o600 });
-    const hostEnv = await fakeCursorEnv(hostHome, {
-      ENGINEBAY_DUMP_DIR: dumpDir,
-    });
-    delete hostEnv.CURSOR_API_KEY;
-
-    const plugin = createCursorAgentPlugin({ hostEnv, hostHome });
-    await plugin.start({
-      sessionId: "sess-login",
-      workDir,
-      workDirPersistent: true,
-      mcp: { command: process.execPath, args: [], env: {} },
-    });
-    await plugin.run("read the briefing");
-
-    const dumpedEnv = JSON.parse(
-      await readFile(join(dumpDir, "env.json"), "utf8"),
-    ) as {
-      HOME: string;
-      CURSOR_API_KEY?: string;
-    };
-    expect(dumpedEnv.CURSOR_API_KEY).toBeUndefined();
-    const attached = join(dumpedEnv.HOME, ".cursor", "auth.json");
-    expect((await lstat(attached)).isSymbolicLink()).toBe(true);
-    expect(await readlink(attached)).toBe(hostAuth);
-    expect(existsSync(join(workDir, ".cursor"))).toBe(false);
-    expect(existsSync(join(hostHome, ".cursor", "mcp.json"))).toBe(false);
-
     await plugin.dispose();
   });
 });

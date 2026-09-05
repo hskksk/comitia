@@ -766,11 +766,14 @@ describe("operator commands", () => {
     });
   });
 
-  it("maps Cursor CLI and login source into Japanese doctor findings", () => {
+  it("maps enginebay doctor output into Japanese Cursor findings", () => {
     expect(
       cursorDoctorFindings({
-        cliCommand: null,
-        auth: "none",
+        ok: false,
+        engine: "cursor-agent",
+        cli: { found: false, command: "cursor-agent" },
+        auth: { found: false, detail: "missing" },
+        message: "cursor-agent CLI is not on PATH",
       }),
     ).toEqual([
       {
@@ -786,9 +789,11 @@ describe("operator commands", () => {
     ]);
     expect(
       cursorDoctorFindings({
-        cliCommand: "agent",
-        cliVersion: "1.0.0-fake",
-        auth: "api-key",
+        ok: true,
+        engine: "cursor-agent",
+        cli: { found: true, command: "agent", version: "1.0.0-fake" },
+        auth: { found: true, detail: "CURSOR_API_KEY is set (overrides agent login)" },
+        message: "ok",
       }),
     ).toEqual([
       {
@@ -802,8 +807,11 @@ describe("operator commands", () => {
     ]);
     expect(
       cursorDoctorFindings({
-        cliCommand: "agent",
-        auth: "auth-file",
+        ok: true,
+        engine: "cursor-agent",
+        cli: { found: true, command: "agent" },
+        auth: { found: true, detail: "Cursor auth file present at /tmp/host/.cursor/auth.json" },
+        message: "ok",
       }),
     ).toEqual([
       {

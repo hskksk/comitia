@@ -41,6 +41,7 @@ if (dumpDir) {
         CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR,
         CLAUDE_SECURESTORAGE_CONFIG_DIR: process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
         MCP_CONNECTION_NONBLOCKING: process.env.MCP_CONNECTION_NONBLOCKING,
+        CURSOR_CONFIG_DIR: process.env.CURSOR_CONFIG_DIR,
         isolatedShareFiles,
       },
       null,
