@@ -3,18 +3,25 @@ import {
   postTypeLabel,
   threadStateLabel,
   threadTypeLabel,
+  workPhaseLabel,
 } from "../labels.js";
 
 export function ThreadBadges(props: {
   type: string;
   state: string;
   consensusType: string | null;
+  workPhase?: string | null;
   activeWorkClaimants?: string[];
 }) {
   return (
     <div className="badge-row">
       <span className="badge badge-type">{threadTypeLabel(props.type)}</span>
-      <span className="badge badge-state">{threadStateLabel(props.state)}</span>
+      {props.workPhase ? (
+        <span className="badge badge-state">{workPhaseLabel(props.workPhase)}</span>
+      ) : null}
+      <span className={props.workPhase ? "badge" : "badge badge-state"}>
+        {threadStateLabel(props.state)}
+      </span>
       <span className="badge badge-consensus">
         {consensusTypeLabel(props.consensusType)}
       </span>

@@ -64,6 +64,7 @@ describe("listNonblockingInbox pull requests", () => {
     const inbox = await listNonblockingInbox(db, { projectId: project.id });
     expect(inbox[0]?.pullRequests[0]?.number).toBe(101);
     expect(inbox[0]?.pullRequests[0]?.state).toBe("open");
+    expect(inbox[0]?.workPhase).toBe("in_review");
   });
 
   it("returns empty pullRequests when none are linked", async () => {
@@ -207,6 +208,7 @@ describe("listNonblockingInbox", () => {
     const inbox = await listNonblockingInbox(db, { projectId: project.id });
     expect(inbox.map((item) => item.threadId)).toEqual([open.thread.id]);
     expect(inbox[0]?.kind).toBe("post_review");
+    expect(inbox[0]?.workPhase).toBe("unclaimed");
     expect(inbox[0]?.latestReport?.body).toBe("PR 相当の作業が終わった");
   });
 
@@ -218,6 +220,7 @@ describe("listNonblockingInbox", () => {
     });
     const inbox = await listNonblockingInbox(db, { projectId: project.id });
     expect(inbox[0]?.kind).toBe("merge_wait");
+    expect(inbox[0]?.workPhase).toBe("unclaimed");
     expect(inbox[0]?.latestReport).toBeNull();
   });
 });
@@ -236,6 +239,7 @@ describe("getHumanThreadView", () => {
     expect(view.thread.id).toBe(seeded.thread.id);
     expect(view.thread.projectId).toBe(project.id);
     expect(view.thread.state).toBe("awaiting_decision");
+    expect(view.thread.workPhase).toBeNull();
     expect(view.synthesis?.body).toBe("争点は遡及の扱い");
     expect(view.candidateProposal?.content).toBe("区分を導入する");
     expect(view.posts.some((post) => post.authorDisplayName === "ミカ@ハル")).toBe(
@@ -333,5 +337,93 @@ describe("listJudgmentQueue activeWorkClaimants", () => {
     const queue = await listJudgmentQueue(db, { projectId: project.id });
     const item = queue.find((row) => row.threadId === awaiting.thread.id);
     expect(item?.activeWorkClaimants).toEqual([agent.displayName]);
+  });
+});
+
+describe("listProjectThreads workPhase", () => {
+  it("marks decided implementation without claim or PR as unclaimed", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    expect(rows.find((r) => r.id === thread.id)?.workPhase).toBe("unclaimed");
+  });
+
+  it("marks claimed decided implementation without PR as in_progress", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["docs/"],
+    });
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    expect(rows.find((r) => r.id === thread.id)?.workPhase).toBe("in_progress");
+  });
+
+  it("marks a linked open PR as in_review", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    await connectProject(project.id);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const github = createFakeGitHubClient({
+      pullRequests: [
+        {
+          owner: "hskksk",
+          repo: "comitia",
+          number: 101,
+          url: PR_URL,
+          title: "Fix typo",
+          state: "open",
+        },
+      ],
+    });
+    await linkPullRequest(db, github, {
+      threadId: thread.id,
+      actorId: agent.id,
+      url: PR_URL,
+    });
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    expect(rows.find((r) => r.id === thread.id)?.workPhase).toBe("in_review");
+  });
+
+  it("marks a linked merged PR as merged", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    await connectProject(project.id);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const github = createFakeGitHubClient({
+      pullRequests: [
+        {
+          owner: "hskksk",
+          repo: "comitia",
+          number: 101,
+          url: PR_URL,
+          title: "Fix typo",
+          state: "merged",
+        },
+      ],
+    });
+    await linkPullRequest(db, github, {
+      threadId: thread.id,
+      actorId: agent.id,
+      url: PR_URL,
+    });
+
+    const rows = await listProjectThreads(db, { projectId: project.id });
+    expect(rows.find((r) => r.id === thread.id)?.workPhase).toBe("merged");
+    expect(rows.find((r) => r.id === thread.id)?.state).toBe("decided");
   });
 });

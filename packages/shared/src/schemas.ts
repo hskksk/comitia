@@ -14,10 +14,12 @@ import {
   SHARED_ARTIFACT_KINDS,
   THREAD_STATES,
   THREAD_TYPES,
+  WORK_PHASES,
 } from "./constants.js";
 
 export const threadTypeSchema = z.enum(THREAD_TYPES);
 export const threadStateSchema = z.enum(THREAD_STATES);
+export const workPhaseSchema = z.enum(WORK_PHASES);
 export const postTypeSchema = z.enum(POST_TYPES);
 export const consensusTypeSchema = z.enum(CONSENSUS_TYPES);
 export const proposalTargetSchema = z.enum(PROPOSAL_TARGETS);

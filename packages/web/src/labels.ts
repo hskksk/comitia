@@ -14,6 +14,13 @@ const threadStateLabels: Record<string, string> = {
   completed: "完了",
 };
 
+const workPhaseLabels: Record<string, string> = {
+  unclaimed: "未着手",
+  in_progress: "実装中",
+  in_review: "レビュー中",
+  merged: "マージ済み",
+};
+
 const consensusTypeLabels: Record<string, string> = {
   rough: "概略合意",
   human_ratification: "人間による批准",
@@ -42,6 +49,10 @@ export function threadTypeLabel(value: string): string {
 
 export function threadStateLabel(value: string): string {
   return labelOf(threadStateLabels, value);
+}
+
+export function workPhaseLabel(value: string): string {
+  return labelOf(workPhaseLabels, value);
 }
 
 export function consensusTypeLabel(value: string | null): string {
