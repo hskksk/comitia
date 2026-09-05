@@ -35,6 +35,10 @@ export function visibleThreadListItems(
   return [...filtered].sort((a, b) => compareThreadListItems(a, b, options.sort));
 }
 
+function eventTime(item: ThreadListItem): string {
+  return item.lastEventAt ?? item.createdAt;
+}
+
 function compareThreadListItems(
   a: ThreadListItem,
   b: ThreadListItem,
@@ -47,7 +51,7 @@ function compareThreadListItems(
     return b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id);
   }
   return (
-    b.lastEventAt.localeCompare(a.lastEventAt) ||
+    eventTime(b).localeCompare(eventTime(a)) ||
     b.createdAt.localeCompare(a.createdAt) ||
     a.id.localeCompare(b.id)
   );

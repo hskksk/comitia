@@ -146,8 +146,11 @@ export function ThreadsPage() {
               activeWorkClaimants={item.activeWorkClaimants}
             />
             <p className="muted">
-              <time dateTime={item.lastEventAt} title={item.lastEventAt}>
-                最終 {formatRelativeTimeJa(item.lastEventAt)}
+              <time
+                dateTime={item.lastEventAt ?? item.createdAt}
+                title={item.lastEventAt ?? item.createdAt}
+              >
+                最終 {formatRelativeTimeJa(item.lastEventAt ?? item.createdAt)}
               </time>
             </p>
           </article>
