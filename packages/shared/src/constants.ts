@@ -18,6 +18,15 @@ export const THREAD_STATES = [
 ] as const;
 export type ThreadState = (typeof THREAD_STATES)[number];
 
+/** Derived work progress for decided implementation/review threads. Not a thread state. */
+export const WORK_PHASES = [
+  "unclaimed",
+  "in_progress",
+  "in_review",
+  "merged",
+] as const;
+export type WorkPhase = (typeof WORK_PHASES)[number];
+
 /** 投稿型 */
 export const POST_TYPES = [
   "proposal",

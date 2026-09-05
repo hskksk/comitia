@@ -12,6 +12,7 @@ const inboxItems = {
       title: "typo 修正",
       type: "implementation",
       kind: "merge_wait",
+      workPhase: null,
       decidedAt: "2026-08-16T00:00:00.000Z",
       latestReport: null,
       pullRequests: [],
@@ -70,5 +71,40 @@ describe("InboxPage", () => {
     await user.click(screen.getByRole("button", { name: "完了にする" }));
 
     expect(screen.getByRole("button", { name: "完了にする" })).toBeDisabled();
+  });
+
+  it("shows レビュー中 when the inbox item has that work phase", async () => {
+    inboxMock.mockReset();
+    inboxMock.mockResolvedValue({
+      items: [
+        {
+          threadId: "t-impl",
+          title: "typo 修正",
+          type: "implementation",
+          kind: "merge_wait",
+          workPhase: "in_review",
+          decidedAt: "2026-08-16T00:00:00.000Z",
+          latestReport: null,
+          pullRequests: [
+            {
+              number: 101,
+              url: "https://github.com/hskksk/comitia/pull/101",
+              title: "Fix typo",
+              state: "open",
+            },
+          ],
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/p/proj-1/inbox"]}>
+        <Routes>
+          <Route path="/p/:projectId/inbox" element={<InboxPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("typo 修正")).toBeInTheDocument();
+    expect(screen.getByText("レビュー中")).toBeInTheDocument();
+    expect(screen.queryByText("マージ待ち")).not.toBeInTheDocument();
   });
 });

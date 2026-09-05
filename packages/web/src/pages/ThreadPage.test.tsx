@@ -16,6 +16,7 @@ const threadView = {
     projectId: "proj",
     awaitingEnteredAt: null,
     timingEndsAt: null,
+    workPhase: null,
   },
   consensusReasons: [],
   synthesis: {
@@ -262,7 +263,12 @@ describe("ThreadPage", () => {
       const user = userEvent.setup();
       threadMock.mockResolvedValue({
         ...threadView,
-        thread: { ...threadView.thread, type, state: "decided" },
+        thread: {
+          ...threadView.thread,
+          type,
+          state: "decided",
+          workPhase: "unclaimed",
+        },
       });
       renderThread();
 
@@ -274,6 +280,31 @@ describe("ThreadPage", () => {
       });
     },
   );
+
+  it("shows レビュー中 on a decided implementation with an open PR", async () => {
+    threadMock.mockResolvedValue({
+      ...threadView,
+      thread: {
+        ...threadView.thread,
+        type: "implementation",
+        state: "decided",
+        workPhase: "in_review",
+      },
+      pullRequests: [
+        {
+          number: 101,
+          url: "https://github.com/hskksk/comitia/pull/101",
+          title: "Fix typo",
+          state: "open",
+        },
+      ],
+    });
+    renderThread();
+
+    await screen.findByText("ルール改正");
+    expect(screen.getByText("レビュー中")).toBeInTheDocument();
+    expect(screen.getByText("決定済み")).toBeInTheDocument();
+  });
 
   it("does not show completion for the awaiting-decision fixture", async () => {
     renderThread();

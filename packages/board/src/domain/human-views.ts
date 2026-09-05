@@ -1,6 +1,6 @@
 import { formatParticipantLabel } from "@comitia/shared";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import type { ConsensusType, PullRequestState, SharedArtifactKind, ThreadType } from "@comitia/shared";
+import type { ConsensusType, PullRequestState, SharedArtifactKind, ThreadType, WorkPhase } from "@comitia/shared";
 import {
   events,
   participants,
@@ -23,6 +23,7 @@ import {
   listActiveThreadClaims,
   type ThreadWorkClaim,
 } from "./work-claims.js";
+import { deriveWorkPhase } from "./work-phase.js";
 
 export type JudgmentQueueItem = {
   threadId: string;
@@ -53,6 +54,7 @@ export type NonblockingInboxItem = {
   title: string;
   type: ThreadType;
   kind: "merge_wait" | "post_review";
+  workPhase: WorkPhase | null;
   decidedAt: string;
   latestReport: { id: string; body: string; createdAt: string } | null;
   pullRequests: PullRequestRow[];
@@ -90,6 +92,7 @@ export type HumanThreadView = {
     timingEndsAt: string | null;
     target: "repo_artifact" | "shared_artifact" | null;
     sharedArtifactKind: SharedArtifactKind | null;
+    workPhase: WorkPhase | null;
   };
   consensusReasons: string[];
   synthesis: { id: string; body: string; createdAt: string } | null;
@@ -233,19 +236,23 @@ export async function listNonblockingInbox(
   db: Db,
   input: { projectId: string },
 ): Promise<NonblockingInboxItem[]> {
-  const rows = await db
-    .select()
-    .from(threads)
-    .where(
-      and(
-        eq(threads.projectId, input.projectId),
-        eq(threads.state, "decided"),
-        inArray(threads.type, ["implementation", "review"]),
-        isNull(threads.archivedAt),
-      ),
-    )
-    .orderBy(asc(threads.decidedAt));
+  const [rows, activeClaims] = await Promise.all([
+    db
+      .select()
+      .from(threads)
+      .where(
+        and(
+          eq(threads.projectId, input.projectId),
+          eq(threads.state, "decided"),
+          inArray(threads.type, ["implementation", "review"]),
+          isNull(threads.archivedAt),
+        ),
+      )
+      .orderBy(asc(threads.decidedAt)),
+    listActiveProjectClaims(db, input.projectId),
+  ]);
 
+  const claimantsByThread = activeClaimantsByThreadId(activeClaims);
   const prByThread = await listProjectPullRequestsForThreads(
     db,
     rows.map((thread) => thread.id),
@@ -253,6 +260,7 @@ export async function listNonblockingInbox(
 
   return Promise.all(
     rows.map(async (thread) => {
+      const pullRequests = prByThread.get(thread.id) ?? [];
       const [report] = await db
         .select({
           id: posts.id,
@@ -268,6 +276,12 @@ export async function listNonblockingInbox(
         title: thread.title,
         type: thread.type,
         kind: report ? ("post_review" as const) : ("merge_wait" as const),
+        workPhase: deriveWorkPhase({
+          threadType: thread.type,
+          threadState: thread.state,
+          hasActiveClaim: (claimantsByThread.get(thread.id)?.length ?? 0) > 0,
+          pullRequestStates: pullRequests.map((pr) => pr.state),
+        }),
         decidedAt: (thread.decidedAt ?? thread.createdAt).toISOString(),
         latestReport: report
           ? {
@@ -276,7 +290,7 @@ export async function listNonblockingInbox(
               createdAt: report.createdAt.toISOString(),
             }
           : null,
-        pullRequests: prByThread.get(thread.id) ?? [],
+        pullRequests,
       };
     }),
   );
@@ -374,6 +388,10 @@ export async function getHumanThreadView(
           .from(participants)
           .where(inArray(participants.id, ownerIds));
   const ownerNameById = new Map(ownerRows.map((row) => [row.id, row.displayName]));
+  const [pullRequests, workClaims] = await Promise.all([
+    listThreadPullRequests(db, threadId),
+    listActiveThreadClaims(db, threadId),
+  ]);
 
   return {
     thread: {
@@ -389,6 +407,12 @@ export async function getHumanThreadView(
       timingEndsAt: thread.timingEndsAt?.toISOString() ?? null,
       target: thread.target,
       sharedArtifactKind: thread.sharedArtifactKind,
+      workPhase: deriveWorkPhase({
+        threadType: thread.type,
+        threadState: thread.state,
+        hasActiveClaim: workClaims.length > 0,
+        pullRequestStates: pullRequests.map((pr) => pr.state),
+      }),
     },
     consensusReasons: await consensusReasonsOf(db, thread),
     synthesis: await latestSynthesis(db, threadId),
@@ -409,8 +433,8 @@ export async function getHumanThreadView(
       }),
       createdAt: post.createdAt.toISOString(),
     })),
-    pullRequests: await listThreadPullRequests(db, threadId),
-    workClaims: await listActiveThreadClaims(db, threadId),
+    pullRequests,
+    workClaims,
     decisionView: await getDecisionView(db, threadId),
   };
 }
@@ -466,8 +490,22 @@ export async function listProjectThreads(
     listActiveProjectClaims(db, input.projectId),
   ]);
   const claimantsByThread = activeClaimantsByThreadId(activeClaims);
-  return rows.map((row) => ({
-    ...row,
-    activeWorkClaimants: claimantsByThread.get(row.id) ?? [],
-  }));
+  const prByThread = await listProjectPullRequestsForThreads(
+    db,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => {
+    const claimants = claimantsByThread.get(row.id) ?? [];
+    const pullRequests = prByThread.get(row.id) ?? [];
+    return {
+      ...row,
+      activeWorkClaimants: claimants,
+      workPhase: deriveWorkPhase({
+        threadType: row.type,
+        threadState: row.state,
+        hasActiveClaim: claimants.length > 0,
+        pullRequestStates: pullRequests.map((pr) => pr.state),
+      }),
+    };
+  });
 }

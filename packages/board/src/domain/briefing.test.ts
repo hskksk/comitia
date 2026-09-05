@@ -230,6 +230,7 @@ describe("getBriefing (M7-1 material)", () => {
         title: "オーナーが立てた相談",
         type: "consultation",
         state: "discussing",
+        workPhase: null,
         pullRequests: [],
       },
     ]);
@@ -360,6 +361,9 @@ describe("getBriefing (M7-1 material)", () => {
     expect(before.situation.unclaimed_decided.map((row) => row.id)).toContain(
       thread.id,
     );
+    expect(
+      before.situation.threads.find((row) => row.id === thread.id)?.workPhase,
+    ).toBe("unclaimed");
 
     await claimWork(db, {
       threadId: thread.id,
@@ -374,6 +378,9 @@ describe("getBriefing (M7-1 material)", () => {
     expect(after.situation.unclaimed_decided.map((row) => row.id)).not.toContain(
       thread.id,
     );
+    expect(
+      after.situation.threads.find((row) => row.id === thread.id)?.workPhase,
+    ).toBe("in_progress");
   });
 
   it("attaches linked pull requests on open_threads as materials, not a queue", async () => {
@@ -407,6 +414,7 @@ describe("getBriefing (M7-1 material)", () => {
         title: "方針案",
         type: "proposal",
         state: "discussing",
+        workPhase: null,
         pullRequests: [prRow(PR_A), prRow(PR_B)],
       },
     ]);
@@ -454,6 +462,7 @@ describe("getBriefing (M7-1 material)", () => {
           title: "自分の相談",
           type: "consultation",
           state: "discussing",
+          workPhase: null,
           pullRequests: [],
         },
         {
@@ -461,6 +470,7 @@ describe("getBriefing (M7-1 material)", () => {
           title: "自分の方針案",
           type: "proposal",
           state: "discussing",
+          workPhase: null,
           pullRequests: [prRow(PR_A), prRow(PR_B)],
         },
       ]),
