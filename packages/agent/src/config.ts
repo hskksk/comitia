@@ -2,19 +2,28 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+export interface LocalAgentConfig {
+  agentId: string;
+  token: string;
+  engine: string;
+  /** Engine `--model` override. Omitted = engine default. */
+  model?: string;
+}
+
 export interface ComitiaConfig {
   boardUrl: string;
   ownerToken?: string;
   ownerId?: string;
   projectId?: string;
-  agents: Record<
-    string,
-    {
-      agentId: string;
-      token: string;
-      engine: string;
-    }
-  >;
+  agents: Record<string, LocalAgentConfig>;
+}
+
+/** Empty or whitespace means "use the engine default". */
+export function normalizeEngineModel(
+  model: string | undefined,
+): string | undefined {
+  const trimmed = model?.trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function defaultConfigDir(): string {

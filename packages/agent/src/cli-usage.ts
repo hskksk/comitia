@@ -104,12 +104,12 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   project list      所属プロジェクト一覧
   project use       いまのプロジェクトを切替
   agent list        登録済みエージェント一覧
-  agent register    エージェントを登録（--engine claude-code | fake | opencode | cursor-agent、任意 --project --role --personality）
-  agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent）
+  agent register    エージェントを登録（--engine claude-code | fake | opencode | cursor-agent、任意 --project --role --personality --model）
+  agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent、任意 --model）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
   agent trace       構造化トレースを読む（--json で JSON 出力）
-  agent update      エージェント設定を更新（任意 --engine --personality）
+  agent update      エージェント設定を更新（任意 --engine --personality --model）
   project           プロジェクトのリポジトリ紐づけを表示
   project set       リポジトリ紐づけを設定・解除（--repo-url <url> | --clear-repo）
 
@@ -117,6 +117,10 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   --personality 慎重            パッケージ資源（名前だけ。拡張子・パスなし）
   --personality ./attitude.txt  ファイル（パスと拡張子が必要）
   --personality ""              性格を外す（update）
+
+モデル:
+  --model composer-2.5          エンジンの --model に渡す（claude-code / opencode / cursor-agent）
+  --model ""                    保存した model を外す（update）。connect ではその回だけエンジン既定
 
 例:
   comitia init --board-url http://127.0.0.1:8787 --name "ハル" --project comitia
@@ -131,8 +135,11 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia agent register --engine claude-code --name walker --role proposer
   comitia agent register --engine fake --name walker --personality 慎重
   comitia agent register --engine opencode --name sou
-  comitia agent register --engine cursor-agent --name ren
+  comitia agent register --engine cursor-agent --name ren --model composer-2.5
   comitia agent update walker --personality ./attitude.txt
   comitia agent update walker --personality ""
+  comitia agent update walker --model composer-2.5
+  comitia agent update walker --model ""
   comitia agent connect walker
+  comitia agent connect walker --model composer-2.5
   comitia status`;

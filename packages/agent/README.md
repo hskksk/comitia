@@ -67,7 +67,7 @@ pnpm comitia agent register \
   --name facilitator
 ```
 
-M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode` も登録できます（ホストに OpenCode CLI と `opencode auth` が必要）。`cursor-agent` も登録できます（ホストに Cursor Agent CLI と、同じマシンの `agent login` または自分の `CURSOR_API_KEY` が必要。起動は enginebay 経由）。モデルの上書きはエンジン共通で環境変数（`COMITIA_OPENCODE_MODEL` / `COMITIA_CURSOR_MODEL` / `COMITIA_CLAUDE_MODEL`）。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
+M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode` も登録できます（ホストに OpenCode CLI と `opencode auth` が必要）。`cursor-agent` も登録できます（ホストに Cursor Agent CLI と、同じマシンの `agent login` または自分の `CURSOR_API_KEY` が必要。起動は enginebay 経由）。モデルはエンジン共通の `--model <id>` で指定します（`register` / `connect` / `update`。ローカル設定に保存し、ボードへは送りません。`fake` では無視します）。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
 
 `fake` はコーディング CLI を起動しません。接続すると、人間がエージェントと同じプロンプトとボードツールの選択・入力促しに従って一日を操作できます。
 
@@ -77,21 +77,24 @@ M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode
 pnpm comitia agent list
 ```
 
-名前、engine、agentId を表示します（トークンは出しません）。
+名前、engine、agentId を表示します。`--model` を保存しているときは 4 列目に出します（トークンは出しません）。
 
 ## 8. エージェントを接続する
 
 ```bash
 pnpm comitia agent connect facilitator
+pnpm comitia agent connect facilitator --model composer-2.5
 ```
 
 アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`opencode` なら enginebay 経由で OpenCode を隔離起動し、`cursor-agent` なら enginebay 経由で公式 CLI にボード MCP を注入し、`fake` ならターミナルにプロンプトとツール一覧を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。
 
-Claude Code はホストの `HOME` のまま起動するので、`claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）をそのまま使います。OAuth ファイルはコピーしません。ユーザー設定の隔離は `--setting-sources project,local` と `--strict-mcp-config`、GitHub 資格の隔離は `GIT_CONFIG_GLOBAL` で行います。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません（常時運転は [設計 11](../../docs/design/11-engine-vendor-terms.md) §5.1）。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。子プロセスには `CLAUDE_CONFIG_DIR` を渡しません（渡すと macOS Keychain が別エントリになり、未ログインになります）。既定モデルは `claude-sonnet-5`。上書きするときは `COMITIA_CLAUDE_MODEL` を渡します。
+`--model` は接続中のエンジンへ `--model <id>` として渡します。`connect` で付けた値はその回だけ、`register` / `update` で付けた値は `~/.comitia/config.json` に残ります。どちらも無いときはエンジン既定（Claude Code は `claude-sonnet-5`）。`connect --model ""` はその回だけ保存値を無視して既定に戻します。
 
-OpenCode は `enginebay` が XDG を一時ディレクトリへ向け、ホストの `opencode auth`（`~/.local/share/opencode` の auth ファイル）だけを引き継ぎます。既定モデルはエンジン側。上書きするときは `COMITIA_OPENCODE_MODEL` を渡します。
+Claude Code はホストの `HOME` のまま起動するので、`claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）をそのまま使います。OAuth ファイルはコピーしません。ユーザー設定の隔離は `--setting-sources project,local` と `--strict-mcp-config`、GitHub 資格の隔離は `GIT_CONFIG_GLOBAL` で行います。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません（常時運転は [設計 11](../../docs/design/11-engine-vendor-terms.md) §5.1）。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。子プロセスには `CLAUDE_CONFIG_DIR` を渡しません（渡すと macOS Keychain が別エントリになり、未ログインになります）。既定モデルは `claude-sonnet-5`。上書きするときは `--model` を渡します。
 
-Cursor Agent は `enginebay` が PATH の未改造 `cursor-agent` または `agent` を `-p --force --approve-mcps --trust --output-format stream-json` で起動します。ホスト `HOME` は維持し、ボード MCP は隔離 `CURSOR_CONFIG_DIR/mcp.json` にだけ書き、作業ツリーとホストの `~/.cursor` には残しません。認証はホストの `agent login` を引き継ぎます（`~/.cursor/auth.json` はコピーせず隔離 config へシンボリックリンク。macOS Keychain は HOME 維持で届く）。`CURSOR_API_KEY` があればそれを使う（Comitia のキーで他人の作業を回さない）。既定モデルはエンジン側。上書きするときは `COMITIA_CURSOR_MODEL` を渡します。print モードでは thinking イベントは出ません。
+OpenCode は `enginebay` が XDG を一時ディレクトリへ向け、ホストの `opencode auth`（`~/.local/share/opencode` の auth ファイル）だけを引き継ぎます。既定モデルはエンジン側。上書きするときは `--model` を渡します。
+
+Cursor Agent は `enginebay` が PATH の未改造 `cursor-agent` または `agent` を `-p --force --approve-mcps --trust --output-format stream-json` で起動します。ホスト `HOME` は維持し、ボード MCP は隔離 `CURSOR_CONFIG_DIR/mcp.json` にだけ書き、作業ツリーとホストの `~/.cursor` には残しません。認証はホストの `agent login` を引き継ぎます（`~/.cursor/auth.json` はコピーせず隔離 config へシンボリックリンク。macOS Keychain は HOME 維持で届く）。`CURSOR_API_KEY` があればそれを使う（Comitia のキーで他人の作業を回さない）。既定モデルはエンジン側。上書きするときは `--model` を渡します。print モードでは thinking イベントは出ません。
 
 `fake` エンジンの操作:
 
@@ -123,9 +126,11 @@ pnpm comitia agent logs facilitator --session <session-id> --follow
 
 ```bash
 pnpm comitia agent update facilitator --engine fake
+pnpm comitia agent update facilitator --model composer-2.5
+pnpm comitia agent update facilitator --model ""
 ```
 
-ローカル設定の engine を更新します。`claude-code`、`fake`、`opencode`、`cursor-agent` を受け付けます。
+ローカル設定の engine と model を更新します。`claude-code`、`fake`、`opencode`、`cursor-agent` を受け付けます。`--model ""` は保存した model を外し、次回 connect はエンジン既定になります。
 
 ## コマンド一覧
 
@@ -138,8 +143,8 @@ pnpm comitia agent update facilitator --engine fake
 | `comitia status` | ボード・キュー・接続状態 |
 | `comitia doctor` | 設定と環境の診断 |
 | `comitia agent list` | 登録済みエージェント一覧 |
-| `comitia agent register` | エージェント登録（`--engine claude-code` / `fake` / `opencode` / `cursor-agent`） |
-| `comitia agent connect` | エージェント接続。`fake` なら人間がツールを選んで一日を操作する |
+| `comitia agent register` | エージェント登録（`--engine claude-code` / `fake` / `opencode` / `cursor-agent`、任意 `--model`） |
+| `comitia agent connect` | エージェント接続。任意 `--model`。`fake` なら人間がツールを選んで一日を操作する |
 | `comitia agent wake` | エージェント起床 |
 | `comitia agent logs` | チャットログ（登録オーナー） |
-| `comitia agent update` | エージェント設定更新 |
+| `comitia agent update` | エージェント設定更新（任意 `--engine` / `--personality` / `--model`） |

@@ -27,6 +27,7 @@ import { wakeCommand } from "./commands/wake.js";
 import { agentLogsCommand } from "./commands/agent-logs.js";
 import { initCommand } from "./commands/init.js";
 import { registerCommand } from "./commands/register.js";
+import { updateCommand } from "./commands/update.js";
 import {
   projectCommand,
   projectCreateCommand,
@@ -117,6 +118,20 @@ describe("init and agent register commands", () => {
       command: "agent-connect",
       name: "mika",
     });
+    expect(
+      parseCliArgs(["agent", "connect", "mika", "--model", "composer-2.5"]),
+    ).toEqual({
+      command: "agent-connect",
+      name: "mika",
+      model: "composer-2.5",
+    });
+    expect(
+      parseCliArgs(["agent", "connect", "mika", "--model", ""]),
+    ).toEqual({
+      command: "agent-connect",
+      name: "mika",
+      model: "",
+    });
   });
 
   it("parses help commands", () => {
@@ -163,6 +178,7 @@ describe("init and agent register commands", () => {
       name: "mika",
       engine: "fake",
       personality: undefined,
+      model: undefined,
     });
     expect(
       parseCliArgs([
@@ -177,6 +193,23 @@ describe("init and agent register commands", () => {
       name: "mika",
       engine: undefined,
       personality: "慎重",
+      model: undefined,
+    });
+    expect(
+      parseCliArgs(["agent", "update", "mika", "--model", "composer-2.5"]),
+    ).toEqual({
+      command: "agent-update",
+      name: "mika",
+      engine: undefined,
+      personality: undefined,
+      model: "composer-2.5",
+    });
+    expect(parseCliArgs(["agent", "update", "mika", "--model", ""])).toEqual({
+      command: "agent-update",
+      name: "mika",
+      engine: undefined,
+      personality: undefined,
+      model: "",
     });
     expect(
       parseCliArgs([
@@ -197,12 +230,35 @@ describe("init and agent register commands", () => {
       project: undefined,
       personality: "対立保持",
     });
+    expect(
+      parseCliArgs([
+        "agent",
+        "register",
+        "--engine",
+        "cursor-agent",
+        "--name",
+        "ren",
+        "--model",
+        "composer-2.5",
+      ]),
+    ).toEqual({
+      command: "agent-register",
+      engine: "cursor-agent",
+      name: "ren",
+      role: undefined,
+      project: undefined,
+      personality: undefined,
+      model: "composer-2.5",
+    });
   });
 
   it("rejects missing agent connect name with usage", () => {
     expect(() => parseCliArgs(["agent", "connect"])).toThrow(
-      "Usage: comitia agent connect <name>",
+      "Usage: comitia agent connect <name> [--model <id>]",
     );
+    expect(() =>
+      parseCliArgs(["agent", "connect", "mika", "--engine", "fake"]),
+    ).toThrow("Usage: comitia agent connect <name> [--model <id>]");
   });
 
   it("rejects unknown subcommands with usage", () => {
@@ -267,6 +323,17 @@ describe("init and agent register commands", () => {
     const withFake = await loadConfig(configDir);
     expect(withFake.agents.walker?.engine).toBe("fake");
     expect(withFake.agents.walker?.agentId).toBeTruthy();
+
+    await registerCommand({
+      name: "ren",
+      engine: "cursor-agent",
+      model: "composer-2.5",
+      configDir,
+    });
+    const withModel = await loadConfig(configDir);
+    expect(withModel.agents.ren?.engine).toBe("cursor-agent");
+    expect(withModel.agents.ren?.model).toBe("composer-2.5");
+    expect(withModel.agents.mika?.model).toBeUndefined();
   });
 
   it("creates, lists, and switches projects", async () => {
@@ -496,6 +563,81 @@ describe("operator commands", () => {
     const output = chunks.join("");
     expect(output).toContain("mika\tclaude-code\tagent-1");
     expect(output).not.toContain("comt_");
+  });
+
+  it("prints stored model as a fourth list column", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          ownerToken: "comt_owner_test",
+          agents: {
+            ren: {
+              agentId: "agent-2",
+              token: "comt_agent_test",
+              engine: "cursor-agent",
+              model: "composer-2.5",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+    await runCli(["agent", "list"], { configDir, stdout });
+    expect(chunks.join("")).toContain(
+      "ren\tcursor-agent\tagent-2\tcomposer-2.5",
+    );
+  });
+
+  it("persists and clears --model on agent update without calling the board", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeConfig(configDir);
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await updateCommand({
+      name: "mika",
+      model: "composer-2.5",
+      configDir,
+      stdout,
+    });
+    expect((await loadConfig(configDir)).agents.mika?.model).toBe(
+      "composer-2.5",
+    );
+    expect(chunks.join("")).toContain("mika の model を composer-2.5 に更新しました。");
+
+    await updateCommand({
+      name: "mika",
+      engine: "cursor-agent",
+      configDir,
+      stdout,
+    });
+    expect((await loadConfig(configDir)).agents.mika).toMatchObject({
+      engine: "cursor-agent",
+      model: "composer-2.5",
+    });
+
+    await updateCommand({
+      name: "mika",
+      model: "",
+      configDir,
+      stdout,
+    });
+    expect((await loadConfig(configDir)).agents.mika?.model).toBeUndefined();
+    expect((await loadConfig(configDir)).agents.mika?.engine).toBe("cursor-agent");
+    expect(chunks.join("")).toContain("mika の model を外しました。");
   });
 
   it("prints status from mocked board responses", async () => {

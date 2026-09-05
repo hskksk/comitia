@@ -19,6 +19,9 @@ export async function agentListCommand(
   }
   for (const name of names) {
     const agent = config.agents[name]!;
-    stdout.write(`${name}\t${agent.engine}\t${agent.agentId}\n`);
+    const line = agent.model
+      ? `${name}\t${agent.engine}\t${agent.agentId}\t${agent.model}`
+      : `${name}\t${agent.engine}\t${agent.agentId}`;
+    stdout.write(`${line}\n`);
   }
 }

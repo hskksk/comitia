@@ -1,4 +1,9 @@
-import { loadConfig, saveConfig } from "../config.js";
+import {
+  loadConfig,
+  normalizeEngineModel,
+  saveConfig,
+  type LocalAgentConfig,
+} from "../config.js";
 import { assertSupportedEngine } from "../engines.js";
 import { formatHttpError } from "../http-error.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
@@ -10,6 +15,8 @@ export interface UpdateCommandOptions {
   name: string;
   engine?: string;
   personality?: string;
+  /** Present when `--model` was passed, including empty to clear. */
+  model?: string;
   configDir?: string;
   stdout?: CliOutput;
   fetch?: typeof globalThis.fetch;
@@ -58,17 +65,37 @@ export async function updateCommand(
     );
   }
 
-  if (options.engine) {
+  if (options.engine || options.model !== undefined) {
+    const next: LocalAgentConfig = {
+      agentId: agent.agentId,
+      token: agent.token,
+      engine: options.engine ?? agent.engine,
+    };
+    const model =
+      options.model !== undefined
+        ? normalizeEngineModel(options.model)
+        : agent.model;
+    if (model) {
+      next.model = model;
+    }
     await saveConfig(options.configDir, {
       ...config,
       agents: {
         ...config.agents,
-        [options.name]: {
-          ...agent,
-          engine: options.engine,
-        },
+        [options.name]: next,
       },
     });
-    stdout.write(`${options.name} の engine を ${options.engine} に更新しました。\n`);
+    if (options.engine) {
+      stdout.write(
+        `${options.name} の engine を ${options.engine} に更新しました。\n`,
+      );
+    }
+    if (options.model !== undefined) {
+      stdout.write(
+        model
+          ? `${options.name} の model を ${model} に更新しました。\n`
+          : `${options.name} の model を外しました。\n`,
+      );
+    }
   }
 }
