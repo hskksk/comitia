@@ -31,6 +31,7 @@ import {
 import { registerGithubAuthRoutes } from "./github-auth-routes.js";
 import { registerGithubRoutes } from "./github-routes.js";
 import { registerHumanRoutes } from "./human-routes.js";
+import { healthPayload } from "../version.js";
 
 export type BoardGateway = {
   sendTick: (input: {
@@ -90,7 +91,7 @@ export function createBoardApp(input: {
     return c.json({ error: "internal error" }, 500);
   });
 
-  app.get("/healthz", (c) => c.json({ ok: true }));
+  app.get("/healthz", (c) => c.json(healthPayload()));
 
   app.post("/v1/init", async (c) => {
     const body = z

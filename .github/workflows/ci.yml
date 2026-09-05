@@ -60,12 +60,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Read package version
+        id: version
+        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: false
+          build-args: |
+            COMITIA_VERSION=${{ steps.version.outputs.value }}
+            GIT_COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=min
           load: true
