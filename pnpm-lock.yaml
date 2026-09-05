@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       enginebay:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^1.1.0
+        version: 1.1.0
     devDependencies:
       railway:
         specifier: ^3.10.0
@@ -46,8 +46,8 @@ importers:
         specifier: ^1.43.0
         version: 1.43.0
       enginebay:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^1.1.0
+        version: 1.1.0
       express:
         specifier: ^5.1.0
         version: 5.2.1
@@ -1799,8 +1799,8 @@ packages:
     resolution: {integrity: sha512-Q0n9HRi4m6JuGIV1eFlmvJB7ZEVxu93IrMyiMsGC0lrMJMWzRgx6WGquyfQgZVb31vhGgXnfmPNNXmxnOkRBrg==}
     engines: {node: '>= 0.8'}
 
-  enginebay@0.1.0:
-    resolution: {integrity: sha512-tAgXlQEsqItuE7g/bXEYKjtBPg0dOdB15TE8QY9lLJ/DMVRxfyyUdJppu4PfVz/ikTLOfAQfg6btg2bDlzX7Ig==}
+  enginebay@1.1.0:
+    resolution: {integrity: sha512-r+26jvysj0vyN+mnACk4fxvkgoigI2naMAq4I6W0QQEsE9cFKnzebgAgaKJdDe/tehBaEPjFTrsv/3n3fTo+xw==}
     engines: {node: '>=22.14.0'}
 
   entities@6.0.1:
@@ -3845,7 +3845,7 @@ snapshots:
 
   encodeurl@2.0.0: {}
 
-  enginebay@0.1.0: {}
+  enginebay@1.1.0: {}
 
   entities@6.0.1: {}
 
