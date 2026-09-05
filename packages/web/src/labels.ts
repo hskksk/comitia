@@ -87,6 +87,21 @@ export function engineLabel(engine: string | null): string {
   return engine ?? "";
 }
 
+const traceKindLabels: Record<string, string> = {
+  run_start: "run 開始",
+  run_end: "run 終了",
+  thinking: "思考",
+  text: "応答",
+  tool_call: "ツール",
+  tool_result: "結果",
+  adapter_note: "アダプタ",
+  continue_decision: "継続判定",
+};
+
+export function traceKindLabel(kind: string): string {
+  return traceKindLabels[kind] ?? kind;
+}
+
 /** One-line "what we need" for queue cards (M6-1 / M6-2). */
 export function judgmentNeedLabel(consensusType: string | null): string {
   switch (consensusType) {

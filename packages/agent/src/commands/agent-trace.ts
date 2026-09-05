@@ -1,7 +1,7 @@
 import { loadConfig } from "../config.js";
 import { formatHttpError } from "../http-error.js";
 import { ownerAuthHeaders } from "../owner-headers.js";
-import { formatTraceHuman, type TraceEvent } from "@comitia/shared";
+import { formatTraceHumanList, type TraceEvent } from "@comitia/shared";
 
 type CliOutput = NodeJS.WritableStream & { isTTY?: boolean };
 
@@ -46,14 +46,7 @@ function formatTraceOutput(
   if (json) {
     return `${JSON.stringify(entries, null, 2)}\n`;
   }
-  const lines: string[] = [];
-  for (const entry of entries) {
-    const human = formatTraceHuman(entry);
-    if (human) {
-      lines.push(human);
-    }
-  }
-  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
+  return formatTraceHumanList(entries);
 }
 
 export async function agentTraceCommand(

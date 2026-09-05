@@ -239,7 +239,7 @@ describe("formatClaudeStreamLineForConsole", () => {
       },
     });
     expect(formatClaudeStreamLineForConsole(line)).toBe(
-      '[tool] get_briefing({"foo":"bar"})',
+      '[tool] get_briefing\n{\n  "foo": "bar"\n}',
     );
   });
 

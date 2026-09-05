@@ -3,13 +3,15 @@ import { MarkdownBody } from "./MarkdownBody.js";
 
 const DEFAULT_PREVIEW_LINES = 8;
 
-/** Collapse long markdown to the first N lines with a 「続き」 toggle. */
+/** Collapse long markdown or preformatted text with a 「続き」 toggle. */
 export function CollapsibleMarkdown(props: {
   source: string;
   previewLines?: number;
   className?: string;
+  as?: "markdown" | "pre";
 }) {
   const limit = props.previewLines ?? DEFAULT_PREVIEW_LINES;
+  const as = props.as ?? "markdown";
   const lines = props.source.split("\n");
   const needsCollapse = lines.length > limit;
   const [expanded, setExpanded] = useState(false);
@@ -49,7 +51,11 @@ export function CollapsibleMarkdown(props: {
         tabIndex={isCollapsed ? 0 : undefined}
         aria-expanded={needsCollapse ? expanded : undefined}
       >
-        <MarkdownBody source={shown} className={props.className} />
+        {as === "pre" ? (
+          <pre className={props.className}>{shown}</pre>
+        ) : (
+          <MarkdownBody source={shown} className={props.className} />
+        )}
       </div>
       {needsCollapse ? (
         <button

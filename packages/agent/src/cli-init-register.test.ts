@@ -1457,7 +1457,7 @@ describe("operator commands", () => {
       stdout,
     });
 
-    expect(chunks.join("")).toContain("[tool] get_briefing({})");
+    expect(chunks.join("")).toContain("[tool] get_briefing");
     expect(chunks.join("")).not.toContain("@json");
   });
 

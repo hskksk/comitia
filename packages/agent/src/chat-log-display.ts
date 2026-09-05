@@ -22,10 +22,19 @@ export function formatChatLogForDisplay(chatLog: string, raw: boolean): string {
     if (!line.trim()) {
       continue;
     }
-    const formatted = formatChatLogLine(line, false);
-    if (formatted) {
+    const event = parseTraceLine(line);
+    if (event) {
+      const formatted = formatTraceHuman(event);
+      if (!formatted) {
+        continue;
+      }
+      if (event.kind === "run_start" && lines.length > 0) {
+        lines.push("");
+      }
       lines.push(formatted);
+      continue;
     }
+    lines.push(line);
   }
   return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 }
@@ -35,15 +44,5 @@ export function formatChatLogDelta(rawDelta: string, raw: boolean): string {
   if (raw) {
     return rawDelta;
   }
-  const lines: string[] = [];
-  for (const line of rawDelta.split("\n")) {
-    if (!line.trim()) {
-      continue;
-    }
-    const formatted = formatChatLogLine(line, false);
-    if (formatted) {
-      lines.push(formatted);
-    }
-  }
-  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
+  return formatChatLogForDisplay(rawDelta, false);
 }
