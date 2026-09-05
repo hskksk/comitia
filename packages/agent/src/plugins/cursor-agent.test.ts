@@ -174,6 +174,7 @@ describe("createCursorAgentPlugin", () => {
     expect(argv).toContain("--approve-mcps");
     expect(argv).toContain("--workspace");
     expect(argv).toContain(workDir);
+    expect(argv).not.toContain("--model");
 
     await plugin.stop();
     expect(existsSync(join(workDir, "keep.txt"))).toBe(true);
@@ -214,6 +215,29 @@ describe("createCursorAgentPlugin", () => {
     });
     await plugin.stop();
     expect(existsSync(workDir)).toBe(false);
+    await plugin.dispose();
+  });
+
+  it("passes --model when set, same override as OpenCode", async () => {
+    const hostHome = await tempDir("comitia-cursor-model-home-");
+    const workDir = await tempDir("comitia-cursor-model-work-");
+    const dumpDir = await tempDir("comitia-cursor-model-dump-");
+    const plugin = createCursorAgentPlugin({
+      hostEnv: await fakeCursorEnv(hostHome, { ENGINEBAY_DUMP_DIR: dumpDir }),
+      hostHome,
+      model: "composer-2.5",
+    });
+    await plugin.start({
+      sessionId: "sess-model",
+      workDir,
+      workDirPersistent: true,
+      mcp: { command: process.execPath, args: [], env: {} },
+    });
+    await plugin.run("go");
+    const argv = JSON.parse(
+      await readFile(join(dumpDir, "argv.json"), "utf8"),
+    ) as string[];
+    expect(argv).toEqual(expect.arrayContaining(["--model", "composer-2.5"]));
     await plugin.dispose();
   });
 });

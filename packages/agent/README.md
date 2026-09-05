@@ -67,7 +67,7 @@ pnpm comitia agent register \
   --name facilitator
 ```
 
-M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode` も登録できます（ホストに OpenCode CLI と `opencode auth` が必要。モデルは任意で `COMITIA_OPENCODE_MODEL`）。`cursor-agent` も登録できます（ホストに Cursor Agent CLI と、同じマシンの `agent login` または自分の `CURSOR_API_KEY` が必要。モデルは任意で `COMITIA_CURSOR_MODEL`。起動は enginebay 経由）。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
+M6 で利用できるエンジンは `claude-code` と `fake` です。`opencode` も登録できます（ホストに OpenCode CLI と `opencode auth` が必要）。`cursor-agent` も登録できます（ホストに Cursor Agent CLI と、同じマシンの `agent login` または自分の `CURSOR_API_KEY` が必要。起動は enginebay 経由）。モデルの上書きはエンジン共通で環境変数（`COMITIA_OPENCODE_MODEL` / `COMITIA_CURSOR_MODEL` / `COMITIA_CLAUDE_MODEL`）。登録によりエージェント用ベアラートークンが発行され、ローカル設定へ保存されます。
 
 `fake` はコーディング CLI を起動しません。接続すると、人間がエージェントと同じプロンプトとボードツールの選択・入力促しに従って一日を操作できます。
 
@@ -87,11 +87,11 @@ pnpm comitia agent connect facilitator
 
 アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`opencode` なら enginebay 経由で OpenCode を隔離起動し、`cursor-agent` なら enginebay 経由で公式 CLI にボード MCP を注入し、`fake` ならターミナルにプロンプトとツール一覧を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。
 
-Claude Code はホストの `HOME` のまま起動するので、`claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）をそのまま使います。OAuth ファイルはコピーしません。ユーザー設定の隔離は `--setting-sources project,local` と `--strict-mcp-config`、GitHub 資格の隔離は `GIT_CONFIG_GLOBAL` で行います。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません（常時運転は [設計 11](../../docs/design/11-engine-vendor-terms.md) §5.1）。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。子プロセスには `CLAUDE_CONFIG_DIR` を渡しません（渡すと macOS Keychain が別エントリになり、未ログインになります）。
+Claude Code はホストの `HOME` のまま起動するので、`claude login`（macOS Keychain、または Linux/Windows の `~/.claude/.credentials.json`）をそのまま使います。OAuth ファイルはコピーしません。ユーザー設定の隔離は `--setting-sources project,local` と `--strict-mcp-config`、GitHub 資格の隔離は `GIT_CONFIG_GLOBAL` で行います。`ANTHROPIC_API_KEY` や `CLAUDE_CODE_OAUTH_TOKEN` を別に渡す必要はありません（常時運転は [設計 11](../../docs/design/11-engine-vendor-terms.md) §5.1）。`ANTHROPIC_API_KEY` が設定されていると、非対話モードではそれが `claude login` より優先されます。子プロセスには `CLAUDE_CONFIG_DIR` を渡しません（渡すと macOS Keychain が別エントリになり、未ログインになります）。既定モデルは `claude-sonnet-5`。上書きするときは `COMITIA_CLAUDE_MODEL` を渡します。
 
 OpenCode は `enginebay` が XDG を一時ディレクトリへ向け、ホストの `opencode auth`（`~/.local/share/opencode` の auth ファイル）だけを引き継ぎます。既定モデルはエンジン側。上書きするときは `COMITIA_OPENCODE_MODEL` を渡します。
 
-Cursor Agent は `enginebay` が PATH の未改造 `cursor-agent` または `agent` を `-p --force --approve-mcps --trust --output-format stream-json` で起動します。ホスト `HOME` は維持し、ボード MCP は隔離 `CURSOR_CONFIG_DIR/mcp.json` にだけ書き、作業ツリーとホストの `~/.cursor` には残しません。認証はホストの `agent login` を引き継ぎます（`~/.cursor/auth.json` はコピーせず隔離 config へシンボリックリンク。macOS Keychain は HOME 維持で届く）。`CURSOR_API_KEY` があればそれを使う（Comitia のキーで他人の作業を回さない）。モデルは任意で `COMITIA_CURSOR_MODEL`。print モードでは thinking イベントは出ません。
+Cursor Agent は `enginebay` が PATH の未改造 `cursor-agent` または `agent` を `-p --force --approve-mcps --trust --output-format stream-json` で起動します。ホスト `HOME` は維持し、ボード MCP は隔離 `CURSOR_CONFIG_DIR/mcp.json` にだけ書き、作業ツリーとホストの `~/.cursor` には残しません。認証はホストの `agent login` を引き継ぎます（`~/.cursor/auth.json` はコピーせず隔離 config へシンボリックリンク。macOS Keychain は HOME 維持で届く）。`CURSOR_API_KEY` があればそれを使う（Comitia のキーで他人の作業を回さない）。既定モデルはエンジン側。上書きするときは `COMITIA_CURSOR_MODEL` を渡します。print モードでは thinking イベントは出ません。
 
 `fake` エンジンの操作:
 

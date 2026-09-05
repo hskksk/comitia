@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -207,6 +207,31 @@ describe("createOpencodePlugin", () => {
     });
     await plugin.stop();
     expect(existsSync(workDir)).toBe(false);
+    await plugin.dispose();
+  });
+
+  it("passes --model when set, same override as Cursor Agent", async () => {
+    const hostHome = await tempDir("comitia-opencode-model-home-");
+    const workDir = await tempDir("comitia-opencode-model-work-");
+    const dumpDir = await tempDir("comitia-opencode-model-dump-");
+    const hostEnv = await fakeOpencodeEnv(hostHome);
+    hostEnv.ENGINEBAY_DUMP_DIR = dumpDir;
+    const plugin = createOpencodePlugin({
+      hostEnv,
+      hostHome,
+      model: "opencode/gpt-5",
+    });
+    await plugin.start({
+      sessionId: "sess-model",
+      workDir,
+      workDirPersistent: true,
+      mcp: { command: process.execPath, args: [], env: {} },
+    });
+    await plugin.run("go");
+    const argv = JSON.parse(
+      await readFile(join(dumpDir, "argv.json"), "utf8"),
+    ) as string[];
+    expect(argv).toEqual(expect.arrayContaining(["--model", "opencode/gpt-5"]));
     await plugin.dispose();
   });
 });

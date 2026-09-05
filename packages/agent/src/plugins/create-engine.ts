@@ -10,6 +10,28 @@ import { createCursorAgentPlugin } from "./cursor-agent.js";
 import { createOpencodePlugin } from "./opencode.js";
 import type { EnginePlugin } from "./types.js";
 
+/** Optional model override. Empty or unset leaves the engine default. */
+export const ENGINE_MODEL_ENV = {
+  opencode: "COMITIA_OPENCODE_MODEL",
+  "cursor-agent": "COMITIA_CURSOR_MODEL",
+  "claude-code": "COMITIA_CLAUDE_MODEL",
+} as const;
+
+export function resolveEngineModel(
+  engine: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  if (!(engine in ENGINE_MODEL_ENV)) {
+    return undefined;
+  }
+  const key = ENGINE_MODEL_ENV[engine as keyof typeof ENGINE_MODEL_ENV];
+  const value = env[key];
+  if (typeof value !== "string" || value.length === 0) {
+    return undefined;
+  }
+  return value;
+}
+
 export function createEnginePlugin(options: {
   engine: string;
   callTool: (
@@ -21,6 +43,7 @@ export function createEnginePlugin(options: {
   stdin?: NodeJS.ReadableStream;
   stdout?: NodeJS.WritableStream;
   onInterrupt?: () => void;
+  env?: NodeJS.ProcessEnv;
 }): EnginePlugin {
   if (options.scriptedFake) {
     return createFakeEnginePlugin({
@@ -38,19 +61,19 @@ export function createEnginePlugin(options: {
       onInterrupt: options.onInterrupt,
     });
   }
+  const env = options.env ?? process.env;
+  const model = resolveEngineModel(options.engine, env);
   if (options.engine === "opencode") {
-    const model = process.env.COMITIA_OPENCODE_MODEL;
     return createOpencodePlugin({
       stdout: options.stdout,
-      model: model && model.length > 0 ? model : undefined,
+      model,
     });
   }
   if (options.engine === "cursor-agent") {
-    const model = process.env.COMITIA_CURSOR_MODEL;
     return createCursorAgentPlugin({
       stdout: options.stdout,
-      model: model && model.length > 0 ? model : undefined,
+      model,
     });
   }
-  return createClaudeCodePlugin({ stdout: options.stdout });
+  return createClaudeCodePlugin({ stdout: options.stdout, model });
 }
