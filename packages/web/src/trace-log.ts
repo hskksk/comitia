@@ -1,4 +1,4 @@
-import { formatTraceHuman, parseTraceLine, type TraceEvent } from "@comitia/shared";
+import { parseTraceLine, type TraceEvent } from "@comitia/shared";
 
 export type ParsedChatLogLine =
   | { type: "legacy"; text: string }
@@ -24,6 +24,8 @@ export function traceKindClass(kind: string): string {
   switch (kind) {
     case "thinking":
       return "trace-thinking";
+    case "text":
+      return "trace-text";
     case "tool_call":
       return "trace-tool-call";
     case "tool_result":
@@ -37,9 +39,4 @@ export function traceKindClass(kind: string): string {
     default:
       return "trace-other";
   }
-}
-
-/** Human-readable line for Web UI; delegates to shared `formatTraceHuman` (design §4.4). */
-export function formatTraceEventLine(event: TraceEvent): string {
-  return formatTraceHuman(event) ?? JSON.stringify(event);
 }

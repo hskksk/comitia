@@ -26,4 +26,18 @@ describe("CollapsibleMarkdown", () => {
     expect(screen.getByText("zeta")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "閉じる" })).toBeInTheDocument();
   });
+
+  it("renders preformatted source when as=pre", () => {
+    render(
+      <CollapsibleMarkdown
+        as="pre"
+        className="trace-entry-body"
+        source={'{\n  "foo": "bar"\n}'}
+      />,
+    );
+
+    const pre = document.querySelector("pre.trace-entry-body");
+    expect(pre).not.toBeNull();
+    expect(pre?.textContent).toContain('"foo": "bar"');
+  });
 });

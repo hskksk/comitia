@@ -617,51 +617,114 @@ label select {
   margin-top: 0.75rem;
 }
 
-.chat-log-trace .trace-meta {
-  color: var(--color-ink-muted);
-  font-size: 0.8rem;
-}
-
-.trace-collapse-btn,
-.log-toolbar .btn-secondary.is-active {
-  margin-left: 0.35rem;
-}
-
-.trace-collapse-btn {
-  font: inherit;
-  font-size: 0.75rem;
-  color: var(--color-accent);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
 .log-toolbar .btn-secondary.is-active {
   border-color: var(--color-accent);
 }
 
-.chat-log-trace .trace-thinking {
+.trace-timeline {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.trace-entry {
+  background: var(--color-card);
+  border: 1px solid var(--color-border-thin);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: 0.65rem 0.85rem;
+}
+
+.trace-entry.trace-thinking {
+  border-left-color: var(--color-border);
   color: var(--color-ink-muted);
 }
 
-.chat-log-trace .trace-tool-call {
-  color: var(--color-accent);
+.trace-entry.trace-tool-call {
+  border-left-color: var(--color-accent);
 }
 
-.chat-log-trace .trace-tool-result {
-  color: var(--color-ink);
+.trace-entry.trace-tool-result {
+  border-left-color: var(--color-ink);
 }
 
-.chat-log-trace .trace-run,
-.chat-log-trace .trace-adapter {
+.trace-entry.trace-tool-result.is-error {
+  border-left-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.trace-entry.trace-run,
+.trace-entry.trace-adapter {
+  border-left-color: var(--color-ink);
+}
+
+.trace-entry.trace-text,
+.trace-entry.trace-legacy,
+.trace-entry.trace-other {
+  border-left-color: var(--color-border);
+}
+
+.trace-entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.7rem;
+  align-items: baseline;
+}
+
+.trace-kind-badge {
   color: var(--color-ink);
+  background: var(--color-paper);
+}
+
+.trace-entry-title {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
-.chat-log-trace .trace-legacy {
-  color: var(--color-ink);
+.trace-entry-status {
+  font-size: 0.82rem;
+  color: var(--color-accent);
+}
+
+.trace-entry-status.is-error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.trace-entry-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.trace-entry-body {
+  margin: 0.45rem 0 0;
+  padding: 0.55rem 0.65rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  background: var(--color-paper);
+  border-radius: 3px;
+}
+
+.trace-entry-body.is-markdown {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  background: transparent;
+  padding: 0.35rem 0 0;
+}
+
+.trace-entry .collapse-block {
+  margin-top: 0.35rem;
+}
+
+.trace-entry .collapse-block pre.trace-entry-body {
+  margin-top: 0;
 }
 
 label {
