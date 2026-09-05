@@ -426,7 +426,7 @@ comitia agent connect walker
 
 ### 11.2 触らないもの
 
-- OpenCode / Cursor Agent / Antigravity の実装。Cursor を足すときは [設計 11](11-engine-vendor-terms.md) §4・§5.5
+- Antigravity の実装。Cursor Agent は enginebay 経由の公式 CLI で接続可（[設計 03](03-tech-selection.md) §1、[設計 11](11-engine-vendor-terms.md) §4）
 - 人間 REST をエージェントツールに置き換えること
 - Web 上のエージェント操作画面（入口は CLI）
 

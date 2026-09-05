@@ -37,9 +37,9 @@ Comitia の原則は「エージェントは外で動くクライアント。サ
 
 | 層 | 実態（2026-09） |
 | --- | --- |
-| enginebay | OpenCode と Claude Code ドライバ。OpenCode はホストの `opencode auth` だけ引き継ぎ、**Claude Code 連携は `OPENCODE_DISABLE_CLAUDE_CODE=1` で切っている**。Claude はホスト `HOME` を維持し、OAuth ファイルはコピーしない |
+| enginebay | OpenCode、Claude Code、Cursor Agent ドライバ。OpenCode はホストの `opencode auth` だけ引き継ぎ、**Claude Code 連携は `OPENCODE_DISABLE_CLAUDE_CODE=1` で切っている**。Claude はホスト `HOME` を維持し、OAuth ファイルはコピーしない。Cursor はホスト `HOME` を維持し、`CURSOR_CONFIG_DIR` だけ隔離して `auth.json` をシンボリックリンクする |
 | Claude Code（アダプタ） | 未改造の `claude` を PATH から `claude -p --mcp-config --strict-mcp-config --permission-mode bypassPermissions --output-format stream-json`。バイナリは同梱しない。`claude login` をホスト `HOME` のまま使う。設定隔離は `--setting-sources`、Git 隔離は `GIT_CONFIG_GLOBAL` |
-| Cursor Agent | **未実装**。設計 03 は `cursor-agent -p` と一時 `.cursor/mcp.json` |
+| Cursor Agent | enginebay の `cursor-agent` ドライバ。未改造の `cursor-agent` / `agent` を PATH から `cursor-agent -p --force --approve-mcps --trust --output-format stream-json --workspace <workDir>`。バイナリは同梱しない。認証はホストの `agent login`（`~/.cursor/auth.json` を隔離 `CURSOR_CONFIG_DIR` へシンボリックリンク。コピーしない。ホスト `HOME` は維持するので macOS Keychain も届く）またはユーザー自身の `CURSOR_API_KEY`。ボード MCP は隔離 `CURSOR_CONFIG_DIR/mcp.json` のみ（作業ツリーとホスト `~/.cursor` には書かない）。Git 隔離は `GIT_CONFIG_GLOBAL`。ACP / `@cursor/sdk` は採らない（[設計 03](03-tech-selection.md) §1） |
 
 本番アダプタは Claude の OAuth ファイルをコピーしない。`seedIsolatedClaudeAuth` はテスト用で、connect は使わない（`packages/agent/src/claude-auth.ts`）。
 
@@ -65,7 +65,7 @@ Legal ページが禁止している核:
 
 公式経路:
 
-- Headless CLI（`agent -p` / `cursor-agent -p`、`CURSOR_API_KEY`）
+- Headless CLI（`agent -p` / `cursor-agent -p`、`agent login` または `CURSOR_API_KEY`）
 - TypeScript / Python SDK（製品バックエンドへの埋め込みをスタッフが intended use と回答している）
 - ACP（`agent acp`）＝カスタムクライアント
 
@@ -73,7 +73,7 @@ Legal ページが禁止している核:
 
 AUP の「automated or non-human means」は公式 Headless / SDK と併存している。公式 CLI 経由は許可された自動化と読む。スクレイピング用 bot の禁止条項。
 
-実装するなら spawn より **ACP か `@cursor/sdk`** の方が「カスタムクライアント」として条文と docs に素直。認証はユーザー自身のキー。Comitia の Cursor アカウントで他人の作業を回すのは再販・アカウント共有。ボード上のエージェントを Cursor 公式エージェントであるかのように出してはいけない。
+実装した経路は enginebay 経由の公式 Headless CLI（`agent -p` / `cursor-agent -p`）。ACP はカスタムクライアントとして条文には素直だが、`session/new` の MCP が通らず `--approve-mcps` が ACP に配線されていない。`@cursor/sdk` は埋め込みの intended use だが、`@bufbuild/protobuf` 1.x がアダプタの A2A SDK（protobuf 2）と衝突するので同梱しない。spawn は公式範囲。認証は同じマシンの `agent login`（ファイルはリンク、コピーしない）またはユーザー自身のキー。Comitia の Cursor アカウントで他人の作業を回すのは再販・アカウント共有。ボード上のエージェントを Cursor 公式エージェントであるかのように出してはいけない。
 
 ## 5. 灰色ゾーン（今後の拡張で踏むところ）
 
@@ -89,7 +89,7 @@ tick → セッションループ → 再駆動は公式 `-p` の連打であり
 
 PoC-1 と設計 03 は「隔離 `HOME` + コピーした `.credentials.json`」だった。Anthropic は「developers may not collect, store, or intermediate Claude.ai credentials or session tokens」と書いている。connect はホスト `HOME` を維持する方向へ既に寄っている。**コピーを connect に戻さない。** 隔離は `--setting-sources` と `GIT_CONFIG_GLOBAL` で足す（設計 08 の GitHub token もこの口）。
 
-`seedIsolatedClaudeAuth` はテスト用に残してよい。本番経路から呼んではいけない。
+`seedIsolatedClaudeAuth` はテスト用に残してよい。本番経路から呼んではいけない。Cursor の `~/.cursor/auth.json` もコピーせず、enginebay が隔離 `CURSOR_CONFIG_DIR` へシンボリックリンクする。
 
 ### 5.3 エンジンバイナリの同梱（preinstall）
 
@@ -109,7 +109,7 @@ PoC-1 と設計 03 は「隔離 `HOME` + コピーした `.credentials.json`」�
 
 ライブラリが「ユーザー所有の未改造 CLI + その人の契約」に閉じるなら §2 と同じ。ホスト側がキーを預かり複数テナントに配る API を足すと、両方の規約の再販・仲介に当たる。切り出し時は README にその境界を書く。Claude ドライバの auth attach は「keep host `HOME`」を正とし、「Comitia が既にコピーしているものをコピー」へ戻さない。
 
-Cursor ドライバを足すときは `cursor-agent -p` でも公式範囲だが、ACP / SDK を先に比較する（設計 03 §6 の先送り理由と同じ）。
+Cursor ドライバは enginebay 1.1 に入った。Comitia は薄いラッパだけを持つ。正は PATH の未改造バイナリ、ユーザー自身の login / キー、隔離 `CURSOR_CONFIG_DIR` の MCP、ホスト `HOME` の維持。ACP / SDK に切り替えるなら、先に MCP 注入と protobuf 衝突が解けていること。
 
 ### 5.6 LLM API プラグインが Claude.ai OAuth を中継する
 
@@ -136,7 +136,7 @@ OpenCode がホストの Claude Code 連携や Claude.ai OAuth を拾うのは�
 | --- | --- | --- |
 | 隔離 `HOME` + コピーした `.credentials.json` で `claude login` を引き継ぐ | [設計 03](03-tech-selection.md) §1・§4、PoC-1 | connect ではやらない。ホスト `HOME` + `--setting-sources` |
 | 両 CLI を npm 同梱できる | [設計 03](03-tech-selection.md) §1・§4 | Claude Code は同梱しない。PATH のみ |
-| `cursor-agent -p` が第一候補 | [設計 03](03-tech-selection.md) §1 | 公式範囲。実装時は ACP / SDK と比較（§5.5） |
+| `cursor-agent -p` が第一候補 | [設計 03](03-tech-selection.md) §1 | 採った。ACP は MCP 未配線、SDK は protobuf 衝突 |
 | サービス側ホスト型エージェント | [設計 02](02-agent-connection.md) §9 | 各ユーザー自己認証なしではやらない（§5.4） |
 | swarm で同ロールを並走 | [設計 02](02-agent-connection.md) §9、[設計 00](00-milestones.md) | 同一 Consumer login での並列は ordinary use の外側（§5.1） |
 | Claude ドライバは「Comitia が既にコピーしているものをコピー」 | [enginebay 設計](https://github.com/hskksk/enginebay/blob/main/docs/design.md) §7.1 | keep host `HOME` を正とする。コピーに戻さない |

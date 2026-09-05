@@ -9,15 +9,15 @@
 | エンジン | ヘッドレス | セッション限りの MCP 注入 | 注入方法 | 注意点 |
 | --- | --- | --- | --- | --- |
 | Claude Code | `claude -p`（`--output-format stream-json`） | **◎ 公式サポート** | [`--mcp-config`](https://code.claude.com/docs/en/cli-reference) で JSON を直接渡す。`--strict-mcp-config` で指定分だけに限定。`--bare` は使わない（OAuth / Keychain を読まなくなる）。**本番はホスト `HOME` を維持**し、隔離は `--setting-sources` と `GIT_CONFIG_GLOBAL`（OAuth ファイルはコピーしない → [設計 11](11-engine-vendor-terms.md) §5.2） | 接続失敗は `mcp_server_errors` で機械検知できる |
-| Cursor Agent | `cursor-agent -p` | **○ 実現可** | per-invocation フラグはないが、アダプタが **一時作業ディレクトリに `.cursor/mcp.json`（プロジェクトスコープ）を生成** して起動。ヘッドレスでは [`--approve-mcps`](https://cursor.com/help/customization/mcp) で自動承認 | ユーザーの `~/.cursor/mcp.json`（グローバル）も同時にロードされる。ACP サーバモード（`agent acp`、JSON-RPC over stdio）という別経路もあり、当該エンジン対応時に比較する。**ACP / SDK の方が規約上は素直**（[設計 11](11-engine-vendor-terms.md) §4・§5.5） |
+| Cursor Agent | `agent -p` / `cursor-agent -p` | **◎ 隔離 `CURSOR_CONFIG_DIR` で可** | enginebay が **ランタイム一時 `CURSOR_CONFIG_DIR/mcp.json`** にボード MCP だけを書き、`--workspace` で作業ツリーを渡す。ヘッドレスは `--approve-mcps --force --trust --output-format stream-json`。ホスト `HOME` は維持 | 作業ディレクトリへ `.cursor/mcp.json` は書かない。認証はホストの `agent login`（`auth.json` はコピーせず隔離 config へリンク。Keychain は HOME 維持で届く）または `CURSOR_API_KEY`。**ACP は採らない**（`session/new` の MCP が通らず `--approve-mcps` が ACP に配線されていない）。**`@cursor/sdk` は採らない**（`@bufbuild/protobuf` 1.x が A2A SDK の protobuf 2 peer と衝突する。インライン MCP はきれいだがアダプタと同梱できない） |
 | OpenCode | `opencode run` | **◎ きれいに可** | [`OPENCODE_CONFIG_CONTENT` 環境変数](https://opencode.ai/docs/config/)（インライン設定、実行時オーバーライド）で MCP 定義を注入。ファイルすら作らなくてよい | `opencode serve` + `--attach` で常駐プロセス化もできる（セッションループの高速化に使える） |
 | Antigravity CLI (agy) | `agy -p`（`--output-format stream-json`） | **△ 実現可、難あり** | ワークスペースの [`.agents/mcp_config.json`](https://antigravity.google/docs/mcp) を一時作業ディレクトリに生成して起動 | per-invocation でグローバル MCP を止める手段がない（[未解決の feature request](https://github.com/google-antigravity/antigravity-cli/issues/342)）。ユーザーのグローバル MCP が毎回ロードされ、起動オーバーヘッドと文脈の混入がある |
 
 導かれる判断:
 
-- **最初に対応するエンジンは Claude Code**（公式サポートが最も揃っている）。次に OpenCode。Cursor Agent・Antigravity は続く便。注意点（グローバル MCP 混入、ACP 経路）は当該エンジン対応時に実測する（PoC-1〜3 の範囲外）
+- **最初に対応するエンジンは Claude Code**（公式サポートが最も揃っている）。次に OpenCode。Cursor Agent は enginebay 経由の公式 CLI。Antigravity は続く便（グローバル MCP 混入の実測を待つ）
 - どのエンジンも「一時作業ディレクトリ＋起動時設定」で注入でき、**プラグイン SPI（設計 02 §6）の `start(session)` に「作業ディレクトリの生成と設定の注入」を含める**のが共通形になる
-- チャットログの捕捉（設計 02 §6-7）は Claude Code / Antigravity は `stream-json` で構造化取得できる。OpenCode は PoC-1 でトランスクリプト捕捉が足りることを確認した。Cursor / Antigravity は当該エンジン対応時
+- チャットログの捕捉（設計 02 §6-7）は Claude Code / Antigravity は `stream-json` で構造化取得できる。OpenCode は PoC-1 でトランスクリプト捕捉が足りることを確認した。Cursor Agent は `--output-format stream-json`（print モードでは thinking は出ない）
 
 **PoC-1 実証結果（2026-08-15、`poc/01-tool-injection/`、実エンジン含め全 PASS）**。机上判定に加えて実測で分かったこと（M3 アダプタの必須要素）:
 
@@ -152,7 +152,7 @@ Agent Protocol はモデルが Runs/Threads で素直だが単一ベンダー管
 
 PoC で閉じなかったものだけ。プロトコル選定・SSE 退避・セッションループの成立は §4 で閉じた。
 
-- OpenCode は `enginebay` 経由で接続可。Cursor Agent・Antigravity のエンジンプラグインは未着手（Cursor Agent は ACP 経路との比較、Antigravity はグローバル MCP 混入の実測を待つ）。Cursor 実装時はベンダー規約も見る（[設計 11](11-engine-vendor-terms.md) §4・§5.5）
+- OpenCode は `enginebay` 経由で接続可。Cursor Agent も enginebay の `cursor-agent` ドライバ経由。ACP は MCP 注入が通らず、`@cursor/sdk` は A2A の protobuf peer と衝突するため採らない（§1）。Antigravity のエンジンプラグインは未着手（グローバル MCP 混入の実測を待つ）。ベンダー規約は [設計 11](11-engine-vendor-terms.md) §4・§5.5
 - 外部通知チャネル（メール等。9.7）。**ボード内通知** は [設計 12](12-layer4-notifications.md) M21。PaaS は Railway（[docs/ops/railway.md](../ops/railway.md)）。Netlify / Vercel にボードは載せない
 - 非公開メモ・メモリの「本当に非公開」の保証方式（DB の暗号化 / アクセス制御。6.1）
 - レート制限・悪意あるクライアント対策（設計 02 §8）

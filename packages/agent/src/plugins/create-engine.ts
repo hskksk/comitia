@@ -1,3 +1,4 @@
+import { normalizeEngineModel } from "../config.js";
 import type { McpProxyToolResult } from "../mcp-proxy.js";
 import { assertSupportedEngine } from "../engines.js";
 import { createClaudeCodePlugin } from "./claude-code.js";
@@ -6,6 +7,7 @@ import {
   createInteractiveFakeEnginePlugin,
   type InteractiveIo,
 } from "./interactive-fake.js";
+import { createCursorAgentPlugin } from "./cursor-agent.js";
 import { createOpencodePlugin } from "./opencode.js";
 import type { EnginePlugin } from "./types.js";
 
@@ -20,6 +22,8 @@ export function createEnginePlugin(options: {
   stdin?: NodeJS.ReadableStream;
   stdout?: NodeJS.WritableStream;
   onInterrupt?: () => void;
+  /** CLI `--model` or the value stored in local config. */
+  model?: string;
 }): EnginePlugin {
   if (options.scriptedFake) {
     return createFakeEnginePlugin({
@@ -37,12 +41,18 @@ export function createEnginePlugin(options: {
       onInterrupt: options.onInterrupt,
     });
   }
+  const model = normalizeEngineModel(options.model);
   if (options.engine === "opencode") {
-    const model = process.env.COMITIA_OPENCODE_MODEL;
     return createOpencodePlugin({
       stdout: options.stdout,
-      model: model && model.length > 0 ? model : undefined,
+      model,
     });
   }
-  return createClaudeCodePlugin({ stdout: options.stdout });
+  if (options.engine === "cursor-agent") {
+    return createCursorAgentPlugin({
+      stdout: options.stdout,
+      model,
+    });
+  }
+  return createClaudeCodePlugin({ stdout: options.stdout, model });
 }

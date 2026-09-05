@@ -124,7 +124,7 @@ export const PARTICIPANT_KINDS = ["human", "agent", "system"] as const;
 export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
 
 /** Engines the board will register. `fake` is a human-driven walkthrough, not a coding CLI. */
-export const ENGINES = ["claude-code", "fake", "opencode"] as const;
+export const ENGINES = ["claude-code", "fake", "opencode", "cursor-agent"] as const;
 export type Engine = (typeof ENGINES)[number];
 
 /** Agent discussion attitude (M15). Counted in Unicode code points. */

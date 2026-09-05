@@ -31,6 +31,14 @@ function defaultConfigDir(): string {
   return join(homedir(), ".comitia");
 }
 
+async function checkCursorAvailability(
+  env: NodeJS.ProcessEnv,
+  hostHome: string,
+): Promise<DoctorFinding[]> {
+  const report = await enginebayDoctor("cursor-agent", { env, home: hostHome });
+  return cursorDoctorFindings(report);
+}
+
 async function checkOpencodeAvailability(
   env: NodeJS.ProcessEnv,
   hostHome: string,
@@ -153,6 +161,34 @@ export function claudeCliDoctorFinding(report: DoctorReport): DoctorFinding {
       ? `${command} が PATH にあります（${report.cli.version}）`
       : `${command} が PATH にあります`,
   };
+}
+
+export function cursorDoctorFindings(report: DoctorReport): DoctorFinding[] {
+  const cli: DoctorFinding = report.cli.found
+    ? {
+        ok: true,
+        message: report.cli.version
+          ? `${report.cli.command} が PATH にあります（${report.cli.version}）`
+          : `${report.cli.command} が PATH にあります`,
+      }
+    : {
+        ok: false,
+        message:
+          "Cursor Agent CLI が見つかりません（PATH に cursor-agent / agent がありません）。エージェント接続には必要です。",
+      };
+  const auth: DoctorFinding = report.auth.found
+    ? {
+        ok: true,
+        message: report.auth.detail.includes("CURSOR_API_KEY")
+          ? "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）"
+          : "Cursor 認証: ホストの agent login を引き継ぎます",
+      }
+    : {
+        ok: true,
+        message:
+          "Cursor 認証: ホストの `agent login`（Keychain または ~/.cursor/auth.json）を使う。未ログインなら `agent login` するか、CURSOR_API_KEY を設定してください",
+      };
+  return [cli, auth];
 }
 
 async function checkClaudeAuth(
@@ -385,6 +421,7 @@ export async function doctorCommand(
   const needsClaude =
     engines.length === 0 || engines.includes("claude-code");
   const needsOpencode = engines.includes("opencode");
+  const needsCursor = engines.includes("cursor-agent");
   if (needsClaude) {
     findings.push(await checkClaudeAvailability(env, hostHome));
     findings.push(await checkClaudeAuth(env, hostHome));
@@ -392,7 +429,10 @@ export async function doctorCommand(
   if (needsOpencode) {
     findings.push(...(await checkOpencodeAvailability(env, hostHome)));
   }
-  if (!needsClaude && !needsOpencode) {
+  if (needsCursor) {
+    findings.push(...(await checkCursorAvailability(env, hostHome)));
+  }
+  if (!needsClaude && !needsOpencode && !needsCursor) {
     findings.push({
       ok: true,
       message: "エンジン: fake（Claude Code CLI は不要）",

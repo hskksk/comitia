@@ -16,6 +16,7 @@ import {
   doctorCommand,
   opencodeDoctorFindings,
   claudeCliDoctorFinding,
+  cursorDoctorFindings,
   workspaceDoctorFindings,
 } from "./commands/doctor.js";
 import { namedWorkspacePath } from "enginebay";
@@ -26,6 +27,7 @@ import { wakeCommand } from "./commands/wake.js";
 import { agentLogsCommand } from "./commands/agent-logs.js";
 import { initCommand } from "./commands/init.js";
 import { registerCommand } from "./commands/register.js";
+import { updateCommand } from "./commands/update.js";
 import {
   projectCommand,
   projectCreateCommand,
@@ -116,6 +118,20 @@ describe("init and agent register commands", () => {
       command: "agent-connect",
       name: "mika",
     });
+    expect(
+      parseCliArgs(["agent", "connect", "mika", "--model", "composer-2.5"]),
+    ).toEqual({
+      command: "agent-connect",
+      name: "mika",
+      model: "composer-2.5",
+    });
+    expect(
+      parseCliArgs(["agent", "connect", "mika", "--model", ""]),
+    ).toEqual({
+      command: "agent-connect",
+      name: "mika",
+      model: "",
+    });
   });
 
   it("parses help commands", () => {
@@ -162,6 +178,7 @@ describe("init and agent register commands", () => {
       name: "mika",
       engine: "fake",
       personality: undefined,
+      model: undefined,
     });
     expect(
       parseCliArgs([
@@ -176,6 +193,23 @@ describe("init and agent register commands", () => {
       name: "mika",
       engine: undefined,
       personality: "慎重",
+      model: undefined,
+    });
+    expect(
+      parseCliArgs(["agent", "update", "mika", "--model", "composer-2.5"]),
+    ).toEqual({
+      command: "agent-update",
+      name: "mika",
+      engine: undefined,
+      personality: undefined,
+      model: "composer-2.5",
+    });
+    expect(parseCliArgs(["agent", "update", "mika", "--model", ""])).toEqual({
+      command: "agent-update",
+      name: "mika",
+      engine: undefined,
+      personality: undefined,
+      model: "",
     });
     expect(
       parseCliArgs([
@@ -196,12 +230,35 @@ describe("init and agent register commands", () => {
       project: undefined,
       personality: "対立保持",
     });
+    expect(
+      parseCliArgs([
+        "agent",
+        "register",
+        "--engine",
+        "cursor-agent",
+        "--name",
+        "ren",
+        "--model",
+        "composer-2.5",
+      ]),
+    ).toEqual({
+      command: "agent-register",
+      engine: "cursor-agent",
+      name: "ren",
+      role: undefined,
+      project: undefined,
+      personality: undefined,
+      model: "composer-2.5",
+    });
   });
 
   it("rejects missing agent connect name with usage", () => {
     expect(() => parseCliArgs(["agent", "connect"])).toThrow(
-      "Usage: comitia agent connect <name>",
+      "Usage: comitia agent connect <name> [--model <id>]",
     );
+    expect(() =>
+      parseCliArgs(["agent", "connect", "mika", "--engine", "fake"]),
+    ).toThrow("Usage: comitia agent connect <name> [--model <id>]");
   });
 
   it("rejects unknown subcommands with usage", () => {
@@ -266,6 +323,17 @@ describe("init and agent register commands", () => {
     const withFake = await loadConfig(configDir);
     expect(withFake.agents.walker?.engine).toBe("fake");
     expect(withFake.agents.walker?.agentId).toBeTruthy();
+
+    await registerCommand({
+      name: "ren",
+      engine: "cursor-agent",
+      model: "composer-2.5",
+      configDir,
+    });
+    const withModel = await loadConfig(configDir);
+    expect(withModel.agents.ren?.engine).toBe("cursor-agent");
+    expect(withModel.agents.ren?.model).toBe("composer-2.5");
+    expect(withModel.agents.mika?.model).toBeUndefined();
   });
 
   it("creates, lists, and switches projects", async () => {
@@ -495,6 +563,81 @@ describe("operator commands", () => {
     const output = chunks.join("");
     expect(output).toContain("mika\tclaude-code\tagent-1");
     expect(output).not.toContain("comt_");
+  });
+
+  it("prints stored model as a fourth list column", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          ownerToken: "comt_owner_test",
+          agents: {
+            ren: {
+              agentId: "agent-2",
+              token: "comt_agent_test",
+              engine: "cursor-agent",
+              model: "composer-2.5",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+    await runCli(["agent", "list"], { configDir, stdout });
+    expect(chunks.join("")).toContain(
+      "ren\tcursor-agent\tagent-2\tcomposer-2.5",
+    );
+  });
+
+  it("persists and clears --model on agent update without calling the board", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeConfig(configDir);
+
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await updateCommand({
+      name: "mika",
+      model: "composer-2.5",
+      configDir,
+      stdout,
+    });
+    expect((await loadConfig(configDir)).agents.mika?.model).toBe(
+      "composer-2.5",
+    );
+    expect(chunks.join("")).toContain("mika の model を composer-2.5 に更新しました。");
+
+    await updateCommand({
+      name: "mika",
+      engine: "cursor-agent",
+      configDir,
+      stdout,
+    });
+    expect((await loadConfig(configDir)).agents.mika).toMatchObject({
+      engine: "cursor-agent",
+      model: "composer-2.5",
+    });
+
+    await updateCommand({
+      name: "mika",
+      model: "",
+      configDir,
+      stdout,
+    });
+    expect((await loadConfig(configDir)).agents.mika?.model).toBeUndefined();
+    expect((await loadConfig(configDir)).agents.mika?.engine).toBe("cursor-agent");
+    expect(chunks.join("")).toContain("mika の model を外しました。");
   });
 
   it("prints status from mocked board responses", async () => {
@@ -765,6 +908,65 @@ describe("operator commands", () => {
     });
   });
 
+  it("maps enginebay doctor output into Japanese Cursor findings", () => {
+    expect(
+      cursorDoctorFindings({
+        ok: false,
+        engine: "cursor-agent",
+        cli: { found: false, command: "cursor-agent" },
+        auth: { found: false, detail: "missing" },
+        message: "cursor-agent CLI is not on PATH",
+      }),
+    ).toEqual([
+      {
+        ok: false,
+        message:
+          "Cursor Agent CLI が見つかりません（PATH に cursor-agent / agent がありません）。エージェント接続には必要です。",
+      },
+      {
+        ok: true,
+        message:
+          "Cursor 認証: ホストの `agent login`（Keychain または ~/.cursor/auth.json）を使う。未ログインなら `agent login` するか、CURSOR_API_KEY を設定してください",
+      },
+    ]);
+    expect(
+      cursorDoctorFindings({
+        ok: true,
+        engine: "cursor-agent",
+        cli: { found: true, command: "agent", version: "1.0.0-fake" },
+        auth: { found: true, detail: "CURSOR_API_KEY is set (overrides agent login)" },
+        message: "ok",
+      }),
+    ).toEqual([
+      {
+        ok: true,
+        message: "agent が PATH にあります（1.0.0-fake）",
+      },
+      {
+        ok: true,
+        message: "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）",
+      },
+    ]);
+    expect(
+      cursorDoctorFindings({
+        ok: true,
+        engine: "cursor-agent",
+        cli: { found: true, command: "agent" },
+        auth: { found: true, detail: "Cursor auth file present at /tmp/host/.cursor/auth.json" },
+        message: "ok",
+      }),
+    ).toEqual([
+      {
+        ok: true,
+        message: "agent が PATH にあります",
+      },
+      {
+        ok: true,
+        message: "Cursor 認証: ホストの agent login を引き継ぎます",
+      },
+    ]);
+  });
+
   it("checks OpenCode when an agent uses that engine", async () => {
     const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
     const hostHome = await mkdtemp(join(tmpdir(), "comitia-doctor-oc-home-"));
@@ -836,6 +1038,150 @@ describe("operator commands", () => {
     expect(output).toContain("OpenCode 認証: ホストの opencode auth を引き継ぎます");
     expect(output).not.toContain("Claude Code CLI が見つかりません");
     expect(output).not.toContain("エンジン: fake");
+  });
+
+  it("checks Cursor Agent when an agent uses that engine", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    const hostHome = await mkdtemp(join(tmpdir(), "comitia-doctor-cursor-home-"));
+    const binDir = await mkdtemp(join(tmpdir(), "comitia-doctor-cursor-bin-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    cleanups.push(() => rm(hostHome, { recursive: true }));
+    cleanups.push(() => rm(binDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          ownerToken: "comt_owner_test",
+          ownerId: "owner-1",
+          projectId: "project-1",
+          agents: {
+            ren: {
+              agentId: "agent-cursor",
+              token: "comt_agent_test",
+              engine: "cursor-agent",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+    const fake = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../test/fake-opencode.mjs",
+    );
+    await chmod(fake, 0o755);
+    await symlink(fake, join(binDir, "agent"));
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "GitHub App is not configured" }),
+          { status: 503 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+      env: {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        HOME: hostHome,
+        CURSOR_API_KEY: "user-key",
+      },
+      hostHome,
+    });
+    const output = chunks.join("");
+    expect(output).toContain("agent が PATH にあります");
+    expect(output).toContain(
+      "Cursor 認証: CURSOR_API_KEY が設定されています（自分のキー）",
+    );
+    expect(output).not.toContain("Claude Code CLI が見つかりません");
+    expect(output).not.toContain("エンジン: fake");
+  });
+
+  it("reports that a host agent login will be inherited", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    const hostHome = await mkdtemp(join(tmpdir(), "comitia-doctor-cursor-login-"));
+    const binDir = await mkdtemp(join(tmpdir(), "comitia-doctor-cursor-login-bin-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    cleanups.push(() => rm(hostHome, { recursive: true }));
+    cleanups.push(() => rm(binDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          ownerToken: "comt_owner_test",
+          ownerId: "owner-1",
+          projectId: "project-1",
+          agents: {
+            ren: {
+              agentId: "agent-cursor",
+              token: "comt_agent_test",
+              engine: "cursor-agent",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+    await mkdir(join(hostHome, ".cursor"), { recursive: true });
+    await writeFile(
+      join(hostHome, ".cursor", "auth.json"),
+      '{"dummy":true}\n',
+      { mode: 0o600 },
+    );
+    const fake = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../test/fake-opencode.mjs",
+    );
+    await chmod(fake, 0o755);
+    await symlink(fake, join(binDir, "agent"));
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      if (String(input).endsWith("/healthz")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (String(input).endsWith("/v1/me/github-credentials")) {
+        return new Response(
+          JSON.stringify({ error: "GitHub App is not configured" }),
+          { status: 503 },
+        );
+      }
+      return new Response("error", { status: 500 });
+    });
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (chunk) => chunks.push(String(chunk)));
+
+    await doctorCommand({
+      configDir,
+      fetch: fetchMock as typeof fetch,
+      stdout,
+      env: {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        HOME: hostHome,
+      },
+      hostHome,
+    });
+    const output = chunks.join("");
+    expect(output).toContain("agent が PATH にあります");
+    expect(output).toContain("Cursor 認証: ホストの agent login を引き継ぎます");
+    expect(output).not.toContain("CURSOR_API_KEY が設定されています");
   });
 
   it("reports that a host claude login will be inherited", async () => {

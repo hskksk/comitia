@@ -25,7 +25,7 @@ import {
   USAGE_TEXT,
   UsageError,
 } from "./cli-usage.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, normalizeEngineModel } from "./config.js";
 import { assertSupportedEngine } from "./engines.js";
 import { createMcpProxyRuntime } from "./mcp-proxy.js";
 import { createEnginePlugin } from "./plugins/create-engine.js";
@@ -70,10 +70,12 @@ type ParsedCommand =
       role?: string;
       project?: string;
       personality?: string;
+      model?: string;
     }
   | {
       command: "agent-connect";
       name: string;
+      model?: string;
     }
   | {
       command: "agent-wake";
@@ -98,6 +100,7 @@ type ParsedCommand =
       name: string;
       engine?: string;
       personality?: string;
+      model?: string;
     }
   | {
       command: "project";
@@ -217,16 +220,33 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       role: options.get("role"),
       project: options.get("project"),
       personality: options.get("personality"),
+      model: options.get("model"),
     };
   }
   if (args[0] === "agent" && args[1] === "connect") {
-    if (!args[2]) {
-      throw new UsageError("Usage: comitia agent connect <name>");
+    const usage = "Usage: comitia agent connect <name> [--model <id>]";
+    if (!args[2] || args[2].startsWith("-")) {
+      throw new UsageError(usage);
     }
-    if (args.length !== 3) {
-      throw new UsageError("Usage: comitia agent connect <name>");
+    const name = args[2];
+    const rest = args.slice(3);
+    if (rest.length === 0) {
+      return { command: "agent-connect", name };
     }
-    return { command: "agent-connect", name: args[2] };
+    let options: Map<string, string>;
+    try {
+      options = parseOptions(rest);
+    } catch {
+      throw new UsageError(usage);
+    }
+    if (![...options.keys()].every((key) => key === "model")) {
+      throw new UsageError(usage);
+    }
+    return {
+      command: "agent-connect",
+      name,
+      model: options.has("model") ? (options.get("model") ?? "") : undefined,
+    };
   }
   if (args[0] === "agent" && args[1] === "wake") {
     if (!args[2]) {
@@ -314,26 +334,26 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     return { command: "agent-trace", name, sessionId, follow, json };
   }
   if (args[0] === "agent" && args[1] === "update") {
-    if (!args[2]) {
-      throw new UsageError(
-        "Usage: comitia agent update <name> [--engine <engine>] [--personality <name|path>]",
-      );
+    const usage =
+      "Usage: comitia agent update <name> [--engine <engine>] [--personality <name|path>] [--model <id>]";
+    if (!args[2] || args[2].startsWith("-")) {
+      throw new UsageError(usage);
     }
     const options = parseOptions(args.slice(3));
     const engine = options.get("engine");
     const personality = options.has("personality")
       ? options.get("personality")
       : undefined;
-    if (!engine && personality === undefined) {
-      throw new UsageError(
-        "Usage: comitia agent update <name> [--engine <engine>] [--personality <name|path>]",
-      );
+    const model = options.has("model") ? (options.get("model") ?? "") : undefined;
+    if (!engine && personality === undefined && model === undefined) {
+      throw new UsageError(usage);
     }
     return {
       command: "agent-update",
       name: args[2],
       engine,
       personality,
+      model,
     };
   }
   if (args[0] === "project" && args[1] === undefined) {
@@ -478,6 +498,7 @@ export async function runCli(
     callTool: (name, toolArgs) => runtime.callTool(name, toolArgs),
     scriptedFake: process.env.COMITIA_FAKE_ENGINE === "1",
     stdout,
+    model: normalizeEngineModel(command.model ?? agent.model),
     onInterrupt: () => {
       void handle?.close().finally(() => {
         process.exit(0);

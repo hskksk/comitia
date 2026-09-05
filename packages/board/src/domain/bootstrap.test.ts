@@ -109,9 +109,22 @@ describe("bootstrap", () => {
       registerAgent(db, {
         ownerParticipantId: boot.owner.id,
         displayName: "ソウ",
-        engine: "cursor-agent",
+        engine: "antigravity",
       }),
-    ).rejects.toThrow(/claude-code, fake, opencode/);
+    ).rejects.toThrow(/claude-code, fake, opencode, cursor-agent/);
+  });
+
+  it("accepts the cursor-agent engine", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const registered = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "レン",
+      engine: "cursor-agent",
+    });
+    expect(registered.agent.engine).toBe("cursor-agent");
   });
 
   it("accepts the fake walkthrough engine", async () => {

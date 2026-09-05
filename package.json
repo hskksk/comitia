@@ -17,7 +17,7 @@
     "seed:reset": "pnpm --filter @comitia/board run seed:reset"
   },
   "dependencies": {
-    "enginebay": "^0.1.0"
+    "enginebay": "^1.1.0"
   },
   "devDependencies": {
     "railway": "^3.10.0",

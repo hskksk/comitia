@@ -81,6 +81,9 @@ export function engineLabel(engine: string | null): string {
   if (engine === "opencode") {
     return "OpenCode";
   }
+  if (engine === "cursor-agent") {
+    return "Cursor Agent";
+  }
   return engine ?? "";
 }
 

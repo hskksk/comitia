@@ -1,4 +1,9 @@
-import { loadConfig, saveConfig } from "../config.js";
+import {
+  loadConfig,
+  normalizeEngineModel,
+  saveConfig,
+  type LocalAgentConfig,
+} from "../config.js";
 import { assertSupportedEngine } from "../engines.js";
 import { resolvePersonalitySpec } from "../personality-spec.js";
 
@@ -8,6 +13,7 @@ export interface RegisterCommandOptions {
   role?: string;
   project?: string;
   personality?: string;
+  model?: string;
   configDir?: string;
 }
 
@@ -53,16 +59,21 @@ export async function registerCommand(
     projectId: string;
     agentToken: string;
   };
+  const local: LocalAgentConfig = {
+    agentId: result.agentId,
+    token: result.agentToken,
+    engine: options.engine,
+  };
+  const model = normalizeEngineModel(options.model);
+  if (model) {
+    local.model = model;
+  }
   await saveConfig(options.configDir, {
     ...config,
     projectId: result.projectId,
     agents: {
       ...config.agents,
-      [options.name]: {
-        agentId: result.agentId,
-        token: result.agentToken,
-        engine: options.engine,
-      },
+      [options.name]: local,
     },
   });
 }
