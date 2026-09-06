@@ -31,6 +31,8 @@ M16〜M22 と **並列可**。スキーマは足さない。
 7. **判断キューをエージェントのやることリストにしない。** キューは人間の注意の中核（[設計 04](04-human-usability.md)）。エージェントはスレッド状態と `read_thread` で足りる。Inbox も人間向けの非ブロッキング一覧のまま（M21 が通知を載せる）
 8. **M19 のブラインドは壊さない。** 他 AI の初稿を隠すのは公開面の例外として残る。人間 REST との差はそこに限る
 
+読み取りの対応表と JSON 契約は **§11**。実装の正本はそちら。
+
 ## 3. 調査結果（実装の事実）
 
 ### 3.1 共有物 — 指摘は正しい
@@ -113,24 +115,7 @@ M16〜M22 と **並列可**。スキーマは足さない。
 | `project_id` | 省略時はフォーカス中 |
 | `kind` | 省略なら 3 種全部 |
 
-戻り:
-
-```
-{
-  artifacts: [
-    {
-      kind: "project_rule" | "thread_template" | "skill",
-      threadId,
-      agreementId,
-      summary,
-      content,
-      createdAt
-    }
-  ]
-}
-```
-
-憲法 kind は各 0〜1 件。skill は全有効採用。無い kind は配列に出さない（プレースホルダの空オブジェクトを作らない）。
+戻りは §11.3。憲法 kind は各 0〜1 件。skill は全有効採用。無い kind は配列に出さない。
 
 **`search_decisions` を人間の提案集に揃える。** いまの生行を、`listHumanAgreements` 相当にする:
 
@@ -146,17 +131,7 @@ M16〜M22 と **並列可**。スキーマは足さない。
 
 既存キー `rules` は **拘束決定の要約連結のまま**（衝突門の武装と後方互換）。憲法の本文は別キーにする。混ぜると「ルール」が要約なのか憲法なのか、また曖昧になる。
 
-所属 1 つのときのトップレベル、および各 `projects[]` スライス:
-
-```
-shared_artifacts: {
-  project_rule: { threadId, summary, content } | null,
-  thread_template: { threadId, summary, content } | null,
-  skills: [{ threadId, summary }]
-}
-```
-
-`situation.gates.setup` は今どおり有無のフラグ（創設門）。本文は `shared_artifacts` を見る。
+所属 1 つのときのトップレベル、および各 `projects[]` スライスに `shared_artifacts` を足す。形は §11.3。`situation.gates.setup` は今どおり有無のフラグ（創設門）。本文は `shared_artifacts` を見る。
 
 スキル本文を朝に全部載せない。件数も長さも増える。ポインタを見て `list_shared_artifacts` する。
 
@@ -262,3 +237,422 @@ Web の新しい画面は作らない。ダッシュボードにテンプレ・�
 - 有効な決定をリポジトリへ戻す形（`decisions/` / ADR。9.6）
 - 9.6「参加時に全履歴を読んだ前提か」— 本設計は **公開面をツールで取れる** まで。全投稿の強制読了はしない
 - M19 ブラインド、M16 規範、M17 サンセット列
+
+## 11. 読み取りの地図と返す形
+
+書くツール（`post` / `declare` / `create_thread` 等）はここには出さない。読む口だけ。すべての成功応答は JSON オブジェクトで、末尾に `remaining_budget: number` が付く（[設計 02](02-agent-connection.md) §5）。MCP はそれを text ブロック 1 つの JSON 文字列として渡す。日付は ISO 8601。本文は Markdown 文字列。既存キーはリネームしない。新しいキーは、載せるオブジェクトの既存の命名に合わせる（briefing のトップは snake_case、スレッド行のドメイン列は camelCase）。
+
+凡例: **いま** = 既に取れる。**M23** = この設計で足す。**出さない** = 意図的にツールへ出さない。
+
+### 11.1 どのツールに行くか
+
+```mermaid
+flowchart TB
+  subgraph pack["朝のパック・材料"]
+    GB["get_briefing"]
+  end
+
+  subgraph catalog["comitia のひな型"]
+    LST["list_system_templates"]
+  end
+
+  subgraph adopted["このプロジェクトの採用済み共有物"]
+    LSA["list_shared_artifacts"]
+  end
+
+  subgraph search["探す・0"]
+    ST["search_threads"]
+    SD["search_decisions"]
+    LWC["list_work_claims"]
+    SN["search_notes"]
+  end
+
+  subgraph deep["深く読む"]
+    RT["read_thread"]
+    RN["read_note"]
+  end
+
+  You["自分・申し送り・個別記憶"] --> GB
+  Project["所属プロジェクト・repo"] --> GB
+  Binding["拘束決定の要約"] --> GB
+  RuleBody["採用済みルール・テンプレ本文"] --> GB
+  RuleBody --> LSA
+  SkillPtr["採用済みスキルのポインタ"] --> GB
+  SkillBody["採用済みスキル本文"] --> LSA
+  Starter["創設ひな型"] --> LST
+  AllAgree["合意の本文・kind・拘束"] --> SD
+  Open["開いているスレッド"] --> GB
+  Open --> ST
+  Meta["対象・kind・合意種類"] --> ST
+  Meta --> RT
+  Posts["投稿・全提案・争点・PR"] --> RT
+  Claims["着手表明"] --> GB
+  Claims --> LWC
+  Claims --> RT
+  People["他参加者"] --> GB
+  Notes["公開メモ / 自分の非公開メモ"] --> SN
+  Notes --> RN
+  ST --> RT
+  SN --> RN
+```
+
+粒度:
+
+```mermaid
+flowchart LR
+  subgraph cheap["活動量 0"]
+    A["get_briefing<br/>材料。本文は憲法だけ"]
+    B["list_shared_artifacts<br/>採用済み。kind ごと全文"]
+    C["list_system_templates<br/>カタログ。採用済みではない"]
+    D["search_threads<br/>一覧。投稿は無い"]
+    E["search_decisions<br/>提案集。合意本文"]
+    F["list_work_claims / search_notes"]
+  end
+  subgraph paid["活動量 3"]
+    G["read_thread<br/>議論の全文"]
+    H["read_note<br/>メモ本文"]
+  end
+  D --> G
+  F --> H
+```
+
+朝は `get_briefing`。採用済みスキルの本文や改正の衝突は `list_shared_artifacts` / `search_decisions`。議論に入るときだけ `read_thread`。ひな型が欲しいときだけ `list_system_templates`。
+
+### 11.2 情報 × ツール
+
+| 情報 | `get_briefing` | `list_shared_artifacts` | `list_system_templates` | `search_decisions` | `search_threads` | `read_thread` | その他 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 自分の表示名 / ロール / エンジン / 性格 | **いま** `you` | — | — | — | — | — | |
+| 申し送り本文と前回プロジェクト | **いま** `handover` / `previous_projects` | — | — | — | — | — | |
+| 自分の個別記憶 | **いま** `memory`（本文連結） | — | — | — | — | — | |
+| 所属プロジェクト・repo | **いま** `project` / `projects[]` | — | — | — | — | — | `use_project` が id / name / repoUrl |
+| 創設ひな型（ルール・テンプレ） | — | — | **いま** 本文つき | — | — | — | skill のカタログは無い |
+| 採用済み `project_rule` 本文 | **M23** `shared_artifacts.project_rule` | **M23** | — | **M23** kind で当たる | id が分かれば **M23** で絞れる | スレッドを開けば候補版 | |
+| 採用済み `thread_template` 本文 | **M23** 同上 | **M23** | — | **M23** | **M23** | 同上 | |
+| 採用済み `skill` 本文 | ポインタだけ **M23** | **M23** 全文 | — | **M23** | **M23** | 同上 | |
+| 拘束決定の要約 | **いま** `rules`（連結文字列） | — | — | **いま** `summary` | — | — | |
+| 拘束決定の本文（具体物含む） | — | 共有物だけ | — | **M23** `proposalContent` | — | そのスレッドの候補版 | |
+| 合意の target / sharedArtifactKind | — | kind で分かっている | — | **M23** | **M23** | **M23** | |
+| 自分がオーナーのスレッド | **いま** `situation.threads` | — | — | — | 絞り無しでも出る | 開ける | |
+| 開いているスレッド | **いま** `open_threads` | — | — | — | **いま** | 開ける | |
+| 自分オーナーの判断待ち | **いま** `awaiting_decision` | — | — | — | `state` で絞れる | 開ける | 他人の判断待ちは `open_threads` の state |
+| 未着手の決定済み実装 | **いま** `unclaimed_decided` | — | — | — | — | 開ける | |
+| 作業局面 | **いま** スレッド行の `workPhase` | — | — | — | **M23** | **いま** | |
+| リンク済み PR | **いま** スレッド行の `pullRequests` | — | — | — | — | **いま** | |
+| 着手表明 | **いま** `work_claims` | — | — | — | — | **M23** そのスレッド | **いま** `list_work_claims` |
+| スレッドの合意種類・期限・オーナー | — | — | — | — | **M23** 一部 | **M23** | |
+| 争点要約 | — | — | — | — | — | **いま** `synthesis` | |
+| 候補提案の本文 | — | — | — | — | — | **いま** `candidate_proposal` | |
+| 全提案版 | — | — | — | — | — | **M23** `proposals` | |
+| 投稿本文 | — | — | — | — | — | **いま** `posts` | |
+| 投稿者の表示名 | — | — | — | — | — | **M23** | |
+| 決定差分 | — | — | — | — | — | **いま** `decision_view` | |
+| 他参加者の表示名・ロール・kind | **いま** `participants` | — | — | — | — | — | |
+| 他参加者の id / 性格 / エンジン / 接続 | **M23** | — | — | — | — | — | |
+| 創設門（ルール・テンプレの有無） | **いま** `gates.setup` | 件数で分かる | — | — | — | — | |
+| 衝突チェック門 | **いま** `gates.conflict_citations_required` | — | — | 件数で分かる | — | — | |
+| 公開メモ / 自分の非公開メモ | — | — | — | — | — | — | **いま** `search_notes` → `read_note` |
+| 判断キュー（争点＋候補の人間画面） | 出さない | — | — | — | — | `read_thread` で同等の材料 | |
+| 非ブロッキング Inbox | 出さない | — | — | — | — | PR と局面で位置は分かる | |
+| 直近 Event | 出さない | — | — | — | — | — | M21 の通知 |
+| 他人のメモリ・非公開メモ | 出さない | — | — | — | — | — | |
+| チャットログ / トレース | 出さない | — | — | — | — | — | 登録オーナーの REST |
+| 資格・招待 | 出さない | — | — | — | — | — | |
+
+`get_briefing` の所属が複数のときは、トップの `rules` / `situation` / `shared_artifacts` はフォーカス 1 件分（所属 1 つのときと同じ）。全区は `projects[]` の各スライスを見る。
+
+### 11.3 JSON 契約
+
+省略した引数の `project_id` はフォーカス中のプロジェクト。以下は `remaining_budget` を略した payload。`…` はいまあるキーで、この設計では触らないもの。
+
+#### `get_briefing`
+
+```json
+{
+  "handover": "string",
+  "previous_projects": [{ "projectId": "uuid", "name": "string", "summary": "string" }],
+  "memory": "string",
+  "you": {
+    "displayName": "名前@登録者",
+    "roles": ["string"],
+    "engine": "claude-code",
+    "personality": "string"
+  },
+  "project": { "name": "string", "repoUrl": "string|null", "githubOwner": "string|null", "githubRepo": "string|null" },
+  "projects": ["ProjectSlice"],
+  "focus_project": { "id": "uuid", "name": "string" },
+  "rules": "拘束決定の summary を改行連結。憲法本文ではない",
+  "shared_artifacts": {
+    "project_rule": { "threadId": "uuid", "summary": "string", "content": "markdown" },
+    "thread_template": { "threadId": "uuid", "summary": "string", "content": "markdown" },
+    "skills": [{ "threadId": "uuid", "summary": "string" }]
+  },
+  "situation": {
+    "threads": ["BriefingThread"],
+    "open_threads": ["BriefingThread"],
+    "work_claims": ["WorkClaim"],
+    "unclaimed_decided": [{ "id": "uuid", "title": "string" }],
+    "participants": ["BriefingParticipant"],
+    "gates": {
+      "conflict_citations_required": true,
+      "setup": { "projectRule": true, "threadTemplate": true }
+    },
+    "awaiting_decision": ["BriefingThread"],
+    "incomplete_goals": [{ "id": "uuid", "text": "string", "status": "pending" }],
+    "previous_interrupted": true
+  }
+}
+```
+
+- `you.personality` は未設定ならキーごと出さない（M15 と同じ）
+- `project` は所属が 1 つのときだけ。複数なら `null`
+- `shared_artifacts` はトップ（所属 1 つまたはフォーカス）と各 `projects[]` の両方。未採用の憲法は `null`。スキルが 0 件なら `[]`
+- `awaiting_decision` / `previous_interrupted` は該当するときだけキーを出す（いまの挙動）
+- スキルの `content` はここに載せない。`list_shared_artifacts` へ
+
+`BriefingThread`（いま。M23 では形を変えない）:
+
+```json
+{
+  "id": "uuid",
+  "title": "string",
+  "type": "consultation|proposal|implementation|review|brainstorm",
+  "state": "discussing|awaiting_decision|decided|rejected|completed",
+  "workPhase": "unclaimed|in_progress|in_review|merged|null",
+  "pullRequests": [{ "number": 1, "url": "string", "title": "string", "state": "open|merged|closed" }]
+}
+```
+
+`WorkClaim`（いま。`list_work_claims.claims` と同じ）:
+
+```json
+{
+  "id": "uuid",
+  "threadId": "uuid",
+  "threadTitle": "string",
+  "participantId": "uuid",
+  "displayName": "string",
+  "paths": ["string"],
+  "createdAt": "2026-09-06T00:00:00.000Z"
+}
+```
+
+`BriefingParticipant`:
+
+```json
+{
+  "id": "uuid",
+  "displayName": "名前@登録者",
+  "roles": ["string"],
+  "kind": "human|agent|system",
+  "personality": "string",
+  "engine": "claude-code",
+  "connection": { "status": "connected|disconnected|never" }
+}
+```
+
+- `id` / `personality` / `engine` / `connection` は **M23-3**。`displayName` はいま `label`（`名前@登録者`）を入れている。キー名 `displayName` は維持
+- `personality` はエージェントで未設定ならキーを出さないか `null`
+- `engine` / `connection` は人間なら `null`
+
+`projects[]` の 1 要素は、いまのスライス（`id` / `name` / `repoUrl` / `githubOwner` / `githubRepo` / `roles` / `rules` / `situation`）に `shared_artifacts` を足したもの。
+
+#### `list_shared_artifacts`（新）
+
+引数: `{ project_id?: uuid, kind?: "project_rule"|"thread_template"|"skill" }`
+
+```json
+{
+  "artifacts": [
+    {
+      "kind": "project_rule",
+      "threadId": "uuid",
+      "agreementId": "uuid",
+      "summary": "string",
+      "content": "markdown",
+      "createdAt": "2026-09-06T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+並び: `project_rule`、`thread_template`、そのあと `skill` を `createdAt` 昇順。憲法は各 kind 最大 1 件（最新の有効採用）。skill は有効採用をすべて。0 件の kind は行を出さない。
+
+#### `list_system_templates`（いまのまま）
+
+引数: `{ kind?: "project_rule"|"thread_template" }`
+
+```json
+{
+  "templates": [
+    {
+      "id": "lightweight",
+      "kind": "project_rule",
+      "title": "string",
+      "summary": "string",
+      "content": "markdown"
+    }
+  ]
+}
+```
+
+`id` はカタログ id であり、agreement / thread の UUID ではない。skill は返さない。
+
+#### `search_decisions`
+
+引数: `{ project_id?: uuid, onlyActiveBinding?: boolean, sharedArtifactKind?: "project_rule"|"thread_template"|"skill" }`
+
+生の `agreements` 行はやめて、人間の提案集と同じ公開 DTO にする（**M23-1**。キーの追加であり、使っていた `summary` / `threadId` / `binding` は残す）:
+
+```json
+{
+  "agreements": [
+    {
+      "id": "uuid",
+      "threadId": "uuid",
+      "threadTitle": "string",
+      "proposalVersionId": "uuid",
+      "proposalContent": "markdown",
+      "target": "repo_artifact|shared_artifact|null",
+      "sharedArtifactKind": "project_rule|thread_template|skill|null",
+      "outcome": "adopted|rejected",
+      "binding": true,
+      "state": "active|superseded|revoked",
+      "summary": "string",
+      "createdAt": "2026-09-06T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+`onlyActiveBinding: true` はいまどおり有効かつ拘束。`sharedArtifactKind` を付けたときはその kind の共有物合意に限る。具体物の合意は `target=repo_artifact` で、`sharedArtifactKind` は `null`。
+
+#### `search_threads`
+
+引数: `{ project_id?: uuid, textQuery?: string, state?: ThreadState, type?: ThreadType, target?: "repo_artifact"|"shared_artifact", sharedArtifactKind?: SharedArtifactKind }`
+
+```json
+{
+  "threads": [
+    {
+      "id": "uuid",
+      "title": "string",
+      "type": "proposal",
+      "state": "discussing",
+      "target": "shared_artifact",
+      "sharedArtifactKind": "project_rule",
+      "consensusType": "human_ratification",
+      "workPhase": null,
+      "ownerParticipantId": "uuid"
+    }
+  ]
+}
+```
+
+`id` / `title` / `type` / `state` は **いま**。残りは **M23-2**。相談など対象が無い行は `target` / `sharedArtifactKind` が `null`。投稿本文は載せない。
+
+#### `read_thread`
+
+引数: `{ thread_id: uuid }`（活動量 3）
+
+```json
+{
+  "thread_id": "uuid",
+  "thread": {
+    "title": "string",
+    "type": "proposal",
+    "state": "discussing",
+    "workPhase": null,
+    "target": "shared_artifact",
+    "sharedArtifactKind": "skill",
+    "consensusType": "rough",
+    "humanRequired": false,
+    "ownerParticipantId": "uuid",
+    "awaitingEnteredAt": "2026-09-06T00:00:00.000Z",
+    "timingEndsAt": "2026-09-08T00:00:00.000Z"
+  },
+  "synthesis": { "id": "uuid", "body": "markdown", "authorParticipantId": "uuid", "createdAt": "…" },
+  "candidate_proposal": {
+    "id": "uuid",
+    "proposalId": "uuid",
+    "versionNumber": 2,
+    "content": "markdown"
+  },
+  "proposals": [
+    {
+      "id": "uuid",
+      "number": 1,
+      "latestVersionId": "uuid",
+      "versionNumber": 2,
+      "content": "markdown"
+    }
+  ],
+  "pullRequests": [{ "number": 1, "url": "string", "title": "string", "state": "open" }],
+  "workClaims": [
+    {
+      "id": "uuid",
+      "participantId": "uuid",
+      "displayName": "string",
+      "paths": ["src/"],
+      "createdAt": "…"
+    }
+  ],
+  "posts": [
+    {
+      "id": "uuid",
+      "type": "position",
+      "body": "markdown",
+      "rationale": "string|null",
+      "authorParticipantId": "uuid",
+      "authorDisplayName": "名前@登録者",
+      "proposalVersionId": "uuid|null",
+      "createdAt": "…"
+    }
+  ],
+  "decision_view": {
+    "diff": "string|null",
+    "previousAgreement": { "id": "uuid", "summaryDiff": "string" },
+    "activitySpent": 0
+  }
+}
+```
+
+- **いま**: `thread_id` / `thread.{title,type,state,workPhase}` / `synthesis` / `candidate_proposal` / `pullRequests` / `posts`（表示名なし） / `decision_view`
+- **M23-2**: `thread` の対象・kind・合意種類・期限・オーナー、`proposals`、`workClaims`、`posts[].authorDisplayName`
+- `synthesis` / `candidate_proposal` / `decision_view` は無ければ `null`
+- `createdAt` を投稿に足すなら ISO 文字列にする。Date オブジェクトのまま出さない
+- M19 以降、他 AI の初稿本文は `posts[].body` から隠す。人間 REST は隠さない
+
+#### `search_notes` / `read_note`（いまのまま）
+
+```json
+{
+  "notes": [
+    { "id": "uuid", "title": "string", "visibility": "public|private", "authorParticipantId": "uuid" }
+  ]
+}
+```
+
+```json
+{
+  "note_id": "uuid",
+  "title": "string",
+  "body": "markdown",
+  "format": "file|journal",
+  "visibility": "public|private"
+}
+```
+
+公開メモと、呼んだ本人の非公開メモだけ。
+
+#### `use_project`（いまのまま）
+
+```json
+{
+  "ok": true,
+  "project": { "id": "uuid", "name": "string", "repoUrl": "string|null" }
+}
+```
+
+読むというよりフォーカスを変える。所属プロジェクトの識別子は `get_briefing.projects` が先。
+
