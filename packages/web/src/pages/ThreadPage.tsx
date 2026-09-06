@@ -358,9 +358,26 @@ export function ThreadPage() {
   const needsRationale = postType === "objection" || postType === "approval";
   const canClaimWork =
     view.thread.state !== "completed" && view.thread.state !== "rejected";
+  const showComplete = canCompleteThread(view.thread);
+  const showOwnerDecide = discussing && isThreadOwner && !isBrainstorm;
+  const showRejectWhileDiscussing = discussing && canRejectThread;
+  const showTiming =
+    awaiting &&
+    Boolean(view.thread.timingEndsAt || view.consensusReasons.length > 0);
+  const hasThreadActions =
+    Boolean(error) ||
+    showComplete ||
+    showTiming ||
+    awaiting ||
+    showOwnerDecide ||
+    showRejectWhileDiscussing ||
+    canCompose ||
+    canPropose ||
+    canClaimWork ||
+    isProjectOwner;
 
   return (
-    <article>
+    <article className="thread-page">
       <Link to={projectPath(projectId, "queue")} className="back-link">
         判断キューへ
       </Link>
@@ -372,17 +389,347 @@ export function ThreadPage() {
         workPhase={view.thread.workPhase}
         activeWorkClaimants={activeWorkClaimantNames(view.workClaims)}
       />
-      {canCompleteThread(view.thread) ? (
-        <div className="actions">
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={isDeclaring}
-            onClick={() => void runDeclare({ kind: "complete_thread" })}
-          >
-            完了にする
-          </button>
-        </div>
+      {hasThreadActions ? (
+        <section
+          className="thread-actions"
+          aria-label="このスレッドでの操作"
+        >
+          {error ? <p className="status status-error">{error}</p> : null}
+          {showComplete ? (
+            <div className="actions">
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={isDeclaring}
+                onClick={() => void runDeclare({ kind: "complete_thread" })}
+              >
+                完了にする
+              </button>
+            </div>
+          ) : null}
+          {showTiming ? (
+            <div className="card">
+              <h2>時間の合意</h2>
+              {view.thread.timingEndsAt ? (
+                <p className="muted">
+                  期限:{" "}
+                  <time dateTime={view.thread.timingEndsAt}>
+                    {new Date(view.thread.timingEndsAt).toLocaleString("ja-JP")}
+                  </time>
+                </p>
+              ) : null}
+              {view.consensusReasons.length > 0 ? (
+                <ul>
+                  {view.consensusReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          {awaiting ? (
+            <form className="decision-panel" onSubmit={onRatify}>
+              <label>
+                要約
+                <textarea
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                差し戻し理由
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </label>
+              <div className="actions">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={isDeclaring}
+                >
+                  批准する
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={isDeclaring || !reason.trim()}
+                  onClick={onSendBack}
+                >
+                  差し戻す
+                </button>
+                <button
+                  type="button"
+                  className="btn-danger"
+                  disabled={isDeclaring || !summary.trim()}
+                  onClick={onRejectClick}
+                >
+                  不採用
+                </button>
+              </div>
+              {rejectConfirm}
+            </form>
+          ) : null}
+          {canCompose ? (
+            <form className="composer" onSubmit={onPost}>
+              <h2>投稿する</h2>
+              <label>
+                型
+                <select
+                  value={postType}
+                  onChange={(event) =>
+                    setPostType(
+                      event.target.value as (typeof COMPOSER_TYPES)[number][0],
+                    )
+                  }
+                >
+                  {COMPOSER_TYPES.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                本文
+                <textarea
+                  value={postBody}
+                  onChange={(event) => setPostBody(event.target.value)}
+                  required
+                />
+              </label>
+              {needsRationale ? (
+                <>
+                  <label>
+                    根拠
+                    <textarea
+                      value={rationale}
+                      onChange={(event) => setRationale(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    対象の提案
+                    <select
+                      value={targetVersionId}
+                      onChange={(event) =>
+                        setTargetVersionId(event.target.value)
+                      }
+                      required
+                    >
+                      <option value="">選ぶ</option>
+                      {view.proposals.map((proposal) => (
+                        <option
+                          key={proposal.id}
+                          value={proposal.latestVersionId}
+                        >
+                          #{proposal.number} v{proposal.versionNumber}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={isDeclaring || !postBody.trim()}
+              >
+                投稿する
+              </button>
+            </form>
+          ) : null}
+          {canPropose ? (
+            <form className="composer" onSubmit={onAddProposal}>
+              <h2>案を出す</h2>
+              {systemTemplates.length > 0 ? (
+                <TemplatePicker
+                  label="ベースにするテンプレ"
+                  templates={systemTemplates}
+                  templateId={proposalTemplateId}
+                  emptyLabel="選ばない（空のまま書く）"
+                  onSelect={(id, content) => {
+                    setProposalTemplateId(id);
+                    if (content) {
+                      setProposalContent(content);
+                    }
+                  }}
+                />
+              ) : null}
+              <label>
+                内容
+                <textarea
+                  value={proposalContent}
+                  onChange={(event) => setProposalContent(event.target.value)}
+                  required
+                />
+              </label>
+              <button
+                type="submit"
+                className="btn-secondary"
+                disabled={isDeclaring || !proposalContent.trim()}
+              >
+                案を出す
+              </button>
+            </form>
+          ) : null}
+          {canClaimWork ? (
+            <form className="composer" onSubmit={onClaimWork}>
+              <h2>着手を表明する</h2>
+              <label>
+                paths（1 行 1 件。全部なら "."）
+                <textarea
+                  value={claimPathsText}
+                  onChange={(event) => setClaimPathsText(event.target.value)}
+                  required
+                />
+              </label>
+              <button
+                type="submit"
+                className="btn-secondary"
+                disabled={isDeclaring || !claimPathsText.trim()}
+              >
+                着手を表明
+              </button>
+            </form>
+          ) : null}
+          {showOwnerDecide ? (
+            <form
+              className="decision-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!ownerSummary.trim()) {
+                  return;
+                }
+                void runDeclare({
+                  kind: "owner_decide",
+                  binding: true,
+                  summary: ownerSummary,
+                });
+              }}
+            >
+              <h2>オーナーの宣言</h2>
+              <label>
+                要約
+                <textarea
+                  value={ownerSummary}
+                  onChange={(event) => setOwnerSummary(event.target.value)}
+                  required
+                />
+              </label>
+              <div className="actions">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={isDeclaring || !ownerSummary.trim()}
+                >
+                  オーナー決定
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={isDeclaring || !ownerSummary.trim()}
+                  onClick={() =>
+                    void runDeclare({
+                      kind: "declare_rough",
+                      binding: true,
+                      summary: ownerSummary,
+                    })
+                  }
+                >
+                  ラフを宣言
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={isDeclaring}
+                  onClick={() =>
+                    void runDeclare({ kind: "request_ratification" })
+                  }
+                >
+                  人間批准へ
+                </button>
+              </div>
+            </form>
+          ) : null}
+          {showRejectWhileDiscussing ? (
+            <form
+              className="decision-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onRejectClick();
+              }}
+            >
+              <label>
+                不採用の理由
+                <textarea
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  required
+                />
+              </label>
+              <div className="actions">
+                <button
+                  type="submit"
+                  className="btn-danger"
+                  disabled={isDeclaring || !summary.trim()}
+                >
+                  不採用
+                </button>
+              </div>
+              {rejectConfirm}
+            </form>
+          ) : null}
+          {isProjectOwner ? (
+            <section className="danger-zone">
+              <h2>危険な操作</h2>
+              {hasBindingAgreement ? (
+                <p className="muted">
+                  拘束的な有効合意があるため、このスレッドは削除できません。
+                </p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    disabled={isDeclaring}
+                    onClick={() => requestDeleteThread()}
+                  >
+                    スレッドを削除
+                  </button>
+                  {threadDeleteConfirm ? (
+                    <div
+                      className="decision-confirm"
+                      role="group"
+                      aria-label="スレッド削除の確認"
+                    >
+                      <p>このスレッドを削除します。元に戻せません。</p>
+                      <div className="actions">
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          disabled={isDeclaring}
+                          onClick={() => void confirmDeleteThread()}
+                        >
+                          削除を確定
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setThreadDeleteConfirm(false)}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </section>
+          ) : null}
+        </section>
       ) : null}
       <SynthesisCard
         synthesis={view.synthesis}
@@ -516,26 +863,6 @@ export function ThreadPage() {
           </ul>
         </>
       ) : null}
-      {canClaimWork ? (
-        <form className="composer" onSubmit={onClaimWork}>
-          <h2>着手を表明する</h2>
-          <label>
-            paths（1 行 1 件。全部なら "."）
-            <textarea
-              value={claimPathsText}
-              onChange={(event) => setClaimPathsText(event.target.value)}
-              required
-            />
-          </label>
-          <button
-            type="submit"
-            className="btn-secondary"
-            disabled={isDeclaring || !claimPathsText.trim()}
-          >
-            着手を表明
-          </button>
-        </form>
-      ) : null}
       {view.decisionView ? (
         <div className="card">
           <h2>決まったこと</h2>
@@ -573,300 +900,35 @@ export function ThreadPage() {
           </li>
         ))}
       </ol>
-      {canCompose ? (
-        <>
-          <form className="composer" onSubmit={onPost}>
-            <h2>投稿する</h2>
-            <label>
-              型
-              <select
-                value={postType}
-                onChange={(event) =>
-                  setPostType(event.target.value as (typeof COMPOSER_TYPES)[number][0])
-                }
-              >
-                {COMPOSER_TYPES.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              本文
-              <textarea
-                value={postBody}
-                onChange={(event) => setPostBody(event.target.value)}
-                required
-              />
-            </label>
-            {needsRationale ? (
-              <>
-                <label>
-                  根拠
-                  <textarea
-                    value={rationale}
-                    onChange={(event) => setRationale(event.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  対象の提案
-                  <select
-                    value={targetVersionId}
-                    onChange={(event) => setTargetVersionId(event.target.value)}
-                    required
-                  >
-                    <option value="">選ぶ</option>
-                    {view.proposals.map((proposal) => (
-                      <option key={proposal.id} value={proposal.latestVersionId}>
-                        #{proposal.number} v{proposal.versionNumber}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            ) : null}
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isDeclaring || !postBody.trim()}
-            >
-              投稿する
-            </button>
-          </form>
-        </>
-      ) : null}
-      {canPropose ? (
-        <>
-          <form className="composer" onSubmit={onAddProposal}>
-            <h2>案を出す</h2>
-            {systemTemplates.length > 0 ? (
-              <TemplatePicker
-                label="ベースにするテンプレ"
-                templates={systemTemplates}
-                templateId={proposalTemplateId}
-                emptyLabel="選ばない（空のまま書く）"
-                onSelect={(id, content) => {
-                  setProposalTemplateId(id);
-                  if (content) {
-                    setProposalContent(content);
-                  }
-                }}
-              />
-            ) : null}
-            <label>
-              内容
-              <textarea
-                value={proposalContent}
-                onChange={(event) => setProposalContent(event.target.value)}
-                required
-              />
-            </label>
-            <button
-              type="submit"
-              className="btn-secondary"
-              disabled={isDeclaring || !proposalContent.trim()}
-            >
-              案を出す
-            </button>
-          </form>
-        </>
-      ) : null}
-      {discussing && isThreadOwner && !isBrainstorm ? (
-        <form
-          className="decision-panel"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!ownerSummary.trim()) {
-              return;
-            }
-            void runDeclare({
-              kind: "owner_decide",
-              binding: true,
-              summary: ownerSummary,
-            });
-          }}
-        >
-          <h2>オーナーの宣言</h2>
-          <label>
-            要約
-            <textarea
-              value={ownerSummary}
-              onChange={(event) => setOwnerSummary(event.target.value)}
-              required
-            />
-          </label>
-          <div className="actions">
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isDeclaring || !ownerSummary.trim()}
-            >
-              オーナー決定
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={isDeclaring || !ownerSummary.trim()}
-              onClick={() =>
-                void runDeclare({
-                  kind: "declare_rough",
-                  binding: true,
-                  summary: ownerSummary,
-                })
-              }
-            >
-              ラフを宣言
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={isDeclaring}
-              onClick={() => void runDeclare({ kind: "request_ratification" })}
-            >
-              人間批准へ
-            </button>
-          </div>
-        </form>
-      ) : null}
-      {awaiting && (view.thread.timingEndsAt || view.consensusReasons.length > 0) ? (
-        <div className="card">
-          <h2>時間の合意</h2>
-          {view.thread.timingEndsAt ? (
-            <p className="muted">
-              期限:{" "}
-              <time dateTime={view.thread.timingEndsAt}>
-                {new Date(view.thread.timingEndsAt).toLocaleString("ja-JP")}
-              </time>
-            </p>
-          ) : null}
-          {view.consensusReasons.length > 0 ? (
-            <ul>
-              {view.consensusReasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-      {awaiting ? (
-        <form className="decision-panel" onSubmit={onRatify}>
-          <label>
-            要約
-            <textarea
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            差し戻し理由
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
-          <div className="actions">
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isDeclaring}
-            >
-              批准する
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={isDeclaring || !reason.trim()}
-              onClick={onSendBack}
-            >
-              差し戻す
-            </button>
-            <button
-              type="button"
-              className="btn-danger"
-              disabled={isDeclaring || !summary.trim()}
-              onClick={onRejectClick}
-            >
-              不採用
-            </button>
-          </div>
-          {rejectConfirm}
-        </form>
-      ) : null}
-      {discussing && canRejectThread ? (
-        <form
-          className="decision-panel"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onRejectClick();
-          }}
-        >
-          <label>
-            不採用の理由
-            <textarea
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              required
-            />
-          </label>
-          <div className="actions">
-            <button
-              type="submit"
-              className="btn-danger"
-              disabled={isDeclaring || !summary.trim()}
-            >
-              不採用
-            </button>
-          </div>
-          {rejectConfirm}
-        </form>
-      ) : null}
-      {isProjectOwner ? (
-        <section className="danger-zone">
-          <h2>危険な操作</h2>
-          {hasBindingAgreement ? (
-            <p className="muted">
-              拘束的な有効合意があるため、このスレッドは削除できません。
-            </p>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="btn-danger"
-                disabled={isDeclaring}
-                onClick={() => requestDeleteThread()}
-              >
-                スレッドを削除
-              </button>
-              {threadDeleteConfirm ? (
-                <div className="decision-confirm" role="group" aria-label="スレッド削除の確認">
-                  <p>このスレッドを削除します。元に戻せません。</p>
-                  <div className="actions">
-                    <button
-                      type="button"
-                      className="btn-danger"
-                      disabled={isDeclaring}
-                      onClick={() => void confirmDeleteThread()}
-                    >
-                      削除を確定
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => setThreadDeleteConfirm(false)}
-                    >
-                      キャンセル
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          )}
-        </section>
-      ) : null}
-      {error ? <p className="status status-error">{error}</p> : null}
+      <ThreadJumpButtons />
     </article>
+  );
+}
+
+function ThreadJumpButtons() {
+  return (
+    <div className="thread-jump" role="group" aria-label="ページ内移動">
+      <button
+        type="button"
+        className="thread-jump-btn"
+        aria-label="先頭へ"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      >
+        ↑
+      </button>
+      <button
+        type="button"
+        className="thread-jump-btn"
+        aria-label="末尾へ"
+        onClick={() =>
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: "smooth",
+          })
+        }
+      >
+        ↓
+      </button>
+    </div>
   );
 }

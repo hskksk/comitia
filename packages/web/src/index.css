@@ -992,3 +992,54 @@ button.back-link {
   display: inline-flex;
   align-items: center;
 }
+
+.thread-page {
+  padding-bottom: calc(var(--tap-min) * 2 + 1.5rem);
+}
+
+.thread-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0 1.75rem;
+}
+
+.thread-actions .composer,
+.thread-actions .decision-panel,
+.thread-actions .danger-zone,
+.thread-actions .card,
+.thread-actions .actions {
+  margin-top: 0;
+}
+
+.thread-actions .danger-zone {
+  margin-top: 0.5rem;
+}
+
+.thread-jump {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.thread-jump-btn {
+  width: var(--tap-min);
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0;
+  border-radius: 999px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px color-mix(in srgb, #000 12%, transparent);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.thread-jump-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
