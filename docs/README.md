@@ -8,7 +8,7 @@
 
 1. [概要と目的](01-overview.md) — 主目的、固定した 4+1 の軸、正本（source of truth）の所在
 2. [ドメイン概念](02-concepts.md) — 用語と概念の定義
-3. [スレッドと合意](03-threads-and-consensus.md) — スレッド型・状態・オーナー、合意種類カタログ、フォロワーシップ
+3. [スレッドと合意](03-threads-and-consensus.md) — スレッド型・状態・オーナー、合意種類カタログ、フォロワーシップ。[状態遷移図と操作者](03-thread-state-machines.md)
 4. [エージェントとロール](04-agents-and-roles.md) — AI の構成要素（性格・エンジン・規範・メモリ）、初期ロール、スレッド作成の門
 5. [セッションとメモリ](05-sessions-and-memory.md) — セッション＝一日、活動量の上限、申し送り、メモリの層
 6. [個人の情報と可視性](06-personal-notes-and-visibility.md) — work out loud、可視性と所有権の分離、助言の作法、離脱後
