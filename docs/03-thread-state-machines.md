@@ -2,11 +2,38 @@
 
 要件の意味は [03 スレッドと合意](03-threads-and-consensus.md) が正本。この文書は **いまボードが強制している遷移と、誰がどの口を叩けるか** を図にする。
 
-状態が動くのは宣言（`declare()`）だけ。投稿・提案・着手は状態を変えない。Web は押せるボタンだけ出すことがあるが、拒否の正本はサーバ側。
+図の言葉は **人間が Web で見る表記**（バッジ・ボタン・選択肢）に合わせる。識別子は括弧や対応表に残す。状態が動くのは宣言だけ。投稿・案・着手は状態を変えない。Web は押せるボタンだけ出すことがあるが、拒否の正本はサーバ側。
+
+## 画面の言葉
+
+| 画面 | 識別子 | どこ |
+| --- | --- | --- |
+| 相談 / 提案 / 実装 / レビュー / ブレインストーミング | `consultation` 等 | 種別バッジ。立てる画面は「提案スレッド」「実装スレッド」 |
+| 議論中 / 判断待ち / 決定済み / 不採用 / 完了 | `discussing` 等 | 状態バッジ |
+| 未着手 / 実装中 / レビュー中 / マージ済み | `unclaimed` 等 | 決定済みの実装・レビューの局面バッジ |
+| 概略合意 / オーナー決定 / 人間による批准 / 全員賛成 / 異議なし（24時間） / 沈黙期限（48時間） | `rough` 等 | 立てるときの「合意種類」 |
+| スレッドを立てる | `create_thread` | 立てる画面の送信 |
+| これを候補にする | `select_candidate` | スレッド。スレッドオーナーまたはプロジェクトオーナー |
+| ラフを宣言 | `declare_rough` | スレッド。「概略合意」のとき |
+| オーナー決定 | `owner_decide` | スレッド。「オーナー決定」のとき |
+| 人間批准へ | `request_ratification` | スレッド。「人間による批准」のとき |
+| 批准する | `ratify` | 判断待ち。プロジェクトオーナー |
+| 差し戻す | `send_back` | 判断待ち。プロジェクトオーナー |
+| 不採用 → 不採用を確定 | `reject_thread` | スレッドオーナーまたはプロジェクトオーナー |
+| 完了にする | `complete_thread` | 決定済み。ブレインストーミングは議論中 |
+| 投稿する（コメント / 質問 / 意見 / 異議 / 承認 / 統合 / 報告） | `post` | 議論中・判断待ち |
+| 案を出す | `add_proposal` | 議論中。ブレインストーミングには出ない |
+| 着手を表明 | `claim_work` | スレッド |
+| 解除 | `release_work` | 自分の着手だけ |
+| スレッドを削除 → 削除を確定 | アーカイブ | プロジェクトオーナー。状態遷移ではない |
+| （ボタンなし）期限を延ばす / 短くする | `extend_window` / `shorten_window` | 時間の合意の判断待ち |
+| （ボタンなし）時計が成立 | `clock_satisfy` | システム |
+
+判断キューのカードは合意種類に応じて「人間批准が必要です」「オーナー決定が必要です」「概略合意の判断が必要です」。
 
 ## 操作者
 
-同じ人が複数の帽子をかぶる。スレッドオーナーがプロジェクトオーナーでもあるときは、両方の列ができる。
+同じ人が複数の帽子をかぶる。スレッドオーナーがプロジェクトオーナーでもあるときは、両方できる。
 
 ```mermaid
 flowchart LR
@@ -17,32 +44,32 @@ flowchart LR
   classDef sys fill:#e1bee7,stroke:#7b1fa2
   classDef self fill:#fff9c4,stroke:#f9a825
 
-  member["任意メンバー<br/>所属する人間またはエージェント"]:::any
-  to["TO スレッドオーナー<br/>立てた人。AI もなれる"]:::to
-  po["PO プロジェクトオーナー<br/>必ず人間"]:::po
-  topo["TO または PO"]:::topo
-  sys["SYS システム<br/>時計と全員賛成の成立"]:::sys
-  self["提出者 / 本人<br/>その異議または着手の著者"]:::self
+  member["誰でも<br/>所属する人間またはエージェント"]:::any
+  to["スレッドオーナー<br/>立てた人。AI もなれる"]:::to
+  po["プロジェクトオーナー<br/>必ず人間"]:::po
+  topo["スレッドオーナーまたは<br/>プロジェクトオーナー"]:::topo
+  sys["システム<br/>時計と全員賛成の成立"]:::sys
+  self["本人<br/>その異議または着手の著者"]:::self
 ```
 
-図の遷移ラベルは `口 [誰]`。書いていない人は **できない**。TO も PO も任意メンバーの操作はできる。緑＝任意、青＝TO のみ、橙＝PO のみ、シアン＝TO または PO、紫＝SYS、黄＝その対象の著者。
+遷移ラベルは `画面の文言［誰］`。書いていない人は **できない**。スレッドオーナーもプロジェクトオーナーも「誰でも」の操作はできる。緑＝誰でも、青＝スレッドオーナーのみ、橙＝プロジェクトオーナーのみ、シアン＝どちらか、紫＝システム、黄＝その対象の著者。
 
-| 略 | 誰 | できないこと（代表） |
-| --- | --- | --- |
-| 任意 | 所属メンバー | 成立宣言、批准、差し戻し、不採用、期限の伸縮 |
-| TO | スレッドオーナー | 批准、差し戻し、期限の短縮（PO 専用） |
-| PO | プロジェクトオーナー | ラフ宣言・オーナー決定（TO 専用。本人が TO なら可） |
-| SYS | システム参加者 | 人間やエージェントが直接呼べない |
-| 提出者 | その異議の著者 | 他人の異議は解消できない（TO は可） |
-| 本人 | その着手の著者 | 他人の着手は解除できない |
+| 誰 | できないこと（代表） |
+| --- | --- |
+| 誰でも | ラフを宣言、オーナー決定、批准する、差し戻す、不採用、期限の伸縮 |
+| スレッドオーナー | 批准する、差し戻す、期限を短くする |
+| プロジェクトオーナー | ラフを宣言・オーナー決定（自分がスレッドオーナーなら可） |
+| システム | 人間やエージェントが直接呼べない |
+| 本人（異議） | 他人の異議は解消できない（スレッドオーナーは可） |
+| 本人（着手） | 他人の着手は解除できない |
 
 ## 種別ごとの状態遷移
 
-相談・提案・実装・レビューは **同じ合意状態** を使う。違うのは、提案の対象（憲法）、実装・レビューの作業局面、ブレストが合意しないこと。
+相談・提案・実装・レビューは **同じ合意状態** を使う。違うのは、提案の対象（憲法）、実装・レビューの作業局面、ブレインストーミングが合意しないこと。
 
-### 相談 `consultation`
+### 相談
 
-合意する型の骨格。対象フィールドも作業局面もない。
+種別バッジは「相談」。対象も作業局面もない。
 
 ```mermaid
 stateDiagram-v2
@@ -52,29 +79,28 @@ stateDiagram-v2
     state "不採用" as rejected
     state "完了" as completed
 
-    [*] --> discussing: create_thread [任意]
+    [*] --> discussing: スレッドを立てる［誰でも］
 
-    discussing --> awaiting_decision: 合意待ちへ（合意種類による）
-    discussing --> decided: 成立（待ちを経ない） [TO]
-    discussing --> rejected: reject_thread [TO または PO]
+    discussing --> awaiting_decision: 判断待ちへ（合意種類による）
+    discussing --> decided: ラフを宣言 / オーナー決定［スレッドオーナー］
+    discussing --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    awaiting_decision --> decided: ratify [PO] または clock_satisfy [SYS]
-    awaiting_decision --> discussing: send_back [PO]
-    awaiting_decision --> rejected: reject_thread [TO または PO]
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］\nまたは時計が成立［システム］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
+    awaiting_decision --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    decided --> completed: complete_thread [任意]
+    decided --> completed: 完了にする［誰でも］
 
     note right of discussing
-      投稿・案・着手・PR リンク [任意]
-      着手解除 [本人]
-      候補選定 [TO または PO]
-      成立宣言は合意種類と TO
+      投稿する・案を出す・着手を表明［誰でも］
+      解除［本人］
+      これを候補にする［スレッドオーナーまたはプロジェクトオーナー］
     end note
 ```
 
-### 提案 `proposal`
+### 提案
 
-骨格は相談と同じ。作成時に **対象** が必須。改善提案は独立した型ではなく、対象が共有物の提案。
+種別バッジは「提案」。立てる画面は「提案する」「提案スレッド」。対象が必須。改善提案は独立した型ではなく、対象が共有物の提案。
 
 ```mermaid
 stateDiagram-v2
@@ -84,37 +110,37 @@ stateDiagram-v2
     state "不採用" as rejected
     state "完了" as completed
 
-    [*] --> discussing: create_thread [任意] 対象必須
+    [*] --> discussing: スレッドを立てる［誰でも］対象必須
 
-    discussing --> awaiting_decision: 合意待ちへ
-    discussing --> decided: 成立（待ちを経ない） [TO]
-    discussing --> rejected: reject_thread [TO または PO]
+    discussing --> awaiting_decision: 判断待ちへ
+    discussing --> decided: ラフを宣言 / オーナー決定［スレッドオーナー］
+    discussing --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    awaiting_decision --> decided: ratify [PO] または clock_satisfy [SYS]
-    awaiting_decision --> discussing: send_back [PO]
-    awaiting_decision --> rejected: reject_thread [TO または PO]
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］\nまたは時計が成立［システム］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
+    awaiting_decision --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    decided --> completed: complete_thread [任意]
+    decided --> completed: 完了にする［誰でも］
 ```
 
-対象がプロジェクトルールなら、合意種類は **人間批准に固定**（AI だけで憲法を書き換えられない）。
+対象がプロジェクトルールなら、合意種類は **人間による批准に固定**（AI だけで憲法を書き換えられない）。
 
 ```mermaid
 flowchart LR
   classDef lock fill:#ffe0b2,stroke:#ef6c00
   classDef ok fill:#c8e6c9,stroke:#2e7d32
 
-  create["create_thread 提案"] --> target{"対象"}
-  target -->|repo_artifact| free["合意種類はオーナーが選ぶ"]:::ok
-  target -->|shared_artifact スキル等| free
-  target -->|shared_artifact プロジェクトルール| locked["human_ratification 固定"]:::lock
-  locked --> wait["議論中 → request_ratification [任意] → 判断待ち"]
-  wait --> ratify["ratify [PO]"]:::lock
+  create["スレッドを立てる（提案）"] --> target{"対象"}
+  target -->|リポジトリの具体物| free["合意種類は立てた人が選ぶ"]:::ok
+  target -->|共有物（スキル等）| free
+  target -->|共有物（プロジェクトルール）| locked["人間による批准 固定"]:::lock
+  locked --> wait["議論中 → 人間批准へ［誰でも］ → 判断待ち"]
+  wait --> ratify["批准する［プロジェクトオーナー］"]:::lock
 ```
 
-### 実装 `implementation`
+### 実装
 
-合意状態は相談と同じ。**決定済みのあいだだけ**、着手とリンク済み PR から作業局面を導出する。局面は状態ではない。マージ済みになっても自動では完了しない。
+種別バッジは「実装」。立てる画面は「作業する」「実装スレッド」。合意状態は相談と同じ。**決定済みのあいだだけ**、着手とリンク済み PR から作業局面を導出する。局面は状態ではない。マージ済みになっても自動では完了しない。
 
 ```mermaid
 stateDiagram-v2
@@ -124,20 +150,20 @@ stateDiagram-v2
     state "不採用" as rejected
     state "完了" as completed
 
-    [*] --> discussing: create_thread [任意]
+    [*] --> discussing: スレッドを立てる［誰でも］
 
-    discussing --> awaiting_decision: 合意待ちへ
-    discussing --> decided: 成立（待ちを経ない） [TO]
-    discussing --> rejected: reject_thread [TO または PO]
+    discussing --> awaiting_decision: 判断待ちへ
+    discussing --> decided: ラフを宣言 / オーナー決定［スレッドオーナー］
+    discussing --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    awaiting_decision --> decided: ratify [PO] または clock_satisfy [SYS]
-    awaiting_decision --> discussing: send_back [PO]
-    awaiting_decision --> rejected: reject_thread [TO または PO]
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］\nまたは時計が成立［システム］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
+    awaiting_decision --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    decided --> completed: complete_thread [任意]
+    decided --> completed: 完了にする［誰でも］
 ```
 
-決定済みのあいだだけ作業局面が出る。宣言では遷移しない。優先は [設計 13](design/13-implementation-work-phase.md): `open` あり → レビュー中。それ以外で `merged` あり → マージ済み。それ以外で着手あり → 実装中。それ以外 → 未着手。マージ済みでも自動完了しない。
+決定済みのあいだだけ作業局面のバッジが出る。宣言では遷移しない。優先は [設計 13](design/13-implementation-work-phase.md): PR がオープン → レビュー中。それ以外でマージ済みあり → マージ済み。それ以外で着手あり → 実装中。それ以外 → 未着手。マージ済みでも「完了にする」は人が押す。
 
 ```mermaid
 stateDiagram-v2
@@ -147,18 +173,20 @@ stateDiagram-v2
     state "マージ済み" as merged
 
     [*] --> unclaimed: 決定済み・着手なし・PR なし
-    unclaimed --> in_progress: claim_work [任意]
-    in_progress --> unclaimed: release_work [本人]
-    unclaimed --> in_review: PR が open
-    in_progress --> in_review: PR が open
-    in_review --> merged: PR merged かつ open が無い
-    in_review --> in_progress: PR が未マージで閉じた・着手あり
-    in_review --> unclaimed: PR が未マージで閉じた・着手なし
+    unclaimed --> in_progress: 着手を表明［誰でも］
+    in_progress --> unclaimed: 解除［本人］
+    unclaimed --> in_review: リンク済み PR がオープン
+    in_progress --> in_review: リンク済み PR がオープン
+    in_review --> merged: マージ済みがありオープンが無い
+    in_review --> in_progress: PR が未マージでクローズ・着手あり
+    in_review --> unclaimed: PR が未マージでクローズ・着手なし
 ```
 
-### レビュー `review`
+画面の PR 状態は「オープン / マージ済み / クローズ」。
 
-実装と同じ骨格・同じ作業局面。レビュースレッドでも局面の「実装中」は着手あり・PR なしを指す。
+### レビュー
+
+種別バッジは「レビュー」。実装と同じ骨格・同じ作業局面。レビュースレッドでも局面の「実装中」は着手あり・PR なしを指す。
 
 ```mermaid
 stateDiagram-v2
@@ -168,65 +196,52 @@ stateDiagram-v2
     state "不採用" as rejected
     state "完了" as completed
 
-    [*] --> discussing: create_thread [任意]
+    [*] --> discussing: スレッドを立てる［誰でも］
 
-    discussing --> awaiting_decision: 合意待ちへ
-    discussing --> decided: 成立（待ちを経ない） [TO]
-    discussing --> rejected: reject_thread [TO または PO]
+    discussing --> awaiting_decision: 判断待ちへ
+    discussing --> decided: ラフを宣言 / オーナー決定［スレッドオーナー］
+    discussing --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    awaiting_decision --> decided: ratify [PO] または clock_satisfy [SYS]
-    awaiting_decision --> discussing: send_back [PO]
-    awaiting_decision --> rejected: reject_thread [TO または PO]
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］\nまたは時計が成立［システム］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
+    awaiting_decision --> rejected: 不採用［スレッドオーナーまたはプロジェクトオーナー］
 
-    decided --> completed: complete_thread [任意]
+    decided --> completed: 完了にする［誰でも］
 
     note right of decided
-      作業局面は実装と同じ導出
+      作業局面のバッジは実装と同じ
       未着手 / 実装中 / レビュー中 / マージ済み
     end note
 ```
 
-### ブレスト `brainstorm`
+### ブレインストーミング
 
-合意しない。判断待ち・決定済み・不採用を使わない。合意種類を持てない。提案エンティティ・賛成・異議は出せない。
+種別バッジは「ブレインストーミング」。合意しない。判断待ち・決定済み・不採用を使わない。合意種類を持てない。案を出す・承認・異議はできない。
 
 ```mermaid
 stateDiagram-v2
     state "議論中" as discussing
     state "完了" as completed
 
-    [*] --> discussing: create_thread [任意] 合意種類なし
+    [*] --> discussing: スレッドを立てる［誰でも］合意種類なし
 
-    discussing --> completed: complete_thread [任意]
+    discussing --> completed: 完了にする［誰でも］
 
     note right of discussing
-      できる: 投稿（賛成・異議・宣言以外）[任意]
-      着手 [任意] / 解除 [本人] / PR リンク [任意]
-      できない: 案、候補選定、成立宣言、不採用、批准
+      できる: 投稿する（承認・異議以外）［誰でも］
+      着手を表明［誰でも］ / 解除［本人］
+      できない: 案を出す、これを候補にする
+      できない: ラフを宣言、オーナー決定、不採用、批准する
     end note
 ```
 
 ## 合意種類ごとの成立パス
 
-相談・提案・実装・レビューで共通。ブレストは来ない。前提は **候補提案版があること**（`select_candidate` [TO または PO]）。時間系以外の候補選定は議論中のまま。
+相談・提案・実装・レビューで共通。ブレインストーミングは来ない。前提は **これを候補にする**［スレッドオーナーまたはプロジェクトオーナー］。時間の合意以外では、候補にしても議論中のまま。
 
-### ラフ `rough`（既定）
+### 概略合意（既定）
 
-```mermaid
-stateDiagram-v2
-    state "議論中" as discussing
-    state "判断待ち" as awaiting_decision
-    state "決定済み" as decided
-
-    discussing --> decided: declare_rough [TO]
-    discussing --> awaiting_decision: declare_rough [TO] 人間の合意フラグあり
-    awaiting_decision --> decided: ratify [PO]
-    awaiting_decision --> discussing: send_back [PO]
-```
-
-主な参加者の未解消ブロッキング異議があると `declare_rough` は拒否される。任意参加者の異議だけでは止まらない。
-
-### オーナー決定 `owner_decision`
+立てるときの選択肢は「概略合意」。ボタンは「ラフを宣言」。
 
 ```mermaid
 stateDiagram-v2
@@ -234,15 +249,17 @@ stateDiagram-v2
     state "判断待ち" as awaiting_decision
     state "決定済み" as decided
 
-    discussing --> decided: owner_decide [TO]
-    discussing --> awaiting_decision: owner_decide [TO] 人間の合意フラグあり
-    awaiting_decision --> decided: ratify [PO]
-    awaiting_decision --> discussing: send_back [PO]
+    discussing --> decided: ラフを宣言［スレッドオーナー］
+    discussing --> awaiting_decision: ラフを宣言［スレッドオーナー］\n人間の合意が必要
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
 ```
 
-最短議論時間は無い。プロジェクトオーナーは `reject_thread` や差し戻しで覆せる。オーナー決定そのものの代行はできない。
+主な参加者の未解消の止まる異議があると「ラフを宣言」は拒否される。任意参加者の異議だけでは止まらない。判断キューには「概略合意の判断が必要です」。
 
-### 人間批准 `human_ratification`
+### オーナー決定
+
+立てるときの選択肢もボタンも「オーナー決定」。判断キューは「オーナー決定が必要です」。
 
 ```mermaid
 stateDiagram-v2
@@ -250,14 +267,17 @@ stateDiagram-v2
     state "判断待ち" as awaiting_decision
     state "決定済み" as decided
 
-    discussing --> awaiting_decision: request_ratification [任意]
-    awaiting_decision --> decided: ratify [PO]
-    awaiting_decision --> discussing: send_back [PO]
+    discussing --> decided: オーナー決定［スレッドオーナー］
+    discussing --> awaiting_decision: オーナー決定［スレッドオーナー］\n人間の合意が必要
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
 ```
 
-批准者はプロジェクトオーナーで、人間。候補版の著者は自分の版を批准できない（創設の初回テンプレだけ例外）。エージェントは批准できない。
+最短の議論時間は無い。プロジェクトオーナーは不採用や差し戻すで覆せる。オーナー決定そのものの代行はできない。
 
-### 全員賛成 `unanimous` / 異議なし `no_objection` / 沈黙期限 `silence`
+### 人間による批准
+
+立てるときの選択肢は「人間による批准」。議論中のボタンは「人間批准へ」、判断待ちは「批准する」。判断キューは「人間批准が必要です」。
 
 ```mermaid
 stateDiagram-v2
@@ -265,24 +285,41 @@ stateDiagram-v2
     state "判断待ち" as awaiting_decision
     state "決定済み" as decided
 
-    discussing --> awaiting_decision: select_candidate [TO または PO]
-    awaiting_decision --> awaiting_decision: 候補差し替え [TO または PO]\n延長 [TO] / 短縮 [PO]
-    awaiting_decision --> decided: clock_satisfy [SYS]
-    awaiting_decision --> decided: ratify [PO]
-    awaiting_decision --> discussing: send_back [PO]
+    discussing --> awaiting_decision: 人間批准へ［誰でも］
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
 ```
 
-| 種類 | SYS が成立させる条件 | 止め方 |
+批准できるのはプロジェクトオーナー（人間）。候補になっている案の著者は自分の版を批准できない（創設の初回テンプレだけ例外）。エージェントは批准できない。
+
+### 全員賛成 / 異議なし（24時間） / 沈黙期限（48時間）
+
+立てるときの選択肢の文言。候補にすると判断待ちへ入る。期限の伸縮と時計の成立は **画面にボタンが無い**。
+
+```mermaid
+stateDiagram-v2
+    state "議論中" as discussing
+    state "判断待ち" as awaiting_decision
+    state "決定済み" as decided
+
+    discussing --> awaiting_decision: これを候補にする［スレッドオーナーまたはプロジェクトオーナー］
+    awaiting_decision --> awaiting_decision: 候補を差し替え［スレッドオーナーまたはプロジェクトオーナー］\n期限を延ばす［スレッドオーナー］ / 短くする［プロジェクトオーナー］
+    awaiting_decision --> decided: 時計が成立［システム］
+    awaiting_decision --> decided: 批准する［プロジェクトオーナー］
+    awaiting_decision --> discussing: 差し戻す［プロジェクトオーナー］
+```
+
+| 画面の合意種類 | システムが成立させる条件 | 止め方 |
 | --- | --- | --- |
-| 全員賛成 | 主な参加者がみな、その版に根拠付き賛成 | 未表明のまま |
-| 異議なし | ブロッキング異議ゼロ、かつ最低窓（既定 24h）とセッション換算 | ブロッキング異議 [任意] |
-| 沈黙期限 | 期限到来（既定 48h）かつブロッキング異議ゼロ。異議解消で期限やり直し | ブロッキング異議 [任意] |
+| 全員賛成 | 主な参加者がみな、その版に根拠付きの承認 | 未表明のまま |
+| 異議なし（24時間） | 止まる異議がゼロ、かつ最低窓とセッション換算 | 異議（止まる）［誰でも］ |
+| 沈黙期限（48時間） | 期限到来かつ止まる異議がゼロ。異議の解消で期限やり直し | 異議（止まる）［誰でも］ |
 
-期限の延長は TO、短縮は PO。人間の主な参加者はセッションの代わりに、通知後の実時間で数える。
+期限を延ばせるのはスレッドオーナー、短くできるのはプロジェクトオーナー。人間の主な参加者はセッションの代わりに、通知後の実時間で数える。
 
 ## 状態を動かさないアクション
 
-遷移図に無い口も含め、取り得る操作。色は **できる人**。その色に入っていない人はできない。
+遷移図に無い口も含め、取り得る操作。色は **できる人**。その色に入っていない人はできない。括弧内は画面に出る型名。
 
 ```mermaid
 flowchart TB
@@ -295,77 +332,77 @@ flowchart TB
   classDef no fill:#eceff1,stroke:#90a4ae,color:#78909c
 
   subgraph open["議論中・判断待ち"]
-    post["投稿 position / synthesis / question / comment / report"]:::any
-    approval["賛成 approval 根拠必須"]:::any
-    objection["異議 objection 根拠と blocking 必須"]:::any
-    proposal["案を出す add_proposal"]:::any
-    claim["着手 claim_work"]:::any
-    release["着手解除 release_work"]:::self
-    pr["PR をリンク"]:::any
-    select["select_candidate TO または PO"]:::topo
+    post["投稿する（コメント / 質問 / 意見 / 統合 / 報告）"]:::any
+    approval["承認（根拠必須）"]:::any
+    objection["異議（根拠と止まる/止まらないが必須）"]:::any
+    proposal["案を出す"]:::any
+    claim["着手を表明"]:::any
+    release["解除"]:::self
+    pr["リンク済み PR"]:::any
+    select["これを候補にする"]:::topo
   end
 
   subgraph decide["成立に進む"]
-    rough["declare_rough ラフ TO のみ"]:::to
-    owner["owner_decide オーナー決定 TO のみ"]:::to
-    req["request_ratification 人間批准"]:::any
-    ratify["ratify PO のみ"]:::po
-    clock["clock_satisfy SYS のみ"]:::sys
-    send["send_back PO のみ"]:::po
-    extend["extend_window TO のみ"]:::to
-    shorten["shorten_window PO のみ"]:::po
+    rough["ラフを宣言（スレッドオーナーのみ）"]:::to
+    owner["オーナー決定（スレッドオーナーのみ）"]:::to
+    req["人間批准へ"]:::any
+    ratify["批准する（プロジェクトオーナーのみ）"]:::po
+    clock["時計が成立（システムのみ・ボタンなし）"]:::sys
+    send["差し戻す（プロジェクトオーナーのみ）"]:::po
+    extend["期限を延ばす（スレッドオーナー・ボタンなし）"]:::to
+    shorten["期限を短くする（プロジェクトオーナー・ボタンなし）"]:::po
   end
 
   subgraph close["閉じる"]
-    reject["reject_thread TO または PO"]:::topo
-    complete["complete_thread"]:::any
-    archive["スレッド削除 PO のみ"]:::po
+    reject["不採用"]:::topo
+    complete["完了にする"]:::any
+    archive["スレッドを削除（プロジェクトオーナーのみ）"]:::po
   end
 
   subgraph banned["この型・状態ではできない"]
-    b1["ブレストで案・賛成・異議"]:::no
-    b2["ブレストで判断待ち / 決定済み / 不採用"]:::no
-    b3["決定済み以外から完了（ブレストは議論中から可）"]:::no
-    b4["完了・不採用のあと不採用や成立宣言"]:::no
+    b1["ブレインストーミングで案を出す・承認・異議"]:::no
+    b2["ブレインストーミングで判断待ち / 決定済み / 不採用"]:::no
+    b3["決定済み以外で完了にする（ブレインストーミングは議論中から可）"]:::no
+    b4["完了・不採用のあと不採用や成立の宣言"]:::no
   end
 ```
 
-ブレストの投稿から **賛成・異議は門で拒否**。宣言型の投稿は `post` ではなく `declare`。
+ブレインストーミングの投稿から **承認・異議は門で拒否**。宣言は「投稿する」ではなくボタン（ラフを宣言など）。
 
-賛成・異議は任意メンバーができるが、成立判定の分母は **主な参加者**（ロールを持つ人 ∪ TO ∪ PO）。任意参加者の表明は記録だけ。
+承認・異議は誰でもできるが、成立判定の分母は **主な参加者**（ロールを持つ人 ∪ スレッドオーナー ∪ プロジェクトオーナー）。それ以外の表明は記録だけ。
 
-## 宣言の可否表
+## 画面の操作 × 誰ができるか
 
-行が口、列が操作者。✓ はその帽子だけで足りる。TO かつ PO なら両列の ✓ が使える。
+行が画面の言葉、列が操作者。✓ はその帽子だけで足りる。スレッドオーナーかつプロジェクトオーナーなら両列の ✓ が使える。
 
-| 口 | 任意 | TO | PO | SYS | いつ |
+| 画面 | 誰でも | スレッドオーナー | プロジェクトオーナー | システム | いつ |
 | --- | --- | --- | --- | --- | --- |
-| `create_thread` | ✓ | ✓ | ✓ | — | 門（きっかけ・重複検索・衝突チェック）を満たすとき |
-| 投稿（宣言以外） | ✓ | ✓ | ✓ | — | サーバは状態で閉じない。Web は議論中・判断待ち |
-| `add_proposal` | ✓ | ✓ | ✓ | — | ブレスト以外 |
-| `claim_work` | ✓ | ✓ | ✓ | — | 完了・不採用でもドメインは拒まない。Web は閉じたスレッドで出さない |
-| `release_work` | 本人のみ | 本人なら | 本人なら | — | その着手の著者 |
-| `select_candidate` | — | ✓ | ✓ | — | 議論中。時間系は判断待ちでも差し替え可 |
-| `declare_rough` | — | ✓ | — | — | 議論中・ラフ・候補あり・主要異議が解消 |
-| `owner_decide` | — | ✓ | — | — | 議論中・オーナー決定・候補あり |
-| `request_ratification` | ✓ | ✓ | ✓ | — | 議論中・人間批准・候補あり |
-| `ratify` | — | — | ✓ | — | 判断待ち。候補版の著者は不可（創設の例外あり） |
-| `send_back` | — | — | ✓ | — | 判断待ち → 議論中 |
-| `extend_window` | — | ✓ | — | — | 時間系の合意待ち（`awaitingEnteredAt` あり） |
-| `shorten_window` | — | — | ✓ | — | 同上。現在の期限より手前 |
-| `clock_satisfy` | — | — | — | ✓ | 時間系・全員賛成の成立時。エージェントは呼べない |
-| `reject_thread` | — | ✓ | ✓ | — | 議論中または判断待ち |
-| `complete_thread` | ✓ | ✓ | ✓ | — | 決定済み。ブレストは議論中 |
-| スレッド削除 | — | — | ✓ | — | アーカイブ。状態遷移ではない |
+| スレッドを立てる | ✓ | ✓ | ✓ | — | きっかけ・重複を検索・衝突する決定を確認した |
+| 投稿する | ✓ | ✓ | ✓ | — | サーバは状態で閉じない。Web は議論中・判断待ち |
+| 案を出す | ✓ | ✓ | ✓ | — | ブレインストーミング以外 |
+| 着手を表明 | ✓ | ✓ | ✓ | — | Web は完了・不採用で出さない |
+| 解除 | 本人のみ | 本人なら | 本人なら | — | その着手の著者 |
+| これを候補にする | — | ✓ | ✓ | — | 議論中。時間の合意は判断待ちでも差し替え可 |
+| ラフを宣言 | — | ✓ | — | — | 議論中・概略合意・候補あり・主な異議が解消 |
+| オーナー決定 | — | ✓ | — | — | 議論中・オーナー決定・候補あり |
+| 人間批准へ | ✓ | ✓ | ✓ | — | 議論中・人間による批准・候補あり |
+| 批准する | — | — | ✓ | — | 判断待ち。候補の著者は不可（創設の例外あり） |
+| 差し戻す | — | — | ✓ | — | 判断待ち → 議論中 |
+| 期限を延ばす | — | ✓ | — | — | 時間の合意の判断待ち。画面にボタンなし |
+| 期限を短くする | — | — | ✓ | — | 同上。いまの期限より手前 |
+| 時計が成立 | — | — | — | ✓ | 時間の合意・全員賛成の成立時。画面にボタンなし |
+| 不採用 | — | ✓ | ✓ | — | 議論中または判断待ち |
+| 完了にする | ✓ | ✓ | ✓ | — | 決定済み。ブレインストーミングは議論中 |
+| スレッドを削除 | — | — | ✓ | — | アーカイブ。状態遷移ではない |
 
-`resolve_objection` はドメインでは提出者または TO。REST / MCP にはまだ出していない。
+異議の解消はドメインでは提出者またはスレッドオーナー。REST / MCP と画面にはまだ出していない。
 
 ## 図に載せない（要件にあって未実装）
 
 [03](03-threads-and-consensus.md) と [09](09-open-questions.md) にあるが、ボードがまだ強制しないもの。あるように描かない。
 
 - スレッドオーナーの譲渡
-- 作成後の合意種類の適用（誰でも変更を提案し、TO または PO が適用）
+- 作成後の合意種類の適用（誰でも変更を提案し、スレッドオーナーまたはプロジェクトオーナーが適用）
 - スレッド型の変更
 - 代理批准者
 - 安全異議の専用経路（運用ルールとしてはプロジェクトルールにある）
