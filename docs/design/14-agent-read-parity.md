@@ -248,49 +248,77 @@ Web の新しい画面は作らない。ダッシュボードにテンプレ・�
 
 ```mermaid
 flowchart TB
+  subgraph info["情報"]
+    direction TB
+    You["自分・申し送り・個別記憶"]
+    Project["所属プロジェクト・repo"]
+    Binding["拘束決定の要約"]
+    RuleBody["採用済みルール・テンプレ本文"]
+    SkillPtr["採用済みスキルのポインタ"]
+    SkillBody["採用済みスキル本文"]
+    Starter["創設ひな型"]
+    AllAgree["合意の本文・kind・拘束"]
+    Open["開いているスレッド"]
+    Meta["対象・kind・合意種類"]
+    Posts["投稿・全提案・争点・PR"]
+    Claims["着手表明"]
+    People["他参加者"]
+    Notes["公開メモ / 自分の非公開メモ"]
+    You ~~~ Project ~~~ Binding ~~~ RuleBody ~~~ SkillPtr ~~~ SkillBody ~~~ Starter ~~~ AllAgree ~~~ Open ~~~ Meta ~~~ Posts ~~~ Claims ~~~ People ~~~ Notes
+  end
+
   subgraph pack["朝のパック・材料"]
+    direction TB
     GB["get_briefing"]
   end
 
   subgraph catalog["comitia のひな型"]
+    direction TB
     LST["list_system_templates"]
   end
 
   subgraph adopted["このプロジェクトの採用済み共有物"]
+    direction TB
     LSA["list_shared_artifacts"]
   end
 
   subgraph search["探す・0"]
+    direction TB
     ST["search_threads"]
     SD["search_decisions"]
     LWC["list_work_claims"]
     SN["search_notes"]
+    ST ~~~ SD ~~~ LWC ~~~ SN
   end
 
   subgraph deep["深く読む"]
+    direction TB
     RT["read_thread"]
     RN["read_note"]
+    RT ~~~ RN
   end
 
-  You["自分・申し送り・個別記憶"] --> GB
-  Project["所属プロジェクト・repo"] --> GB
-  Binding["拘束決定の要約"] --> GB
-  RuleBody["採用済みルール・テンプレ本文"] --> GB
+  info --> pack --> catalog --> adopted --> search --> deep
+
+  You --> GB
+  Project --> GB
+  Binding --> GB
+  RuleBody --> GB
   RuleBody --> LSA
-  SkillPtr["採用済みスキルのポインタ"] --> GB
-  SkillBody["採用済みスキル本文"] --> LSA
-  Starter["創設ひな型"] --> LST
-  AllAgree["合意の本文・kind・拘束"] --> SD
-  Open["開いているスレッド"] --> GB
+  SkillPtr --> GB
+  SkillBody --> LSA
+  Starter --> LST
+  AllAgree --> SD
+  Open --> GB
   Open --> ST
-  Meta["対象・kind・合意種類"] --> ST
+  Meta --> ST
   Meta --> RT
-  Posts["投稿・全提案・争点・PR"] --> RT
-  Claims["着手表明"] --> GB
+  Posts --> RT
+  Claims --> GB
   Claims --> LWC
   Claims --> RT
-  People["他参加者"] --> GB
-  Notes["公開メモ / 自分の非公開メモ"] --> SN
+  People --> GB
+  Notes --> SN
   Notes --> RN
   ST --> RT
   SN --> RN
@@ -299,19 +327,24 @@ flowchart TB
 粒度:
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph cheap["活動量 0"]
+    direction TB
     A["get_briefing<br/>材料。本文は憲法だけ"]
     B["list_shared_artifacts<br/>採用済み。kind ごと全文"]
     C["list_system_templates<br/>カタログ。採用済みではない"]
     D["search_threads<br/>一覧。投稿は無い"]
     E["search_decisions<br/>提案集。合意本文"]
     F["list_work_claims / search_notes"]
+    A ~~~ B ~~~ C ~~~ D ~~~ E ~~~ F
   end
   subgraph paid["活動量 3"]
+    direction TB
     G["read_thread<br/>議論の全文"]
     H["read_note<br/>メモ本文"]
+    G ~~~ H
   end
+  cheap --> paid
   D --> G
   F --> H
 ```
