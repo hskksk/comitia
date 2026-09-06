@@ -44,4 +44,9 @@ export interface EnginePlugin {
   /** Tear down connect-scoped runtime state (e.g. isolated gitconfig dir). */
   dispose(): Promise<void>;
   updateGithubAuth?(auth: EngineGithubAuth | null): Promise<void>;
+  /**
+   * Fake console: bind the loopback HTTP UI before the first tick.
+   * Other engines omit this. Returns undefined when the TTY path is used.
+   */
+  ensureConsole?(): Promise<string | undefined>;
 }
