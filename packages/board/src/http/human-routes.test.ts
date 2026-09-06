@@ -823,6 +823,39 @@ describe("human ops REST", () => {
     expect(body.hasMore).toBe(false);
   });
 
+  it("returns projected chat-log text when chat_log is empty but traces exist", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const session = await openOrGetSession(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    const { appendSessionTraceEntries } = await import("../domain/trace.js");
+    await appendSessionTraceEntries(db, {
+      sessionId: session.id,
+      participantId: agent.id,
+      entries: [
+        {
+          v: 1,
+          seq: 1,
+          at: "2026-08-31T12:00:00.000Z",
+          kind: "text",
+          run: 1,
+          text: "only in traces",
+        },
+      ],
+    });
+
+    const ownerHeaders = await ownerAuthHeader(owner.id, project.id);
+    const log = await app.request(`/v1/sessions/${session.id}/chat-log`, {
+      headers: ownerHeaders,
+    });
+    expect(log.status).toBe(200);
+    const logBody = (await log.json()) as { chatLog: string };
+    expect(logBody.chatLog).toContain("@json ");
+    expect(logBody.chatLog).toContain("only in traces");
+  });
+
   it("forbids agent tokens from reading chat logs", async () => {
     const app = createBoardApp({ db });
     const init = await app.request("/v1/init", {

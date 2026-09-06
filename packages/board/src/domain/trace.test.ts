@@ -6,7 +6,9 @@ import { sessionTraceEntries } from "../db/schema.js";
 import { bootstrapBoard, registerAgent } from "../domain/bootstrap.js";
 import { prepareSessionStart } from "../domain/sessions.js";
 import {
+  alignChatLogTail,
   appendSessionTraceEntries,
+  buildChatLogFromTraces,
   getOwnerSessionTrace,
   traceRowToEvent,
 } from "../domain/trace.js";
@@ -141,5 +143,59 @@ describe("session trace entries", () => {
     expect(secondPage.entries).toHaveLength(1);
     expect(secondPage.entries[0]?.kind).toBe("run_end");
     expect(secondPage.hasMore).toBe(false);
+  });
+
+  it("projects @json chat log text from traces when chat_log is empty", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const agent = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "mika",
+      engine: "fake",
+    });
+    const session = await prepareSessionStart(db, {
+      participantId: agent.agent.id,
+      projectId: boot.project.id,
+    });
+
+    await appendSessionTraceEntries(db, {
+      sessionId: session.id,
+      participantId: agent.agent.id,
+      entries: [
+        {
+          v: TRACE_VERSION,
+          seq: 1,
+          at: "2026-08-31T12:00:00.000Z",
+          kind: "run_start",
+          run: 1,
+        },
+        {
+          v: TRACE_VERSION,
+          seq: 2,
+          at: "2026-08-31T12:00:01.000Z",
+          kind: "text",
+          run: 1,
+          text: "hello from trace",
+        },
+      ],
+    });
+
+    const projected = await buildChatLogFromTraces(db, session.id, {
+      tailChars: 65_536,
+      fromStart: true,
+    });
+    expect(projected.truncated).toBe(false);
+    expect(projected.chatLog).toContain("@json ");
+    expect(projected.chatLog).toContain("hello from trace");
+    expect(projected.chatLog).toContain("run_start");
+  });
+
+  it("drops a partial leading line when aligning a chat log tail", () => {
+    expect(alignChatLogTail("@json {\"seq\":1}\n")).toBe("@json {\"seq\":1}\n");
+    expect(alignChatLogTail("ial\":\"x\"}\n@json {\"seq\":2}\n")).toBe(
+      "@json {\"seq\":2}\n",
+    );
   });
 });

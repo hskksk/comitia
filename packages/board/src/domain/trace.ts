@@ -1,6 +1,11 @@
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
 import type { TraceEvent, TraceEventInput, TraceKind } from "@comitia/shared";
-import { TRACE_VERSION } from "@comitia/shared";
+import {
+  serializeTraceEvent,
+  serializeTraceEvents,
+  TRACE_LINE_PREFIX,
+  TRACE_VERSION,
+} from "@comitia/shared";
 import { sessionTraceEntries, sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { PermissionDenied } from "./errors.js";
@@ -9,6 +14,12 @@ import { getSessionById } from "./sessions.js";
 
 const DEFAULT_TRACE_LIMIT = 500;
 export const MAX_TRACE_LIMIT = 2_000;
+const CHAT_LOG_PROJECT_PAGE = 200;
+
+function asSeq(value: unknown): number {
+  const seq = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(seq) ? seq : 0;
+}
 
 function traceEventToRow(
   sessionId: string,
@@ -40,13 +51,100 @@ export function traceRowToEvent(
   delete payload.v;
   return {
     v: version as typeof TRACE_VERSION,
-    seq: row.seq,
+    seq: asSeq(row.seq),
     at: row.at.toISOString(),
     kind: row.kind as TraceKind,
     run: row.run ?? undefined,
     ...payload,
     ...(typeof adapterSeq === "number" ? { adapterSeq } : {}),
   } as TraceEvent;
+}
+
+/** Drop a leading partial line so a character-tail of @json stays parseable. */
+export function alignChatLogTail(slice: string): string {
+  if (!slice || slice.startsWith(TRACE_LINE_PREFIX) || !slice.includes("\n")) {
+    return slice;
+  }
+  return slice.slice(slice.indexOf("\n") + 1);
+}
+
+/**
+ * Build display text from structured traces when `sessions.chat_log` is empty.
+ * Phase 2 stores traces as the source of truth; chat_log is a projection.
+ */
+export async function buildChatLogFromTraces(
+  db: Db,
+  sessionId: string,
+  options: { tailChars: number; fromStart: boolean },
+): Promise<{ chatLog: string; truncated: boolean }> {
+  if (options.fromStart) {
+    const events: TraceEvent[] = [];
+    let afterSeq = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const rows = await db
+        .select()
+        .from(sessionTraceEntries)
+        .where(
+          and(
+            eq(sessionTraceEntries.sessionId, sessionId),
+            gt(sessionTraceEntries.seq, afterSeq),
+          ),
+        )
+        .orderBy(asc(sessionTraceEntries.seq))
+        .limit(CHAT_LOG_PROJECT_PAGE + 1);
+      hasMore = rows.length > CHAT_LOG_PROJECT_PAGE;
+      const page = hasMore ? rows.slice(0, CHAT_LOG_PROJECT_PAGE) : rows;
+      if (page.length === 0) {
+        break;
+      }
+      const lastSeq = asSeq(page.at(-1)?.seq);
+      if (lastSeq <= afterSeq) {
+        break;
+      }
+      afterSeq = lastSeq;
+      events.push(...page.map(traceRowToEvent));
+    }
+    return { chatLog: serializeTraceEvents(events), truncated: false };
+  }
+
+  const batches: TraceEvent[][] = [];
+  let beforeSeq: number | undefined;
+  let serializedChars = 0;
+  let hasOlder = true;
+  while (hasOlder && serializedChars < options.tailChars) {
+    const rows = await db
+      .select()
+      .from(sessionTraceEntries)
+      .where(
+        beforeSeq === undefined
+          ? eq(sessionTraceEntries.sessionId, sessionId)
+          : and(
+              eq(sessionTraceEntries.sessionId, sessionId),
+              lt(sessionTraceEntries.seq, beforeSeq),
+            ),
+      )
+      .orderBy(desc(sessionTraceEntries.seq))
+      .limit(CHAT_LOG_PROJECT_PAGE);
+    if (rows.length === 0) {
+      hasOlder = false;
+      break;
+    }
+    hasOlder = rows.length === CHAT_LOG_PROJECT_PAGE;
+    beforeSeq = asSeq(rows[rows.length - 1]?.seq);
+    const chronological = rows.map(traceRowToEvent).reverse();
+    batches.unshift(chronological);
+    serializedChars += chronological.reduce(
+      (sum, event) => sum + serializeTraceEvent(event).length,
+      0,
+    );
+  }
+  let chatLog = serializeTraceEvents(batches.flat());
+  const truncated = hasOlder || chatLog.length > options.tailChars;
+  if (chatLog.length > options.tailChars) {
+    chatLog = alignChatLogTail(chatLog.slice(chatLog.length - options.tailChars));
+  }
+  return { chatLog, truncated };
 }
 
 export async function appendSessionTraceEntries(
