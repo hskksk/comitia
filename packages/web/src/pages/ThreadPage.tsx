@@ -16,6 +16,7 @@ import {
 import { pullRequestStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
+import { sortThreadPostsByCreatedAtDesc } from "../threadPostView.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 import { activeWorkClaimantNames } from "../workClaimLabels.js";
 
@@ -555,7 +556,7 @@ export function ThreadPage() {
       ) : null}
       <h2>投稿</h2>
       <ol className="minutes-list">
-        {view.posts.map((post) => (
+        {sortThreadPostsByCreatedAtDesc(view.posts).map((post) => (
           <li key={post.id} className="minutes-item">
             <div className="minutes-meta">
               <span className="minutes-author">{post.authorDisplayName}</span>

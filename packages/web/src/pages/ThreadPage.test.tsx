@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -154,6 +154,39 @@ describe("ThreadPage", () => {
       binding: true,
       summary: "批准する",
     });
+  });
+
+  it("shows posts newest first even if the API lists them oldest first", async () => {
+    threadMock.mockResolvedValue({
+      ...threadView,
+      posts: [
+        {
+          id: "post-old",
+          type: "comment",
+          body: "先の投稿",
+          rationale: null,
+          authorParticipantId: "a1",
+          authorDisplayName: "ミカ",
+          createdAt: "2026-08-16T00:00:00.000Z",
+        },
+        {
+          id: "post-new",
+          type: "comment",
+          body: "後の投稿",
+          rationale: null,
+          authorParticipantId: "p1",
+          authorDisplayName: "ハル",
+          createdAt: "2026-08-16T03:00:00.000Z",
+        },
+      ],
+    });
+    renderThread();
+    await screen.findByText("ルール改正");
+    const postList = document.querySelector(".minutes-list");
+    expect(postList).not.toBeNull();
+    const items = within(postList as HTMLOListElement).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("後の投稿");
+    expect(items[1]).toHaveTextContent("先の投稿");
   });
 
   it("stays on the thread after ratify and shows a queue link", async () => {
