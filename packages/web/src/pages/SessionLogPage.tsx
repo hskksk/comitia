@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { serializeTraceEvents } from "@comitia/shared";
 import {
   boardClient,
   type ChatLogResponse,
@@ -15,6 +16,13 @@ import {
 } from "../SessionTraceTimeline.js";
 import { parseChatLogLines } from "../trace-log.js";
 import { toTimelineItems } from "../trace-timeline.js";
+
+const TRACE_PAGE_SIZE = 100;
+
+function lastSeq(entries: SessionTraceResponse["entries"]): number {
+  const seq = Number(entries.at(-1)?.seq ?? 0);
+  return Number.isFinite(seq) ? seq : 0;
+}
 
 export function SessionLogPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -41,58 +49,49 @@ export function SessionLogPage() {
     if (!id) {
       return;
     }
-    const fetchAllTrace = async (): Promise<SessionTraceResponse | null> => {
-      const entries: SessionTraceResponse["entries"] = [];
-      let afterSeq = 0;
-      let sessionId = id;
-      let hasMore = true;
-      while (hasMore) {
-        const page = await boardClient.sessionTrace(id, {
-          afterSeq,
-          limit: 2_000,
-        });
-        entries.push(...page.entries);
-        afterSeq = page.entries.at(-1)?.seq ?? afterSeq;
-        hasMore = page.hasMore;
-        sessionId = page.sessionId;
-      }
-      if (entries.length === 0) {
-        return null;
-      }
-      return { sessionId, entries, hasMore: false };
-    };
 
-    Promise.all([
-      fetchAllTrace().catch(() => null),
-      boardClient.chatLog(id, fromStart ? { fromStart: true } : { tailChars: 65_536 }),
-    ])
-      .then(([traceResult, chatLog]) => {
-        if (traceResult && traceResult.entries.length > 0) {
-          setTrace((current) => {
-            if (!current || traceResult.entries[0]?.seq === 1) {
-              lastTraceSeqRef.current =
-                traceResult.entries.at(-1)?.seq ?? lastTraceSeqRef.current;
-              return traceResult;
-            }
-            const merged = [...current.entries];
-            for (const entry of traceResult.entries) {
-              if (entry.seq > lastTraceSeqRef.current) {
-                merged.push(entry);
-              }
-            }
-            lastTraceSeqRef.current = merged.at(-1)?.seq ?? lastTraceSeqRef.current;
-            return {
-              ...traceResult,
-              entries: merged,
-              hasMore: false,
-            };
+    boardClient
+      .chatLog(id, fromStart ? { fromStart: true } : { tailChars: 65_536 })
+      .then(setLog)
+      .catch((err: Error) => setError(err.message));
+
+    void (async () => {
+      try {
+        const entries: SessionTraceResponse["entries"] = [];
+        let afterSeq = 0;
+        let sessionId = id;
+        let hasMore = true;
+        while (hasMore) {
+          const page = await boardClient.sessionTrace(id, {
+            afterSeq,
+            limit: TRACE_PAGE_SIZE,
           });
-        } else {
+          const pageEntries = page.entries ?? [];
+          if (pageEntries.length === 0) {
+            break;
+          }
+          const nextSeq = lastSeq(pageEntries);
+          if (nextSeq <= afterSeq) {
+            break;
+          }
+          entries.push(...pageEntries);
+          afterSeq = nextSeq;
+          sessionId = page.sessionId;
+          hasMore = page.hasMore === true;
+          lastTraceSeqRef.current = afterSeq;
+          setTrace({
+            sessionId,
+            entries: [...entries],
+            hasMore,
+          });
+        }
+        if (entries.length === 0) {
           setTrace(null);
         }
-        setLog(chatLog);
-      })
-      .catch((err: Error) => setError(err.message));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
   }, [id, fromStart]);
 
   const pollTrace = useCallback(() => {
@@ -109,7 +108,7 @@ export function SessionLogPage() {
         setTrace((current) => {
           const base = current?.entries ?? [];
           const merged = [...base, ...next.entries];
-          lastTraceSeqRef.current = merged.at(-1)?.seq ?? lastTraceSeqRef.current;
+          lastTraceSeqRef.current = lastSeq(merged);
           return {
             sessionId: next.sessionId,
             entries: merged,
@@ -137,11 +136,16 @@ export function SessionLogPage() {
   }
 
   const parsedLines = log ? parseChatLogLines(log.chatLog) : [];
-  const hasTrace = trace ? trace.entries.length > 0 : parsedLines.some((line) => line.type === "trace");
+  const hasTrace = trace
+    ? trace.entries.length > 0
+    : parsedLines.some((line) => line.type === "trace");
   const useStructuredTrace = trace !== null && trace.entries.length > 0;
   const timelineItems: TraceTimelineItem[] = useStructuredTrace
     ? toTimelineItems(trace!.entries)
     : parsedLines;
+  const rawChatLog =
+    log?.chatLog ||
+    (useStructuredTrace ? serializeTraceEvents(trace!.entries) : "");
 
   return (
     <article>
@@ -204,7 +208,9 @@ export function SessionLogPage() {
       </div>
       {error ? <p className="status status-error">{error}</p> : null}
       {rawView || !hasTrace ? (
-        <pre className="chat-log">{log?.chatLog || "(空)"}</pre>
+        <pre className="chat-log">
+          {rawChatLog || "このセッションのチャットログは空です"}
+        </pre>
       ) : (
         <SessionTraceTimeline items={timelineItems} filters={filters} />
       )}

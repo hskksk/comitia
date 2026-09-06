@@ -19,6 +19,7 @@ import { PermissionDenied } from "./errors.js";
 import { getParticipant, getProject } from "./helpers.js";
 import { listNonblockingInbox, listJudgmentQueue } from "./human-views.js";
 import { getSessionById, listSessionGoals } from "./sessions.js";
+import { alignChatLogTail, buildChatLogFromTraces } from "./trace.js";
 
 export type ConnectionStatus = "connected" | "disconnected" | "never";
 
@@ -349,13 +350,27 @@ export async function getOwnerChatLog(
   if (agent.ownerParticipantId !== input.actorId) {
     throw new PermissionDenied("登録オーナーだけがログを読めます");
   }
-  const full = session.chatLog;
+  const full = session.chatLog ?? "";
   const fromStart = input.fromStart === true;
   const tailChars = input.tailChars ?? 65_536;
+  if (full.length === 0) {
+    const projected = await buildChatLogFromTraces(db, session.id, {
+      tailChars,
+      fromStart,
+    });
+    return {
+      sessionId: session.id,
+      participantId: session.participantId,
+      startedAt: session.startedAt.toISOString(),
+      endedAt: iso(session.endedAt),
+      chatLog: projected.chatLog,
+      truncated: projected.truncated,
+    };
+  }
   const chatLog =
     fromStart || full.length <= tailChars
       ? full
-      : full.slice(full.length - tailChars);
+      : alignChatLogTail(full.slice(full.length - tailChars));
   return {
     sessionId: session.id,
     participantId: session.participantId,

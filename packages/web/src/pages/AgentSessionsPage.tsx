@@ -56,7 +56,12 @@ export function AgentSessionsPage() {
               {item.endedAt ? "終了" : "開いている"} · 残量 {item.remainingBudget}
               {item.endedReason ? ` · ${item.endedReason}` : ""}
             </p>
-            {item.goals[0] ? <p>{item.goals[0].text}</p> : null}
+            {item.goals[0] ? (
+              <p>
+                <span className="muted">目標: </span>
+                {item.goals[0].text}
+              </p>
+            ) : null}
           </article>
         ))
       )}
