@@ -29,6 +29,7 @@ import { loadConfig, normalizeEngineModel } from "./config.js";
 import { assertSupportedEngine } from "./engines.js";
 import { createMcpProxyRuntime } from "./mcp-proxy.js";
 import { createEnginePlugin } from "./plugins/create-engine.js";
+import { tryOpenBrowser } from "./plugins/fake-console.js";
 
 type ParsedCommand =
   | { command: "help" }
@@ -505,7 +506,13 @@ export async function runCli(
       });
     },
   });
-  if (agent.engine === "fake" && process.env.COMITIA_FAKE_ENGINE !== "1") {
+  const consoleUrl = await plugin.ensureConsole?.();
+  if (consoleUrl) {
+    stdout.write(
+      `${command.name} を fake エンジンで接続します。操作台: ${consoleUrl}\nブラウザでツールを選べます。Ctrl-C で切断します。\n`,
+    );
+    tryOpenBrowser(consoleUrl);
+  } else if (agent.engine === "fake" && process.env.COMITIA_FAKE_ENGINE !== "1") {
     stdout.write(
       `${command.name} を fake エンジンで接続します。tick のあと、エージェントと同じプロンプトとツール選択が出ます。Ctrl-C で切断します。\n`,
     );
