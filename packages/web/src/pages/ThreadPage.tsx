@@ -323,6 +323,34 @@ export function ThreadPage() {
   const canCompose = discussing || awaiting;
   const isThreadOwner = me?.participant.id === view.thread.ownerParticipantId;
   const isProjectOwner = me?.participant.id === projectOwnerId;
+  // declare 側の門に合わせる。select_candidate と reject_thread は
+  // assertThreadOwnerOrProjectOwner なので、プロジェクトオーナーも打てる。
+  const canSelectCandidate = isThreadOwner || isProjectOwner;
+  const canRejectThread = isThreadOwner || isProjectOwner;
+
+  const rejectConfirm = rejectConfirmOpen ? (
+    <div className="decision-confirm" role="group" aria-label="不採用の確認">
+      <p>不採用にする。このスレッドは閉じる</p>
+      <div className="actions">
+        <button
+          type="button"
+          className="btn-danger"
+          disabled={isDeclaring}
+          onClick={onRejectClick}
+        >
+          不採用を確定
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={isDeclaring}
+          onClick={() => setRejectConfirmOpen(false)}
+        >
+          キャンセル
+        </button>
+      </div>
+    </div>
+  ) : null;
   const needsRationale = postType === "objection" || postType === "approval";
   const canClaimWork =
     view.thread.state !== "completed" && view.thread.state !== "rejected";
@@ -357,7 +385,7 @@ export function ThreadPage() {
                     提案 #{proposal.number} / v{proposal.versionNumber}
                   </p>
                   <MarkdownBody source={proposal.content} />
-                  {discussing && isThreadOwner ? (
+                  {discussing && canSelectCandidate ? (
                     <button
                       type="button"
                       className="btn-secondary"
@@ -744,29 +772,35 @@ export function ThreadPage() {
               不採用
             </button>
           </div>
-          {rejectConfirmOpen ? (
-            <div className="decision-confirm" role="group" aria-label="不採用の確認">
-              <p>不採用にする。このスレッドは閉じる</p>
-              <div className="actions">
-                <button
-                  type="button"
-                  className="btn-danger"
-                  disabled={isDeclaring}
-                  onClick={onRejectClick}
-                >
-                  不採用を確定
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={isDeclaring}
-                  onClick={() => setRejectConfirmOpen(false)}
-                >
-                  キャンセル
-                </button>
-              </div>
-            </div>
-          ) : null}
+          {rejectConfirm}
+        </form>
+      ) : null}
+      {discussing && canRejectThread ? (
+        <form
+          className="decision-panel"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onRejectClick();
+          }}
+        >
+          <label>
+            不採用の理由
+            <textarea
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              required
+            />
+          </label>
+          <div className="actions">
+            <button
+              type="submit"
+              className="btn-danger"
+              disabled={isDeclaring || !summary.trim()}
+            >
+              不採用
+            </button>
+          </div>
+          {rejectConfirm}
         </form>
       ) : null}
       {view.thread.state === "decided" &&

@@ -564,3 +564,89 @@ describe("ThreadPage", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("ThreadPage: 議論中の操作をプロジェクトオーナーにも開く", () => {
+  afterEach(cleanup);
+
+  const discussingView = {
+    ...threadView,
+    thread: {
+      ...threadView.thread,
+      state: "discussing",
+      consensusType: "owner_decision",
+      // スレッドオーナーはエージェント。閲覧者ではない
+      ownerParticipantId: "agent-1",
+    },
+    candidateProposal: null,
+    proposals: [
+      {
+        id: "prop-1",
+        number: 1,
+        latestVersionId: "v9",
+        versionNumber: 1,
+        content: "案の中身",
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    declareMock.mockClear();
+    declareMock.mockResolvedValue({ thread: { state: "discussing" } });
+    threadMock.mockClear();
+    threadMock.mockResolvedValue(discussingView);
+    agreementsMock.mockReset();
+    agreementsMock.mockResolvedValue({ items: [] });
+    getProjectMock.mockReset();
+    getProjectMock.mockResolvedValue({ id: "proj", ownerParticipantId: "p1" });
+    meMock.mockClear();
+    meMock.mockResolvedValue({
+      participant: { id: "p1", kind: "human", displayName: "ハル" },
+      projectId: "proj",
+    });
+  });
+
+  it("スレッドオーナーでなくてもプロジェクトオーナーなら候補を差し替えられる", async () => {
+    renderThread();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "これを候補にする" }));
+    await waitFor(() =>
+      expect(declareMock).toHaveBeenCalledWith("t1", {
+        kind: "select_candidate",
+        proposalVersionId: "v9",
+      }),
+    );
+  });
+
+  it("議論中でもプロジェクトオーナーはスレッドを不採用で閉じられる", async () => {
+    renderThread();
+    const user = userEvent.setup();
+    await user.type(
+      await screen.findByLabelText("不採用の理由"),
+      "共有物スレッドが 2 本並行しているため畳む",
+    );
+    await user.click(screen.getByRole("button", { name: "不採用" }));
+    expect(
+      await screen.findByText("不採用にする。このスレッドは閉じる"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "不採用を確定" }));
+    await waitFor(() =>
+      expect(declareMock).toHaveBeenCalledWith("t1", {
+        kind: "reject_thread",
+        summary: "共有物スレッドが 2 本並行しているため畳む",
+      }),
+    );
+  });
+
+  it("対照: どちらのオーナーでもない参加者には、どちらの操作も出ない", async () => {
+    meMock.mockResolvedValue({
+      participant: { id: "someone-else", kind: "human", displayName: "他人" },
+      projectId: "proj",
+    });
+    renderThread();
+    expect(await screen.findByText("案の中身")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "これを候補にする" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("不採用の理由")).not.toBeInTheDocument();
+  });
+});
