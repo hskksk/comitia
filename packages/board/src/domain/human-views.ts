@@ -371,7 +371,8 @@ export async function getHumanThreadView(
     .from(posts)
     .innerJoin(participants, eq(posts.authorParticipantId, participants.id))
     .where(eq(posts.threadId, threadId))
-    .orderBy(asc(posts.createdAt));
+    // Newest first so the human UI does not bury recent posts under history.
+    .orderBy(desc(posts.createdAt), desc(posts.id));
 
   const ownerIds = [
     ...new Set(

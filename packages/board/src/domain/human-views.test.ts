@@ -17,8 +17,9 @@ import { claimWork } from "./work-claims.js";
 
 import { createFakeGitHubClient } from "../github/fake-client.js";
 import { eq } from "drizzle-orm";
-import { events, projects } from "../db/schema.js";
+import { events, posts, projects } from "../db/schema.js";
 import { linkPullRequest } from "./pull-requests.js";
+import { addPost } from "./posts.js";
 import { addProposal } from "./proposals.js";
 import { createThread } from "./threads.js";
 
@@ -245,6 +246,42 @@ describe("getHumanThreadView", () => {
     expect(view.posts.some((post) => post.authorDisplayName === "ミカ@ハル")).toBe(
       true,
     );
+  });
+
+  it("lists posts newest first", async () => {
+    const { owner, project } = await seedOwnerAgentProject(db);
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: owner.id,
+      type: "consultation",
+      title: "投稿の新しい順",
+      trigger: "確認用",
+      duplicateSearchQuery: "post order",
+      conflictCitationsChecked: true,
+    });
+    const older = await addPost(db, {
+      threadId: thread.id,
+      authorId: owner.id,
+      type: "comment",
+      body: "先の投稿",
+    });
+    const newer = await addPost(db, {
+      threadId: thread.id,
+      authorId: owner.id,
+      type: "comment",
+      body: "後の投稿",
+    });
+    await db
+      .update(posts)
+      .set({ createdAt: new Date("2026-08-16T00:00:00.000Z") })
+      .where(eq(posts.id, older.id));
+    await db
+      .update(posts)
+      .set({ createdAt: new Date("2026-08-16T03:00:00.000Z") })
+      .where(eq(posts.id, newer.id));
+
+    const view = await getHumanThreadView(db, thread.id);
+    expect(view.posts.map((post) => post.body)).toEqual(["後の投稿", "先の投稿"]);
   });
 });
 
