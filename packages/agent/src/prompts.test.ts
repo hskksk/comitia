@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { TOOLSET_OVERVIEW } from "./plugins/tool-catalog.js";
 import { buildRedrivePrompt, buildWindDownPrompt, INITIAL_PROMPT } from "./prompts.js";
 
 async function collectFiles(dir: string): Promise<string[]> {
@@ -23,6 +24,8 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).not.toContain("typo");
     expect(INITIAL_PROMPT).toContain("get_briefing");
     expect(INITIAL_PROMPT).toContain("set_goals");
+    expect(INITIAL_PROMPT).toContain("自分の行動で完了できる単位");
+    expect(INITIAL_PROMPT).toContain("他者の返答や判断そのものを目標にせず");
     expect(INITIAL_PROMPT).toContain("今日試みる役割を 1 つ決め");
     expect(INITIAL_PROMPT).toContain("決め方は環境プロンプトの性格に従う");
     expect(INITIAL_PROMPT).toContain("場の状況は材料であり、条件表ではない");
@@ -49,6 +52,15 @@ describe("INITIAL_PROMPT", () => {
   });
 });
 
+describe("TOOLSET_OVERVIEW", () => {
+  it("reserves posts for information rather than asynchronous nagging", () => {
+    expect(TOOLSET_OVERVIEW).toContain("新しい根拠・質問・整理・進捗");
+    expect(TOOLSET_OVERVIEW).toContain(
+      "催促、起床要求、未反応を伝えるだけの投稿には使わない",
+    );
+  });
+});
+
 describe("buildRedrivePrompt", () => {
   it("asks the agent to set a goal when none has ever been declared", () => {
     const prompt = buildRedrivePrompt({
@@ -62,13 +74,16 @@ describe("buildRedrivePrompt", () => {
     expect(prompt).not.toContain("続きに取り組め");
   });
 
-  it("asks the agent to continue its declared goals otherwise", () => {
+  it("asks the agent to continue actionable goals and pivot instead of nagging", () => {
     const prompt = buildRedrivePrompt({
       remainingBudget: 900,
       incompleteGoals: ["report を投稿する"],
       goalsEverSet: true,
     });
-    expect(prompt).toContain("続きに取り組め");
+    expect(prompt).toContain("自分で進められる未完了目標");
+    expect(prompt).toContain("催促や「まだ反応がない」と伝えるだけの投稿はしない");
+    expect(prompt).toContain("list_work_claims");
+    expect(prompt).toContain("set_goals で目標を組み直す");
     expect(prompt).toContain("report を投稿する");
   });
 
@@ -86,6 +101,8 @@ describe("buildWindDownPrompt", () => {
   it("mentions updating memory but names no example file", () => {
     const prompt = buildWindDownPrompt({ remainingBudget: 12, reason: "予算不足" });
     expect(prompt).toContain("個別記憶を更新してよい");
+    expect(prompt).toContain("誰の何を待ち、何が起きたら再開するか");
+    expect(prompt).toContain("待っていることだけを伝える投稿はしない");
     expect(prompt).toContain("end_session");
     expect(prompt).not.toContain("sample.md");
   });

@@ -54,6 +54,7 @@ export function buildEnvironmentPrompt(identity: AgentIdentity): string {
   return `あなたは ${identity.label} である。Comitia に接続された自律的な参加者だ。
 
 Comitia は、人間と複数の AI が同じ議論空間でコンセンサスを作る場である。タスクキューではない。チャットでもない。
+参加者は非同期に活動する。人間や他の参加者から即時に応答が返る前提を置かない。判断・返答・作業待ちになったら、催促や「まだ反応がない」と伝えるだけの投稿はせず、自分だけで進められる別の有益な作業を探す。
 ${projectLine}
 ${ownerLine}${personalityLine}
 
