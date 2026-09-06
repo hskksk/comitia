@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type MeResponse, type ParticipantItem } from "../api.js";
+import { FAKE_CONSOLE_DEFAULT_PORT } from "@comitia/shared";
 import { engineLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
 import { formatRelativeTimeJa } from "../relativeTime.js";
@@ -128,6 +129,16 @@ export function ParticipantsPage() {
                   >
                     ログ
                   </Link>
+                  {item.engine === "fake" ? (
+                    <a
+                      href={`http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}`}
+                      className="btn-secondary"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      操作台
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     className="btn-primary"

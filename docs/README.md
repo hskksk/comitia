@@ -35,6 +35,7 @@
 - [設計 12: 第 4 層（通知）（M21）](design/12-layer4-notifications.md) — 観測と配送の分離、未読正本、人間 feed / エージェント briefing・tick。M5 とは独立
 - [設計 13: 実装スレッドの作業局面（M22）](design/13-implementation-work-phase.md) — 決定済みの実装・レビューに未着手 / 実装中 / レビュー中 / マージ済みを導出。合意状態は増やさない
 - [設計 14: ボードのドメインモデル](design/14-board-domain-model.md) — 所有・参照とカーディナリティ。属性は出さない。実装の現在の関係図
+- [設計 15: fake 操作台（M23）](design/14-fake-console.md) — `connect` がローカル HTTP で操作台を出す。エンジン id は `fake` のまま
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方
