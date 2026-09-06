@@ -1,3 +1,10 @@
+## [0.2.2](https://github.com/hskksk/comitia/compare/v0.2.1...v0.2.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **agent:** 切断後の再接続とセッション復旧を直す ([#106](https://github.com/hskksk/comitia/issues/106)) ([9635120](https://github.com/hskksk/comitia/commit/96351201849fa7eca78385a4f3dddef726e61fd9))
+
 ## [0.2.1](https://github.com/hskksk/comitia/compare/v0.2.0...v0.2.1) (2026-09-06)
 
 
