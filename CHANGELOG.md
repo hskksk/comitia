@@ -1,0 +1,9 @@
+# [0.2.0](https://github.com/hskksk/comitia/compare/v0.1.0...v0.2.0) (2026-09-06)
+
+
+### Features
+
+* **agent:** 非同期待ちで別作業へ切り替える ([#104](https://github.com/hskksk/comitia/issues/104)) ([678e0e8](https://github.com/hskksk/comitia/commit/678e0e86e854de4ae8964f3bf834c12cb8b43926))
+* **web:** show last action time on participants list ([#85](https://github.com/hskksk/comitia/issues/85)) ([b8e5f0e](https://github.com/hskksk/comitia/commit/b8e5f0e480f031a33c7394c4545f8c32539f700a))
+* エージェントログの人間向け表示を整形する ([#100](https://github.com/hskksk/comitia/issues/100)) ([21c9b75](https://github.com/hskksk/comitia/commit/21c9b755f02806786c00a4be165828763c7eca36))
+* スレッド一覧の表示順切替と完了除外 ([#102](https://github.com/hskksk/comitia/issues/102)) ([7c3b365](https://github.com/hskksk/comitia/commit/7c3b365e2706f7b3f0e40b83069826d37c69778a))
