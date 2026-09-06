@@ -9,7 +9,7 @@ packages/board/
 ├── drizzle/              # Drizzle Kit 生成マイグレーション SQL
 ├── src/
 │   ├── db/
-│   │   ├── schema.ts     # テーブル定義（participants, projects, sessions 等）
+│   │   ├── schema.ts     # テーブル定義（participants, projects, sessions 等）。関係図は docs/design/14-board-domain-model.md
 │   │   ├── postgres.ts   # 本番 PostgreSQL 接続
 │   │   └── test-setup.ts # PGlite テスト用 DB セットアップ
 │   ├── gateway/          # tick、scheduler、mailbox、WS relay、health
