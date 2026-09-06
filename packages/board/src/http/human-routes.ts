@@ -425,6 +425,7 @@ export function registerHumanRoutes(
       items: rows.map((row) => ({
         ...row,
         createdAt: row.createdAt.toISOString(),
+        lastEventAt: row.lastEventAt.toISOString(),
       })),
     });
   });

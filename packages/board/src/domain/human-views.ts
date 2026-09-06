@@ -1,5 +1,5 @@
 import { formatParticipantLabel } from "@comitia/shared";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import type { ConsensusType, PullRequestState, SharedArtifactKind, ThreadType, WorkPhase } from "@comitia/shared";
 import {
   events,
@@ -467,11 +467,18 @@ async function listThreadProposals(
   );
 }
 
+function asDate(value: Date | string | null | undefined, fallback: Date): Date {
+  if (!value) {
+    return fallback;
+  }
+  return value instanceof Date ? value : new Date(value);
+}
+
 export async function listProjectThreads(
   db: Db,
   input: { projectId: string },
 ) {
-  const [rows, activeClaims] = await Promise.all([
+  const [rows, activeClaims, lastEvents] = await Promise.all([
     db
       .select({
         id: threads.id,
@@ -485,27 +492,52 @@ export async function listProjectThreads(
       .from(threads)
       .where(
         and(eq(threads.projectId, input.projectId), isNull(threads.archivedAt)),
-      )
-      .orderBy(desc(threads.createdAt)),
+      ),
     listActiveProjectClaims(db, input.projectId),
+    db
+      .select({
+        threadId: events.threadId,
+        lastEventAt: max(events.createdAt),
+      })
+      .from(events)
+      .where(eq(events.projectId, input.projectId))
+      .groupBy(events.threadId),
   ]);
+  const lastEventByThread = new Map<string, Date>();
+  for (const row of lastEvents) {
+    if (!row.threadId || !row.lastEventAt) {
+      continue;
+    }
+    lastEventByThread.set(row.threadId, asDate(row.lastEventAt, new Date(0)));
+  }
   const claimantsByThread = activeClaimantsByThreadId(activeClaims);
   const prByThread = await listProjectPullRequestsForThreads(
     db,
     rows.map((row) => row.id),
   );
-  return rows.map((row) => {
-    const claimants = claimantsByThread.get(row.id) ?? [];
-    const pullRequests = prByThread.get(row.id) ?? [];
-    return {
-      ...row,
-      activeWorkClaimants: claimants,
-      workPhase: deriveWorkPhase({
-        threadType: row.type,
-        threadState: row.state,
-        hasActiveClaim: claimants.length > 0,
-        pullRequestStates: pullRequests.map((pr) => pr.state),
-      }),
-    };
-  });
+  return rows
+    .map((row) => {
+      const claimants = claimantsByThread.get(row.id) ?? [];
+      const pullRequests = prByThread.get(row.id) ?? [];
+      return {
+        ...row,
+        lastEventAt: asDate(
+          lastEventByThread.get(row.id) ?? row.createdAt,
+          row.createdAt,
+        ),
+        activeWorkClaimants: claimants,
+        workPhase: deriveWorkPhase({
+          threadType: row.type,
+          threadState: row.state,
+          hasActiveClaim: claimants.length > 0,
+          pullRequestStates: pullRequests.map((pr) => pr.state),
+        }),
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.lastEventAt.getTime() - a.lastEventAt.getTime() ||
+        b.createdAt.getTime() - a.createdAt.getTime() ||
+        a.id.localeCompare(b.id),
+    );
 }

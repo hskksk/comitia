@@ -539,6 +539,23 @@ a.btn-secondary {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  align-items: center;
+}
+
+.filter-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+}
+
+.filter-control select {
+  display: inline-block;
+  width: auto;
+  margin-top: 0;
+  min-height: var(--tap-min);
 }
 
 .composer {

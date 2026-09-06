@@ -380,16 +380,14 @@ describe("human REST", () => {
       items: Array<{
         id: string;
         activeWorkClaimants: string[];
+        lastEventAt: string;
         workPhase: string | null;
       }>;
     };
-    expect(
-      beforeBody.items.find((item) => item.id === seeded.thread.id)
-        ?.activeWorkClaimants,
-    ).toEqual([]);
-    expect(
-      beforeBody.items.find((item) => item.id === seeded.thread.id)?.workPhase,
-    ).toBe("unclaimed");
+    const listed = beforeBody.items.find((item) => item.id === seeded.thread.id);
+    expect(listed?.activeWorkClaimants).toEqual([]);
+    expect(listed?.lastEventAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(listed?.workPhase).toBe("unclaimed");
 
     await app.request(`/v1/threads/${seeded.thread.id}/work-claims`, {
       method: "POST",

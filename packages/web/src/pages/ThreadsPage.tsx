@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { boardClient, type ThreadListItem } from "../api.js";
 import { ThreadBadges } from "../components/Badges.js";
 import { projectPath } from "../projectContext.js";
+import { formatRelativeTimeJa } from "../relativeTime.js";
+import {
+  DEFAULT_THREAD_LIST_SORT,
+  visibleThreadListItems,
+  type ThreadListFilter,
+  type ThreadListSort,
+} from "../threadListView.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 import { useRouteLoad } from "../useRouteLoad.js";
-
-type Filter = "all" | "mine" | "proposal" | "implementation";
 
 export function ThreadsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [items, setItems] = useState<ThreadListItem[] | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<ThreadListFilter>("all");
+  const [sort, setSort] = useState<ThreadListSort>(DEFAULT_THREAD_LIST_SORT);
+  const [hideCompleted, setHideCompleted] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
@@ -43,15 +50,15 @@ export function ThreadsPage() {
     return <p className="status status-loading">読み込み中…</p>;
   }
 
-  const visible = items.filter((item) => {
-    if (filter === "mine") {
-      return meId !== null && item.ownerParticipantId === meId;
-    }
-    if (filter === "proposal" || filter === "implementation") {
-      return item.type === filter;
-    }
-    return true;
+  const visible = visibleThreadListItems(items, {
+    filter,
+    sort,
+    hideCompleted,
+    meId,
   });
+  const hiddenCompletedCount = hideCompleted
+    ? items.filter((item) => item.state === "completed").length
+    : 0;
 
   return (
     <section>
@@ -82,13 +89,48 @@ export function ThreadsPage() {
           </button>
         ))}
       </div>
-      {visible.length === 0 ? (
+      <div className="filter-row">
+        <label className="filter-control">
+          表示順
+          <select
+            aria-label="表示順"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ThreadListSort)}
+          >
+            <option value="latest_event">最新の動き</option>
+            <option value="created_at">作成が新しい順</option>
+            <option value="title">タイトル順</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          aria-pressed={hideCompleted}
+          className={hideCompleted ? "btn-primary" : "btn-secondary"}
+          onClick={() => setHideCompleted(true)}
+        >
+          完了を除く
+        </button>
+        <button
+          type="button"
+          aria-pressed={!hideCompleted}
+          className={!hideCompleted ? "btn-primary" : "btn-secondary"}
+          onClick={() => setHideCompleted(false)}
+        >
+          完了も表示
+        </button>
+      </div>
+      {hiddenCompletedCount > 0 ? (
+        <p className="muted">完了したスレッドは非表示です。</p>
+      ) : null}
+      {items.length === 0 ? (
         <p className="status status-empty">
           スレッドはまだありません。
           <Link to={projectPath(projectId, "threads/new")}>
             提案する / 作業する
           </Link>
         </p>
+      ) : visible.length === 0 ? (
+        <p className="status status-empty">該当するスレッドはありません。</p>
       ) : (
         visible.map((item) => (
           <article key={item.id} className="card">
@@ -104,6 +146,14 @@ export function ThreadsPage() {
               workPhase={item.workPhase}
               activeWorkClaimants={item.activeWorkClaimants}
             />
+            <p className="muted">
+              <time
+                dateTime={item.lastEventAt ?? item.createdAt}
+                title={item.lastEventAt ?? item.createdAt}
+              >
+                最終 {formatRelativeTimeJa(item.lastEventAt ?? item.createdAt)}
+              </time>
+            </p>
           </article>
         ))
       )}

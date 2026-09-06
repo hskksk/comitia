@@ -135,6 +135,7 @@ export type ThreadListItem = {
   consensusType: string | null;
   ownerParticipantId: string;
   createdAt: string;
+  lastEventAt?: string;
   activeWorkClaimants: string[];
 };
 
