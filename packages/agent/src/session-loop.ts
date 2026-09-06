@@ -74,7 +74,19 @@ async function postSessionJson(
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`${path} failed: ${response.status}`);
+    const raw = await response.text().catch(() => "");
+    let detail = raw;
+    try {
+      const parsed = JSON.parse(raw) as { error?: unknown };
+      if (typeof parsed.error === "string") {
+        detail = parsed.error;
+      }
+    } catch {
+      // Keep the response text when it is not JSON.
+    }
+    throw new Error(
+      `${path} failed: ${response.status}${detail ? ` ${detail.slice(0, 500)}` : ""}`,
+    );
   }
 }
 
@@ -364,12 +376,24 @@ export async function runSessionLoop(
 
       const report = await plugin.report();
       if (!hasEndSession(entries)) {
-        await postSessionJson(
-          boardUrl,
-          agentToken,
-          `/v1/sessions/${sessionId}/token-usage`,
-          { tokens: report.tokens },
-        );
+        try {
+          await postSessionJson(
+            boardUrl,
+            agentToken,
+            `/v1/sessions/${sessionId}/token-usage`,
+            { tokens: report.tokens },
+          );
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          console.error(`[token-usage] ${message}`);
+          traceLog.emit(
+            adapterNoteEvent(
+              runIndex,
+              `[token-usage] 利用量の記録に失敗しました: ${message}`,
+            ),
+          );
+        }
       }
 
       await flushTracePending();

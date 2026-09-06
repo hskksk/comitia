@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { GATEWAY } from "@comitia/shared";
 import { db } from "../test/helpers.js";
-import { sessions, ticks } from "../db/schema.js";
+import { events, sessions, ticks } from "../db/schema.js";
 import { bootstrapBoard, registerAgent } from "../domain/bootstrap.js";
-import { prepareSessionStart } from "../domain/sessions.js";
+import { endSession, prepareSessionStart } from "../domain/sessions.js";
 import type { BoardGateway } from "../http/app.js";
 import type { Relay } from "./relay.js";
-import { sendTick } from "./send-tick.js";
+import { flushMailbox, sendTick } from "./send-tick.js";
 import { resendUndigested } from "./resend.js";
 
 function offlineRelay(): Relay {
@@ -72,5 +72,43 @@ describe("resendUndigested", () => {
       ),
     ).toBe(true);
     expect(startTicks.some((row) => row.id !== first.tickId)).toBe(true);
+  });
+
+  it("discards a queued tick whose session has already ended", async () => {
+    const boot = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+    });
+    const registered = await registerAgent(db, {
+      ownerParticipantId: boot.owner.id,
+      displayName: "ミカ",
+      engine: "claude-code",
+    });
+    const relay = offlineRelay();
+    const queued = await sendTick(db, relay, {
+      participantId: registered.agent.id,
+      type: "session.start",
+    });
+    await endSession(db, {
+      sessionId: queued.sessionId!,
+      handover: "接続前に終了した",
+    });
+
+    await flushMailbox(db, relay, registered.agent.id);
+
+    const [row] = await db
+      .select()
+      .from(ticks)
+      .where(eq(ticks.id, queued.tickId));
+    expect(row?.status).toBe("discarded");
+    const discarded = await db
+      .select()
+      .from(events)
+      .where(eq(events.kind, "tick_discarded"));
+    expect(discarded).toHaveLength(1);
+    expect(discarded[0]?.payload).toMatchObject({
+      tickId: queued.tickId,
+      reason: "session_closed",
+    });
   });
 });
