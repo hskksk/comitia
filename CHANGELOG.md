@@ -1,3 +1,16 @@
+# [0.3.0](https://github.com/hskksk/comitia/compare/v0.2.2...v0.3.0) (2026-09-06)
+
+
+### Bug Fixes
+
+* **board:** スレッド画面の 500 と、時限合意が止まる原因を直す ([#108](https://github.com/hskksk/comitia/issues/108)) ([6e6c3ea](https://github.com/hskksk/comitia/commit/6e6c3ea061519dfdea93fcffc811567089b2f8af))
+* 決定済みの提案・相談とブレストを完了できるようにする ([#107](https://github.com/hskksk/comitia/issues/107)) ([c960f35](https://github.com/hskksk/comitia/commit/c960f35fc29974b0a761e61f90742b98424f5ab4))
+
+
+### Features
+
+* **web:** 議論中の候補差し替えと不採用をプロジェクトオーナーにも開く ([#109](https://github.com/hskksk/comitia/issues/109)) ([cad34a4](https://github.com/hskksk/comitia/commit/cad34a4b47c1e86c954eb1a8f2646674cabc500f))
+
 ## [0.2.2](https://github.com/hskksk/comitia/compare/v0.2.1...v0.2.2) (2026-09-06)
 
 
