@@ -268,4 +268,35 @@ describe("adapter connect", () => {
     socket.send(JSON.stringify({ type: "ping" }));
     await expect(pong).resolves.toEqual({ type: "pong" });
   });
+
+  it("reconnects the tunnel after the remote socket closes", async () => {
+    const wss = new WebSocketServer({ port: 0 });
+    cleanups.push(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          wss.close((err) => (err ? reject(err) : resolve()));
+        }),
+    );
+    const sockets: import("ws").WebSocket[] = [];
+    wss.on("connection", (socket) => sockets.push(socket));
+    const addr = wss.address();
+    if (!addr || typeof addr === "string") {
+      throw new Error("reconnect test websocket address is unavailable");
+    }
+
+    const tunnel = await connectTunnel({
+      relayWsUrl: `ws://127.0.0.1:${addr.port}`,
+      localBaseUrl: "http://127.0.0.1:1",
+      reconnectDelayMs: 10,
+      maxReconnectDelayMs: 20,
+    });
+    cleanups.push(() => tunnel.disconnect());
+    expect(sockets).toHaveLength(1);
+
+    sockets[0]!.terminate();
+    await vi.waitFor(() => {
+      expect(sockets).toHaveLength(2);
+      expect(tunnel.isConnected()).toBe(true);
+    });
+  });
 });

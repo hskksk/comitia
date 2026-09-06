@@ -8,6 +8,8 @@ import WebSocket from "ws";
 export interface ConnectTunnelOptions {
   relayWsUrl: string;
   localBaseUrl: string;
+  reconnectDelayMs?: number;
+  maxReconnectDelayMs?: number;
 }
 
 export interface TunnelConnection {
@@ -126,24 +128,80 @@ function attachTunnelHandlers(ws: WebSocket, localBaseUrl: string): void {
 export async function connectTunnel(
   options: ConnectTunnelOptions,
 ): Promise<TunnelConnection> {
-  const ws = new WebSocket(options.relayWsUrl);
+  const reconnectDelayMs = options.reconnectDelayMs ?? 1_000;
+  const maxReconnectDelayMs = options.maxReconnectDelayMs ?? 30_000;
+  let ws: WebSocket | null = null;
+  let reconnectTimer: NodeJS.Timeout | undefined;
+  let reconnectAttempts = 0;
+  let stopped = false;
 
-  await new Promise<void>((resolve, reject) => {
-    ws.once("open", () => {
-      attachTunnelHandlers(ws, options.localBaseUrl);
-      resolve();
+  const scheduleReconnect = () => {
+    if (stopped || reconnectTimer) {
+      return;
+    }
+    const delay = Math.min(
+      reconnectDelayMs * 2 ** reconnectAttempts,
+      maxReconnectDelayMs,
+    );
+    reconnectAttempts += 1;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = undefined;
+      void openSocket().catch(scheduleReconnect);
+    }, delay);
+    reconnectTimer.unref?.();
+  };
+
+  const openSocket = async (): Promise<void> => {
+    const socket = new WebSocket(options.relayWsUrl);
+    ws = socket;
+    await new Promise<void>((resolve, reject) => {
+      let opened = false;
+      socket.once("open", () => {
+        opened = true;
+        reconnectAttempts = 0;
+        attachTunnelHandlers(socket, options.localBaseUrl);
+        resolve();
+      });
+      socket.on("error", (error) => {
+        if (!opened) {
+          reject(error);
+        }
+      });
+      socket.once("close", () => {
+        if (ws === socket) {
+          ws = null;
+        }
+        if (!stopped) {
+          scheduleReconnect();
+        }
+      });
     });
-    ws.once("error", reject);
-  });
+  };
+
+  try {
+    await openSocket();
+  } catch (error) {
+    stopped = true;
+    ws?.close();
+    throw error;
+  }
 
   return {
     disconnect(): void {
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      stopped = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = undefined;
+      }
+      if (
+        ws?.readyState === WebSocket.OPEN ||
+        ws?.readyState === WebSocket.CONNECTING
+      ) {
         ws.close();
       }
     },
     isConnected(): boolean {
-      return ws.readyState === WebSocket.OPEN;
+      return ws?.readyState === WebSocket.OPEN;
     },
   };
 }

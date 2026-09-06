@@ -545,7 +545,7 @@ export const ticks = pgTable(
     issuedAt: timestamp("issued_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    status: text("status", { enum: ["queued", "delivered"] })
+    status: text("status", { enum: ["queued", "delivered", "discarded"] })
       .notNull()
       .default("queued"),
     sequence: integer("sequence").notNull(),

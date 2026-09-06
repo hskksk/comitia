@@ -207,6 +207,7 @@ export const EVENT_KINDS = [
   "session_interrupted",
   "tick_queued",
   "tick_delivered",
+  "tick_discarded",
   "agent_connected",
   "agent_disconnected",
   "goals_set",

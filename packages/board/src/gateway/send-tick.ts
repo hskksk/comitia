@@ -7,7 +7,7 @@ import {
   type Tick,
   type TickType,
 } from "@comitia/shared";
-import { agentCredentials } from "../db/schema.js";
+import { agentCredentials, sessions } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { NotFoundError } from "../domain/errors.js";
 import {
@@ -17,6 +17,7 @@ import {
 import {
   insertTick,
   listQueuedTicks,
+  markTickDiscarded,
   markTickDelivered,
   tickFromRow,
 } from "../domain/ticks.js";
@@ -170,6 +171,17 @@ export async function flushMailbox(
 ): Promise<void> {
   const queued = await listQueuedTicks(db, participantId);
   for (const row of queued) {
+    if (row.sessionId) {
+      const [session] = await db
+        .select({ endedAt: sessions.endedAt })
+        .from(sessions)
+        .where(eq(sessions.id, row.sessionId))
+        .limit(1);
+      if (!session || session.endedAt) {
+        await markTickDiscarded(db, row.id, "session_closed");
+        continue;
+      }
+    }
     const ok = await deliverTick(relay, participantId, tickFromRow(row));
     if (!ok) {
       break;

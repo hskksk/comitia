@@ -292,6 +292,70 @@ describe("session loop with fake engine", () => {
     );
   }, 20_000);
 
+  it("continues to wind down when token usage reporting is rejected", async () => {
+    const { db, registered, configDir, boardUrl } = await bootAgent(
+      await createDb(),
+    );
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const originalFetch = globalThis.fetch;
+    let rejectedReports = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (
+          String(input).includes("/token-usage") &&
+          rejectedReports === 0
+        ) {
+          rejectedReports += 1;
+          return new Response(JSON.stringify({ error: "セッションは終了しています" }), {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        return originalFetch(input, init);
+      }),
+    );
+    cleanups.push(() => vi.unstubAllGlobals());
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    cleanups.push(() => errorSpy.mockRestore());
+    const plugin = createFakeEnginePlugin({
+      callTool: (name, args) => runtime.callTool(name, args),
+      script: [
+        { tool: "get_briefing", args: {} },
+        { tool: "set_goals", args: { goals: ["接続を確認する"] } },
+        { tool: "complete_goal", args: {} },
+      ],
+      handover: "利用量記録エラー後も終了した",
+    });
+
+    const handle = await connectCommand({
+      name: "mika",
+      configDir,
+      plugin,
+    });
+    cleanups.push(() => handle.close());
+
+    await vi.waitFor(
+      async () => {
+        const [session] = await db
+          .select()
+          .from(schema.sessions)
+          .where(eq(schema.sessions.participantId, registered.agent.id));
+        expect(session?.endedReason).toBe("completed");
+      },
+      { timeout: 15_000 },
+    );
+    expect(rejectedReports).toBe(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/token-usage failed: 400 セッションは終了しています",
+      ),
+    );
+  }, 20_000);
+
   it("keeps a caller-provided COMITIA_WORK_DIR after the session ends", async () => {
     const { db, registered, configDir, boardUrl } = await bootAgent(
       await createDb(),

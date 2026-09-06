@@ -114,6 +114,41 @@ export async function markTickDelivered(db: Db, tickId: string) {
   return row;
 }
 
+export async function markTickDiscarded(
+  db: Db,
+  tickId: string,
+  reason: string,
+) {
+  const [row] = await db
+    .update(ticks)
+    .set({ status: "discarded" })
+    .where(eq(ticks.id, tickId))
+    .returning();
+  if (!row) {
+    return null;
+  }
+
+  const [cred] = await db
+    .select()
+    .from(agentCredentials)
+    .where(eq(agentCredentials.participantId, row.participantId))
+    .limit(1);
+
+  await recordEvent(db, {
+    projectId: cred?.projectId,
+    actorParticipantId: row.participantId,
+    kind: "tick_discarded",
+    payload: {
+      tickId: row.id,
+      type: row.type,
+      sequence: row.sequence,
+      reason,
+    },
+  });
+
+  return row;
+}
+
 export async function listQueuedTicks(db: Db, participantId: string) {
   return db
     .select()
