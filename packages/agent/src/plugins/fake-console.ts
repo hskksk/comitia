@@ -117,6 +117,7 @@ export class FakeConsole {
   private remainingBudget: number | null = null;
   private hints: ToolPromptHints = { goals: [] };
   private current: RunGate | undefined;
+  private lastLog: FakeConsoleLogEntry[] = [];
   private lastTokens = 0;
   private closed = false;
   private invokeChain = Promise.resolve();
@@ -149,7 +150,7 @@ export class FakeConsole {
         lastThreadId: this.hints.lastThreadId,
         goals: [...this.hints.goals],
       },
-      log: this.current?.log ?? [],
+      log: this.current?.log ?? this.lastLog,
       tools: BOARD_TOOLS,
     };
   }
@@ -162,7 +163,7 @@ export class FakeConsole {
     app.disable("x-powered-by");
     app.use(express.json({ limit: "1mb" }));
     app.get("/", (_req, res) => {
-      res.type("html").send(this.page);
+      res.set("cache-control", "no-store").type("html").send(this.page);
     });
     app.get("/api/state", (_req, res) => {
       res.json(this.snapshot());
@@ -233,6 +234,7 @@ export class FakeConsole {
     this.runIndex = 0;
     this.remainingBudget = null;
     this.hints = { goals: [] };
+    this.lastLog = [];
   }
 
   async run(
@@ -324,6 +326,7 @@ export class FakeConsole {
       return;
     }
     this.current = undefined;
+    this.lastLog = gate.log;
     this.lastTokens = Math.max(1, gate.toolLog.length);
     gate.resolve({
       transcript: "",

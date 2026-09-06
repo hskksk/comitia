@@ -103,6 +103,15 @@ describe("fake console HTTP", () => {
       "set_goals",
     ]);
     expect(result.remainingBudget).toBe(985);
+
+    const after = await readJson(`${url}/api/state`);
+    expect(after.body.status).toBe("waiting");
+    expect(after.body.log).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ tool: "get_briefing" }),
+        expect.objectContaining({ tool: "set_goals" }),
+      ]),
+    );
   });
 
   it("rejects tools while waiting and unknown names", async () => {

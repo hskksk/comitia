@@ -272,12 +272,6 @@ export function fakeConsolePageHtml(): string {
         text(promptEl, running && state.prompt ? state.prompt : "（まだ run がありません）");
         renderTools();
         renderLog();
-        if (selected) {
-          const spec = (state.tools || []).find(function (tool) { return tool.name === selected; });
-          if (spec) {
-            showForm(spec);
-          }
-        }
         doneBtn.disabled = !running || busy;
         callBtn.disabled = !running || busy;
       }
