@@ -147,7 +147,7 @@ describe("ThreadPage", () => {
     expect(screen.getByText("判断待ち")).toBeInTheDocument();
     expect(screen.getByText("人間による批准")).toBeInTheDocument();
     expect(screen.getAllByText("統合").length).toBeGreaterThan(0);
-    await user.type(screen.getByLabelText("要約"), "批准する");
+    await user.type(screen.getByLabelText("要約", { exact: false }), "批准する");
     await user.click(screen.getByRole("button", { name: "批准する" }));
     expect(declareMock).toHaveBeenCalledWith("t1", {
       kind: "ratify",
@@ -201,7 +201,7 @@ describe("ThreadPage", () => {
 
     renderThread();
     await screen.findByText("ルール改正");
-    await user.type(screen.getByLabelText("要約"), "批准する");
+    await user.type(screen.getByLabelText("要約", { exact: false }), "批准する");
     await user.click(screen.getByRole("button", { name: "批准する" }));
 
     await waitFor(() => expect(threadMock).toHaveBeenCalledTimes(2));
@@ -221,7 +221,7 @@ describe("ThreadPage", () => {
     renderThread();
 
     await screen.findByText("ルール改正");
-    await user.type(screen.getByLabelText("差し戻し理由"), "影響範囲を明確にしてください");
+    await user.type(screen.getByLabelText("差し戻し理由", { exact: false }), "影響範囲を明確にしてください");
     await user.click(screen.getByRole("button", { name: "差し戻す" }));
 
     expect(declareMock).toHaveBeenCalledWith("t1", {
@@ -245,7 +245,7 @@ describe("ThreadPage", () => {
     renderThread();
 
     await screen.findByText("ルール改正");
-    await user.type(screen.getByLabelText("要約"), "現時点では不採用");
+    await user.type(screen.getByLabelText("要約", { exact: false }), "現時点では不採用");
     await user.click(screen.getByRole("button", { name: "不採用" }));
 
     expect(declareMock).not.toHaveBeenCalled();
@@ -266,7 +266,7 @@ describe("ThreadPage", () => {
     renderThread();
 
     await screen.findByText("ルール改正");
-    await user.type(screen.getByLabelText("要約"), "現時点では不採用");
+    await user.type(screen.getByLabelText("要約", { exact: false }), "現時点では不採用");
     await user.click(screen.getByRole("button", { name: "不採用" }));
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
 
@@ -282,7 +282,7 @@ describe("ThreadPage", () => {
     renderThread();
 
     await screen.findByText("ルール改正");
-    await user.type(screen.getByLabelText("要約"), "批准する");
+    await user.type(screen.getByLabelText("要約", { exact: false }), "批准する");
     await user.click(screen.getByRole("button", { name: "批准する" }));
 
     expect(screen.getByRole("button", { name: "批准する" })).toBeDisabled();
@@ -435,7 +435,7 @@ describe("ThreadPage", () => {
       });
     renderThread();
     await screen.findByText("ルール改正");
-    await user.type(screen.getByLabelText("本文"), "人間からのコメント");
+    await user.type(screen.getByLabelText("本文", { exact: false }), "人間からのコメント");
     await user.click(screen.getByRole("button", { name: "投稿する" }));
     expect(addPostMock).toHaveBeenCalledWith("t1", {
       type: "comment",
@@ -449,16 +449,54 @@ describe("ThreadPage", () => {
   it("does not offer 案 while awaiting decision", async () => {
     renderThread();
     await screen.findByText("ルール改正");
-    expect(screen.getByLabelText("種類")).not.toHaveValue("proposal");
-    expect(
-      screen.queryByRole("option", { name: "案" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "コメント" })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: "案" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "案を出す" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "投稿する" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows rationale fields when switching to 異議", async () => {
+    const user = userEvent.setup();
+    threadMock.mockResolvedValue({
+      ...threadView,
+      proposals: [
+        {
+          id: "prop-1",
+          number: 1,
+          latestVersionId: "v1",
+          versionNumber: 1,
+          content: "区分を導入する",
+        },
+      ],
+    });
+    renderThread();
+    await screen.findByText("ルール改正");
+    expect(screen.queryByLabelText("根拠", { exact: false })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "異議" }));
+    expect(screen.getByLabelText("根拠", { exact: false }).closest("label")).toHaveTextContent(
+      /必須/,
+    );
+    expect(
+      screen.getByLabelText("対象の提案", { exact: false }).closest("label"),
+    ).toHaveTextContent(/必須/);
+  });
+
+  it("marks required and optional fields on the action panels", async () => {
+    renderThread();
+    await screen.findByText("ルール改正");
+    expect(screen.getByLabelText("本文", { exact: false }).closest("label")).toHaveTextContent(
+      /必須/,
+    );
+    expect(
+      screen.getByLabelText("差し戻し理由", { exact: false }).closest("label"),
+    ).toHaveTextContent(/任意/);
+    expect(
+      screen.getByRole("radiogroup", { name: "種類" }).closest(".composer-kind-field"),
+    ).toHaveTextContent(/必須/);
   });
 
   it("adds a proposal from the same composer while discussing", async () => {
@@ -486,12 +524,12 @@ describe("ThreadPage", () => {
     expect(
       screen.queryByRole("heading", { name: "案を出す" }),
     ).not.toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("種類"), "proposal");
+    await user.click(screen.getByRole("radio", { name: "案" }));
     expect(screen.getByRole("heading", { name: "案を出す" })).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "投稿する" }),
     ).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText("内容"), "区分を導入する");
+    await user.type(screen.getByLabelText("内容", { exact: false }), "区分を導入する");
     await user.click(screen.getByRole("button", { name: "案を出す" }));
     expect(addProposalMock).toHaveBeenCalledWith("t1", "区分を導入する");
     expect(addPostMock).not.toHaveBeenCalled();
@@ -526,7 +564,7 @@ describe("ThreadPage", () => {
     await screen.findByText("ルール改正");
 
     await user.type(
-      screen.getByLabelText('paths（1 行 1 件。全部なら "."）'),
+      screen.getByLabelText('paths（1 行 1 件。全部なら "."）', { exact: false }),
       "docs/\npackages/web/src/labels.ts",
     );
     await user.click(screen.getByRole("button", { name: "着手を表明" }));
@@ -798,7 +836,7 @@ describe("ThreadPage: 議論中の操作をプロジェクトオーナーにも�
     renderThread();
     const user = userEvent.setup();
     await user.type(
-      await screen.findByLabelText("不採用の理由"),
+      await screen.findByLabelText("不採用の理由", { exact: false }),
       "共有物スレッドが 2 本並行しているため畳む",
     );
     await user.click(screen.getByRole("button", { name: "不採用" }));

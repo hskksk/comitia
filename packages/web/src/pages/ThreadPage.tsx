@@ -7,6 +7,7 @@ import {
   type MeResponse,
 } from "../api.js";
 import { PostTypeBadge, ThreadBadges } from "../components/Badges.js";
+import { FieldCaption } from "../components/FieldCaption.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
 import { SynthesisCard } from "../components/SynthesisCard.js";
 import {
@@ -366,6 +367,10 @@ export function ThreadPage() {
     : composerKind === "proposal"
       ? "comment"
       : composerKind;
+  const composerKindOptions: ReadonlyArray<readonly [ComposerKind, string]> =
+    canPropose
+      ? [["proposal", "案"], ...COMPOSER_POST_TYPES]
+      : COMPOSER_POST_TYPES;
   const needsRationale =
     !isProposing &&
     (composerKind === "objection" || composerKind === "approval");
@@ -442,7 +447,7 @@ export function ThreadPage() {
           {awaiting ? (
             <form className="decision-panel" onSubmit={onRatify}>
               <label>
-                要約
+                <FieldCaption required>要約</FieldCaption>
                 <textarea
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
@@ -450,7 +455,7 @@ export function ThreadPage() {
                 />
               </label>
               <label>
-                差し戻し理由
+                <FieldCaption>差し戻し理由</FieldCaption>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -490,22 +495,23 @@ export function ThreadPage() {
               onSubmit={isProposing ? onAddProposal : onPost}
             >
               <h2>{isProposing ? "案を出す" : "投稿する"}</h2>
-              <label>
-                種類
-                <select
-                  value={composerSelectKind}
-                  onChange={(event) =>
-                    setComposerKind(event.target.value as ComposerKind)
-                  }
-                >
-                  {canPropose ? <option value="proposal">案</option> : null}
-                  {COMPOSER_POST_TYPES.map(([value, label]) => (
-                    <option key={value} value={value}>
+              <div className="composer-kind-field">
+                <FieldCaption required>種類</FieldCaption>
+                <div className="composer-kinds" role="radiogroup" aria-label="種類">
+                  {composerKindOptions.map(([value, label]) => (
+                    <label key={value} className="composer-kind">
+                      <input
+                        type="radio"
+                        name="composer-kind"
+                        value={value}
+                        checked={composerSelectKind === value}
+                        onChange={() => setComposerKind(value)}
+                      />
                       {label}
-                    </option>
+                    </label>
                   ))}
-                </select>
-              </label>
+                </div>
+              </div>
               {isProposing ? (
                 <>
                   {systemTemplates.length > 0 ? (
@@ -514,6 +520,7 @@ export function ThreadPage() {
                       templates={systemTemplates}
                       templateId={proposalTemplateId}
                       emptyLabel="選ばない（空のまま書く）"
+                      requirement="optional"
                       onSelect={(id, content) => {
                         setProposalTemplateId(id);
                         if (content) {
@@ -523,7 +530,7 @@ export function ThreadPage() {
                     />
                   ) : null}
                   <label>
-                    内容
+                    <FieldCaption required>内容</FieldCaption>
                     <textarea
                       value={proposalContent}
                       onChange={(event) =>
@@ -546,7 +553,7 @@ export function ThreadPage() {
               ) : (
                 <>
                   <label>
-                    本文
+                    <FieldCaption required>本文</FieldCaption>
                     <textarea
                       value={postBody}
                       onChange={(event) => setPostBody(event.target.value)}
@@ -556,7 +563,7 @@ export function ThreadPage() {
                   {needsRationale ? (
                     <>
                       <label>
-                        根拠
+                        <FieldCaption required>根拠</FieldCaption>
                         <textarea
                           value={rationale}
                           onChange={(event) => setRationale(event.target.value)}
@@ -564,7 +571,7 @@ export function ThreadPage() {
                         />
                       </label>
                       <label>
-                        対象の提案
+                        <FieldCaption required>対象の提案</FieldCaption>
                         <select
                           value={targetVersionId}
                           onChange={(event) =>
@@ -600,7 +607,7 @@ export function ThreadPage() {
             <form className="composer" onSubmit={onClaimWork}>
               <h2>着手を表明する</h2>
               <label>
-                paths（1 行 1 件。全部なら "."）
+                <FieldCaption required>paths（1 行 1 件。全部なら "."）</FieldCaption>
                 <textarea
                   value={claimPathsText}
                   onChange={(event) => setClaimPathsText(event.target.value)}
@@ -633,7 +640,7 @@ export function ThreadPage() {
             >
               <h2>オーナーの宣言</h2>
               <label>
-                要約
+                <FieldCaption required>要約</FieldCaption>
                 <textarea
                   value={ownerSummary}
                   onChange={(event) => setOwnerSummary(event.target.value)}
@@ -684,7 +691,7 @@ export function ThreadPage() {
               }}
             >
               <label>
-                不採用の理由
+                <FieldCaption required>不採用の理由</FieldCaption>
                 <textarea
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}

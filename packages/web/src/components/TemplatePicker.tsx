@@ -1,3 +1,5 @@
+import { FieldCaption } from "./FieldCaption.js";
+
 export type SystemTemplateItem = {
   id: string;
   kind: "project_rule" | "thread_template";
@@ -12,10 +14,17 @@ export function TemplatePicker(props: {
   templateId: string;
   onSelect: (templateId: string, content: string) => void;
   emptyLabel: string;
+  requirement?: "required" | "optional";
 }) {
   return (
     <label>
-      {props.label}
+      {props.requirement ? (
+        <FieldCaption required={props.requirement === "required"}>
+          {props.label}
+        </FieldCaption>
+      ) : (
+        props.label
+      )}
       <select
         value={props.templateId}
         onChange={(event) => {
@@ -23,6 +32,7 @@ export function TemplatePicker(props: {
           const template = props.templates.find((item) => item.id === id);
           props.onSelect(id, template?.content ?? "");
         }}
+        required={props.requirement === "required"}
       >
         <option value="">{props.emptyLabel}</option>
         {props.templates.map((template) => (

@@ -591,6 +591,90 @@ a.btn-secondary {
   margin-top: 0;
 }
 
+.field-caption {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.field-mark {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+
+.field-mark.is-required {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+
+.field-mark.is-optional {
+  color: var(--color-ink-muted);
+  background: var(--color-paper);
+  border: 1px solid var(--color-border-thin);
+}
+
+.composer-kind-field {
+  margin: 0.75rem 0;
+  font-weight: 600;
+}
+
+.composer-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.composer-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  min-height: var(--tap-min);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.composer-kind input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.composer-kind:has(input:checked) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.composer-kind:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+label:has([required]) textarea,
+label:has([required]) select,
+label:has([required]) input:not([type="radio"]):not([type="checkbox"]) {
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+}
+
 label select {
   display: block;
   width: 100%;
@@ -773,7 +857,7 @@ label {
 }
 
 label textarea,
-label input {
+label input:not([type="radio"]):not([type="checkbox"]) {
   display: block;
   width: 100%;
   margin-top: 0.35rem;
