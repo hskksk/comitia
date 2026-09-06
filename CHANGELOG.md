@@ -1,3 +1,10 @@
+## [0.2.1](https://github.com/hskksk/comitia/compare/v0.2.0...v0.2.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **web:** セッションログ詳細が空に見える問題を直す ([#105](https://github.com/hskksk/comitia/issues/105)) ([5300e01](https://github.com/hskksk/comitia/commit/5300e01ab2cc16fd4fff29f5d13bea4e2c92105f))
+
 # [0.2.0](https://github.com/hskksk/comitia/compare/v0.1.0...v0.2.0) (2026-09-06)
 
 
