@@ -58,7 +58,10 @@ describe("fake console HTTP", () => {
 
     const home = await fetch(url);
     expect(home.status).toBe(200);
-    expect(await home.text()).toContain("fake 操作台");
+    const html = await home.text();
+    expect(html).toContain("fake 操作台");
+    expect(html).toContain("ツールの結果");
+    expect(html).toContain("右でツールを選ぶと、応答はここに出ます");
 
     const waiting = await readJson(`${url}/api/state`);
     expect(waiting.body.status).toBe("waiting");
