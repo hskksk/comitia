@@ -1,3 +1,24 @@
+# [0.6.0](https://github.com/hskksk/comitia/compare/v0.5.0...v0.6.0) (2026-09-06)
+
+
+### Features
+
+* **web:** スレッド操作を上部に集め、先頭・末尾へ飛ぶボタンを足す ([#113](https://github.com/hskksk/comitia/issues/113)) ([5765141](https://github.com/hskksk/comitia/commit/57651413f6ed4dd2c7af7a78395b5fad31f87bd1))
+
+# [0.5.0](https://github.com/hskksk/comitia/compare/v0.4.0...v0.5.0) (2026-09-06)
+
+
+### Features
+
+* **web:** サイドバーとページナビをスクロールから独立させる ([#111](https://github.com/hskksk/comitia/issues/111)) ([e04dae0](https://github.com/hskksk/comitia/commit/e04dae0aa749307fb45406aa6a5bbca868f99e0d))
+
+# [0.4.0](https://github.com/hskksk/comitia/compare/v0.3.0...v0.4.0) (2026-09-06)
+
+
+### Features
+
+* **web:** スレッド投稿を投稿日時の降順にする ([#110](https://github.com/hskksk/comitia/issues/110)) ([3d8877a](https://github.com/hskksk/comitia/commit/3d8877a773018af8a6cfef06155a0f2e031e6f4c))
+
 # [0.3.0](https://github.com/hskksk/comitia/compare/v0.2.2...v0.3.0) (2026-09-06)
 
 
