@@ -335,6 +335,12 @@ describe("ThreadPage", () => {
     expect(declareMock).toHaveBeenCalledWith("t1", {
       kind: "complete_thread",
     });
+    expect(
+      screen.queryByRole("button", { name: "案を出す" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "オーナー決定" }),
+    ).not.toBeInTheDocument();
   });
 
   it("does not show completion for a discussing proposal", async () => {
