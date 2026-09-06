@@ -318,7 +318,9 @@ describe("session loop with fake engine", () => {
         return originalFetch(input, init);
       }),
     );
-    cleanups.push(() => vi.unstubAllGlobals());
+    cleanups.push(() => {
+      vi.unstubAllGlobals();
+    });
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     cleanups.push(() => errorSpy.mockRestore());
     const plugin = createFakeEnginePlugin({

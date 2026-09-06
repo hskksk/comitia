@@ -164,6 +164,7 @@ export async function connectTunnel(
       });
       socket.on("error", (error) => {
         if (!opened) {
+          socket.terminate();
           reject(error);
         }
       });
@@ -182,7 +183,6 @@ export async function connectTunnel(
     await openSocket();
   } catch (error) {
     stopped = true;
-    ws?.close();
     throw error;
   }
 
