@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { DeclarationKind } from "@comitia/shared";
+import { canCompleteThread, type DeclarationKind } from "@comitia/shared";
 import { agreements, posts, proposals, threads } from "../db/schema.js";
 import type { Db, DbClient } from "../db/test-setup.js";
 import { evaluateConsensus } from "./consensus.js";
@@ -594,15 +594,11 @@ async function declareInTx(
     }
 
     case "complete_thread": {
-      if (thread.type === "brainstorm") {
-        if (thread.state !== "discussing") {
-          throw new InvalidTransition(
-            "ブレストの完了は議論中からのみ可能です",
-          );
-        }
-      } else if (thread.state !== "decided") {
+      if (!canCompleteThread(thread)) {
         throw new InvalidTransition(
-          "完了は決定済み状態からのみ可能です",
+          thread.type === "brainstorm"
+            ? "ブレストの完了は議論中からのみ可能です"
+            : "完了は決定済み状態からのみ可能です",
         );
       }
 

@@ -1,3 +1,4 @@
+import { canCompleteThread } from "@comitia/shared";
 import { type FormEvent, useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -320,7 +321,9 @@ export function ThreadPage() {
 
   const awaiting = view.thread.state === "awaiting_decision";
   const discussing = view.thread.state === "discussing";
+  const isBrainstorm = view.thread.type === "brainstorm";
   const canCompose = discussing || awaiting;
+  const canPropose = discussing && !isBrainstorm;
   const isThreadOwner = me?.participant.id === view.thread.ownerParticipantId;
   const isProjectOwner = me?.participant.id === projectOwnerId;
   const needsRationale = postType === "objection" || postType === "approval";
@@ -340,6 +343,18 @@ export function ThreadPage() {
         workPhase={view.thread.workPhase}
         activeWorkClaimants={activeWorkClaimantNames(view.workClaims)}
       />
+      {canCompleteThread(view.thread) ? (
+        <div className="actions">
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={isDeclaring}
+            onClick={() => void runDeclare({ kind: "complete_thread" })}
+          >
+            完了にする
+          </button>
+        </div>
+      ) : null}
       <SynthesisCard
         synthesis={view.synthesis}
         candidate={view.candidateProposal}
@@ -591,6 +606,10 @@ export function ThreadPage() {
               投稿する
             </button>
           </form>
+        </>
+      ) : null}
+      {canPropose ? (
+        <>
           <form className="composer" onSubmit={onAddProposal}>
             <h2>案を出す</h2>
             {systemTemplates.length > 0 ? (
@@ -625,7 +644,7 @@ export function ThreadPage() {
           </form>
         </>
       ) : null}
-      {discussing && isThreadOwner ? (
+      {discussing && isThreadOwner && !isBrainstorm ? (
         <form
           className="decision-panel"
           onSubmit={(event) => {
@@ -768,19 +787,6 @@ export function ThreadPage() {
             </div>
           ) : null}
         </form>
-      ) : null}
-      {view.thread.state === "decided" &&
-      (view.thread.type === "implementation" || view.thread.type === "review") ? (
-        <div className="actions">
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={isDeclaring}
-            onClick={() => void runDeclare({ kind: "complete_thread" })}
-          >
-            完了にする
-          </button>
-        </div>
       ) : null}
       {isProjectOwner ? (
         <section className="danger-zone">
