@@ -40,7 +40,10 @@ describe("SPA fallback", () => {
 
       const health = await fetch(`${base}/healthz`);
       expect(health.status).toBe(200);
-      expect(await health.json()).toEqual({ ok: true });
+      expect(await health.json()).toMatchObject({
+        ok: true,
+        version: expect.any(String),
+      });
 
       const me = await fetch(`${base}/v1/me`);
       expect(me.status).toBe(401);

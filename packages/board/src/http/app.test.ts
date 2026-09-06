@@ -280,7 +280,10 @@ describe("board HTTP", () => {
     const app = createBoardApp({ db });
     const res = await app.request("/healthz");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      version: expect.any(String),
+    });
   });
 
   it("sends a tick through the injected gateway", async () => {

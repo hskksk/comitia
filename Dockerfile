@@ -6,6 +6,11 @@ RUN npm install -g pnpm@10.33.3
 
 WORKDIR /app
 
+ARG COMITIA_VERSION=
+ARG GIT_COMMIT=
+ENV COMITIA_VERSION=${COMITIA_VERSION}
+ENV GIT_COMMIT=${GIT_COMMIT}
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY scripts ./scripts
