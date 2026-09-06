@@ -471,93 +471,6 @@ export function ThreadPage() {
               {rejectConfirm}
             </form>
           ) : null}
-          {showOwnerDecide ? (
-            <form
-              className="decision-panel"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!ownerSummary.trim()) {
-                  return;
-                }
-                void runDeclare({
-                  kind: "owner_decide",
-                  binding: true,
-                  summary: ownerSummary,
-                });
-              }}
-            >
-              <h2>オーナーの宣言</h2>
-              <label>
-                要約
-                <textarea
-                  value={ownerSummary}
-                  onChange={(event) => setOwnerSummary(event.target.value)}
-                  required
-                />
-              </label>
-              <div className="actions">
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={isDeclaring || !ownerSummary.trim()}
-                >
-                  オーナー決定
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={isDeclaring || !ownerSummary.trim()}
-                  onClick={() =>
-                    void runDeclare({
-                      kind: "declare_rough",
-                      binding: true,
-                      summary: ownerSummary,
-                    })
-                  }
-                >
-                  ラフを宣言
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={isDeclaring}
-                  onClick={() =>
-                    void runDeclare({ kind: "request_ratification" })
-                  }
-                >
-                  人間批准へ
-                </button>
-              </div>
-            </form>
-          ) : null}
-          {showRejectWhileDiscussing ? (
-            <form
-              className="decision-panel"
-              onSubmit={(event) => {
-                event.preventDefault();
-                onRejectClick();
-              }}
-            >
-              <label>
-                不採用の理由
-                <textarea
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  required
-                />
-              </label>
-              <div className="actions">
-                <button
-                  type="submit"
-                  className="btn-danger"
-                  disabled={isDeclaring || !summary.trim()}
-                >
-                  不採用
-                </button>
-              </div>
-              {rejectConfirm}
-            </form>
-          ) : null}
           {canCompose ? (
             <form className="composer" onSubmit={onPost}>
               <h2>投稿する</h2>
@@ -679,6 +592,93 @@ export function ThreadPage() {
               >
                 着手を表明
               </button>
+            </form>
+          ) : null}
+          {showOwnerDecide ? (
+            <form
+              className="decision-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!ownerSummary.trim()) {
+                  return;
+                }
+                void runDeclare({
+                  kind: "owner_decide",
+                  binding: true,
+                  summary: ownerSummary,
+                });
+              }}
+            >
+              <h2>オーナーの宣言</h2>
+              <label>
+                要約
+                <textarea
+                  value={ownerSummary}
+                  onChange={(event) => setOwnerSummary(event.target.value)}
+                  required
+                />
+              </label>
+              <div className="actions">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={isDeclaring || !ownerSummary.trim()}
+                >
+                  オーナー決定
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={isDeclaring || !ownerSummary.trim()}
+                  onClick={() =>
+                    void runDeclare({
+                      kind: "declare_rough",
+                      binding: true,
+                      summary: ownerSummary,
+                    })
+                  }
+                >
+                  ラフを宣言
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={isDeclaring}
+                  onClick={() =>
+                    void runDeclare({ kind: "request_ratification" })
+                  }
+                >
+                  人間批准へ
+                </button>
+              </div>
+            </form>
+          ) : null}
+          {showRejectWhileDiscussing ? (
+            <form
+              className="decision-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onRejectClick();
+              }}
+            >
+              <label>
+                不採用の理由
+                <textarea
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  required
+                />
+              </label>
+              <div className="actions">
+                <button
+                  type="submit"
+                  className="btn-danger"
+                  disabled={isDeclaring || !summary.trim()}
+                >
+                  不採用
+                </button>
+              </div>
+              {rejectConfirm}
             </form>
           ) : null}
           {isProjectOwner ? (
