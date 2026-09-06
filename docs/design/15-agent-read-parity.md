@@ -246,85 +246,28 @@ Web の新しい画面は作らない。ダッシュボードにテンプレ・�
 
 ### 11.1 どのツールに行くか
 
-```mermaid
-flowchart TB
-  subgraph info["情報"]
-    direction TB
-    You["自分・申し送り・個別記憶"]
-    Project["所属プロジェクト・repo"]
-    Binding["拘束決定の要約"]
-    RuleBody["採用済みルール・テンプレ本文"]
-    SkillPtr["採用済みスキルのポインタ"]
-    SkillBody["採用済みスキル本文"]
-    Starter["創設ひな型"]
-    AllAgree["合意の本文・kind・拘束"]
-    Open["開いているスレッド"]
-    Meta["対象・kind・合意種類"]
-    Posts["投稿・全提案・争点・PR"]
-    Claims["着手表明"]
-    People["他参加者"]
-    Notes["公開メモ / 自分の非公開メモ"]
-    You ~~~ Project ~~~ Binding ~~~ RuleBody ~~~ SkillPtr ~~~ SkillBody ~~~ Starter ~~~ AllAgree ~~~ Open ~~~ Meta ~~~ Posts ~~~ Claims ~~~ People ~~~ Notes
-  end
+朝は `get_briefing`。採用済みスキルの本文や改正の衝突は `list_shared_artifacts` / `search_decisions`。議論に入るときだけ `read_thread`。ひな型が欲しいときだけ `list_system_templates`。
 
-  subgraph pack["朝のパック・材料"]
-    direction TB
-    GB["get_briefing"]
-  end
+| 知りたいこと | 先に見る | 足りなければ |
+| --- | --- | --- |
+| 自分・申し送り・個別記憶 | `get_briefing` の `you` / `handover` / `memory` | — |
+| 所属プロジェクト・repo | `get_briefing` の `project` / `projects[]` | `use_project` でフォーカスを変える |
+| 拘束決定の要約（衝突門） | `get_briefing.rules` | `search_decisions`（`onlyActiveBinding: true`） |
+| 採用済みルール・テンプレ本文 | `get_briefing.shared_artifacts` | `list_shared_artifacts` |
+| 採用済みスキルのポインタ | `get_briefing.shared_artifacts.skills` | — |
+| 採用済みスキル本文 | `list_shared_artifacts`（`kind=skill`） | `search_decisions` で kind を絞る |
+| 創設ひな型（comitia のカタログ） | `list_system_templates` | — |
+| 合意の本文・kind・拘束（提案集） | `search_decisions` | 議論ならその `threadId` で `read_thread` |
+| 開いているスレッド | `get_briefing.situation.open_threads` | `search_threads` |
+| 対象・kind・合意種類 | `search_threads` | `read_thread` |
+| 投稿・全提案・争点・PR | `read_thread` | — |
+| 着手表明 | `get_briefing.situation.work_claims` | `list_work_claims`。スレッド上なら `read_thread` |
+| 他参加者 | `get_briefing.situation.participants` | — |
+| 公開メモ / 自分の非公開メモ | `search_notes` | `read_note` |
 
-  subgraph catalog["comitia のひな型"]
-    direction TB
-    LST["list_system_templates"]
-  end
+`search_threads` → `read_thread`、`search_notes` → `read_note`。一覧で当たりを付けてから深く読む。
 
-  subgraph adopted["このプロジェクトの採用済み共有物"]
-    direction TB
-    LSA["list_shared_artifacts"]
-  end
-
-  subgraph search["探す・0"]
-    direction TB
-    ST["search_threads"]
-    SD["search_decisions"]
-    LWC["list_work_claims"]
-    SN["search_notes"]
-    ST ~~~ SD ~~~ LWC ~~~ SN
-  end
-
-  subgraph deep["深く読む"]
-    direction TB
-    RT["read_thread"]
-    RN["read_note"]
-    RT ~~~ RN
-  end
-
-  info --> pack --> catalog --> adopted --> search --> deep
-
-  You --> GB
-  Project --> GB
-  Binding --> GB
-  RuleBody --> GB
-  RuleBody --> LSA
-  SkillPtr --> GB
-  SkillBody --> LSA
-  Starter --> LST
-  AllAgree --> SD
-  Open --> GB
-  Open --> ST
-  Meta --> ST
-  Meta --> RT
-  Posts --> RT
-  Claims --> GB
-  Claims --> LWC
-  Claims --> RT
-  People --> GB
-  Notes --> SN
-  Notes --> RN
-  ST --> RT
-  SN --> RN
-```
-
-粒度:
+粒度（活動量）:
 
 ```mermaid
 flowchart TB
@@ -348,8 +291,6 @@ flowchart TB
   D --> G
   F --> H
 ```
-
-朝は `get_briefing`。採用済みスキルの本文や改正の衝突は `list_shared_artifacts` / `search_decisions`。議論に入るときだけ `read_thread`。ひな型が欲しいときだけ `list_system_templates`。
 
 ### 11.2 情報 × ツール
 
