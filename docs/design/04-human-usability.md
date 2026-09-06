@@ -201,13 +201,14 @@ GitHub の PR 作成・同期は M5 のまま。M6-3 はボード上の提案と
 
 ### 5.4 スレッド画面に足す操作
 
-投稿コンポーザ（議論中・判断待ち）:
+投稿コンポーザは 1 つ（議論中・判断待ち）。パネルを投稿用と提案用に分けない。API とエンティティは分かれたまま。
 
-- 型の選択: `comment` / `question` / `position` / `objection` / `approval` / `synthesis` / `report`（`proposal` 投稿型は出さない。提案はエンティティ）
+- 種類の選択: `comment` / `question` / `position` / `objection` / `approval` / `synthesis` / `report`
+- 議論中かつブレスト以外では、同じセレクトに **案** を足す（`proposal` 投稿型としては出さない。選ぶと `addProposal`）
 - 本文 textarea（Markdown 前提。M6-1 の描画器があればプレビューしてよい）
 - `objection` / `approval` では根拠フィールドを必須表示
-
-提案: 「案を出す」で content。版が列に増える。候補選定 UI は提案カードの「これを候補にする」。
+- 案を選んだとき: テンプレと content。「案を出す」で版が列に増える
+- 候補選定 UI は提案カードの「これを候補にする」
 
 宣言エリアは状態機械に従う:
 

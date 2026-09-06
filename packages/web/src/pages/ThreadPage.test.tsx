@@ -446,6 +446,57 @@ describe("ThreadPage", () => {
     });
   });
 
+  it("does not offer 案 while awaiting decision", async () => {
+    renderThread();
+    await screen.findByText("ルール改正");
+    expect(screen.getByLabelText("種類")).not.toHaveValue("proposal");
+    expect(
+      screen.queryByRole("option", { name: "案" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "案を出す" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "投稿する" }),
+    ).toBeInTheDocument();
+  });
+
+  it("adds a proposal from the same composer while discussing", async () => {
+    const user = userEvent.setup();
+    threadMock
+      .mockResolvedValueOnce({
+        ...threadView,
+        thread: { ...threadView.thread, state: "discussing" },
+      })
+      .mockResolvedValueOnce({
+        ...threadView,
+        thread: { ...threadView.thread, state: "discussing" },
+        proposals: [
+          {
+            id: "prop-1",
+            number: 1,
+            latestVersionId: "v2",
+            versionNumber: 1,
+            content: "区分を導入する",
+          },
+        ],
+      });
+    renderThread();
+    await screen.findByText("ルール改正");
+    expect(
+      screen.queryByRole("heading", { name: "案を出す" }),
+    ).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("種類"), "proposal");
+    expect(screen.getByRole("heading", { name: "案を出す" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "投稿する" }),
+    ).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("内容"), "区分を導入する");
+    await user.click(screen.getByRole("button", { name: "案を出す" }));
+    expect(addProposalMock).toHaveBeenCalledWith("t1", "区分を導入する");
+    expect(addPostMock).not.toHaveBeenCalled();
+  });
+
   it("lets the thread owner select a candidate while discussing", async () => {
     const user = userEvent.setup();
     threadMock.mockResolvedValue({
