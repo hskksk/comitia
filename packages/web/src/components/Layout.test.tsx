@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -50,10 +50,35 @@ describe("Layout", () => {
 
   it("includes dashboard link in sidebar", async () => {
     renderShell("/p/proj-1");
-    expect(await screen.findByRole("link", { name: "ダッシュボード" })).toHaveAttribute(
+    const sidebarNav = await screen.findByRole("navigation", { name: "メイン" });
+    expect(within(sidebarNav).getByRole("link", { name: "ダッシュボード" })).toHaveAttribute(
       "href",
       "/p/proj-1",
     );
+  });
+
+  it("shows a page nav in the top bar with the same destinations", async () => {
+    renderShell("/p/proj-1");
+    expect(screen.getByRole("banner")).toHaveClass("top-bar");
+    const pageNav = await screen.findByRole("navigation", { name: "ページ" });
+    expect(pageNav).toHaveClass("nav");
+    expect(within(pageNav).getByRole("link", { name: "ダッシュボード" })).toHaveAttribute(
+      "href",
+      "/p/proj-1",
+    );
+    expect(within(pageNav).getByRole("link", { name: "判断キュー" })).toHaveAttribute(
+      "href",
+      "/p/proj-1/queue",
+    );
+  });
+
+  it("navigates from the top page nav", async () => {
+    const user = userEvent.setup();
+    renderShell("/p/proj-1");
+    await screen.findByText("dashboard");
+    const pageNav = screen.getByRole("navigation", { name: "ページ" });
+    await user.click(within(pageNav).getByRole("link", { name: "判断キュー" }));
+    expect(await screen.findByText("queue-page")).toBeInTheDocument();
   });
 
   it("goes to the new project's dashboard when switching from user settings", async () => {
