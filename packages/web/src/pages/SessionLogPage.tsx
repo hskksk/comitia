@@ -11,12 +11,10 @@ import { useRouteLoad } from "../useRouteLoad.js";
 import {
   SessionTraceTimeline,
   type TraceTimelineFilters,
+  type TraceTimelineItem,
 } from "../SessionTraceTimeline.js";
-import {
-  formatTraceEventLine,
-  parseChatLogLines,
-  traceKindClass,
-} from "../trace-log.js";
+import { parseChatLogLines } from "../trace-log.js";
+import { toTimelineItems } from "../trace-timeline.js";
 
 export function SessionLogPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -141,6 +139,9 @@ export function SessionLogPage() {
   const parsedLines = log ? parseChatLogLines(log.chatLog) : [];
   const hasTrace = trace ? trace.entries.length > 0 : parsedLines.some((line) => line.type === "trace");
   const useStructuredTrace = trace !== null && trace.entries.length > 0;
+  const timelineItems: TraceTimelineItem[] = useStructuredTrace
+    ? toTimelineItems(trace!.entries)
+    : parsedLines;
 
   return (
     <article>
@@ -204,32 +205,8 @@ export function SessionLogPage() {
       {error ? <p className="status status-error">{error}</p> : null}
       {rawView || !hasTrace ? (
         <pre className="chat-log">{log?.chatLog || "(空)"}</pre>
-      ) : useStructuredTrace ? (
-        <SessionTraceTimeline entries={trace!.entries} filters={filters} />
       ) : (
-        <pre className="chat-log chat-log-trace">
-          {parsedLines.map((line, index) =>
-            line.type === "legacy" ? (
-              <span key={`legacy-${index}`} className="trace-legacy">
-                {line.text}
-                {"\n"}
-              </span>
-            ) : (
-              <span
-                key={`trace-${line.event.seq}-${index}`}
-                className={traceKindClass(line.event.kind)}
-              >
-                <span className="trace-meta">
-                  [{line.event.at}] {line.event.kind}
-                  {line.event.run !== undefined ? ` run=${line.event.run}` : ""}
-                </span>
-                {"\n"}
-                {formatTraceEventLine(line.event)}
-                {"\n"}
-              </span>
-            ),
-          )}
-        </pre>
+        <SessionTraceTimeline items={timelineItems} filters={filters} />
       )}
     </article>
   );

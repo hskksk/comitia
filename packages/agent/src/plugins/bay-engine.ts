@@ -204,7 +204,7 @@ export function createBayEnginePlugin(options: {
             ...partial,
           } as TraceEvent);
           if (human) {
-            consoleOut.write(`${human}\n`);
+            consoleOut.write(`${human}\n\n`);
           }
         }
       }

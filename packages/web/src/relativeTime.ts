@@ -29,3 +29,22 @@ export function formatRelativeTimeJa(
   }
   return then.toLocaleDateString("ja-JP");
 }
+
+/** Clock time for a trace event (HH:mm:ss). Invalid ISO is returned as-is. */
+export function formatTraceClock(
+  iso: string,
+  timeZone?: string,
+): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) {
+    return iso;
+  }
+  return then.toLocaleTimeString("ja-JP", {
+    hour12: false,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
+  });
+}

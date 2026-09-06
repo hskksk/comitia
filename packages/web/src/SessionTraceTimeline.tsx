@@ -1,64 +1,98 @@
-import { useState } from "react";
 import type { TraceEvent } from "@comitia/shared";
+import { CollapsibleMarkdown } from "./components/CollapsibleMarkdown.js";
+import { traceKindLabel } from "./labels.js";
+import { formatTraceClock } from "./relativeTime.js";
 import { traceKindClass } from "./trace-log.js";
 import {
-  filterTraceEntries,
-  formatTraceTimelineLine,
-  isTraceEntryCollapsible,
+  filterTimelineItems,
+  isTraceResultError,
+  traceBodyAs,
+  traceEntryBody,
+  traceEntryStatus,
+  traceEntryTitle,
   type TraceTimelineFilters,
+  type TraceTimelineItem,
 } from "./trace-timeline.js";
 
 type SessionTraceTimelineProps = {
-  entries: TraceEvent[];
+  items: TraceTimelineItem[];
   filters: TraceTimelineFilters;
 };
 
-export function SessionTraceTimeline({
-  entries,
-  filters,
-}: SessionTraceTimelineProps) {
-  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
-  const visible = filterTraceEntries(entries, filters);
-
+function TraceEntryBody({ event }: { event: TraceEvent }) {
+  const body = traceEntryBody(event);
+  if (!body) {
+    return null;
+  }
+  const as = traceBodyAs(event);
   return (
-    <pre className="chat-log chat-log-trace">
-      {visible.map((entry) => {
-        const key = entry.seq;
-        const collapsible = isTraceEntryCollapsible(entry);
-        const isCollapsed = collapsible && collapsed[key] === true;
-        return (
-          <span
-            key={`trace-${key}`}
-            className={traceKindClass(entry.kind)}
-          >
-            <span className="trace-meta">
-              [{entry.at}] {entry.kind}
-              {entry.run !== undefined ? ` run=${entry.run}` : ""}
-              {collapsible ? (
-                <>
-                  {" "}
-                  <button
-                    type="button"
-                    className="trace-collapse-btn"
-                    onClick={() =>
-                      setCollapsed((state) => ({
-                        ...state,
-                        [key]: !state[key],
-                      }))
-                    }
-                  >
-                    {isCollapsed ? "展開" : "折りたたむ"}
-                  </button>
-                </>
-              ) : null}
-            </span>
-            {"\n"}
-            {isCollapsed ? "…\n" : `${formatTraceTimelineLine(entry)}\n`}
-          </span>
-        );
-      })}
-    </pre>
+    <CollapsibleMarkdown
+      source={body}
+      as={as}
+      previewLines={as === "pre" ? 14 : 8}
+      className={
+        as === "pre" ? "trace-entry-body" : "trace-entry-body is-markdown"
+      }
+    />
   );
 }
 
-export type { TraceTimelineFilters };
+export function SessionTraceTimeline({
+  items,
+  filters,
+}: SessionTraceTimelineProps) {
+  const visible = filterTimelineItems(items, filters);
+
+  if (visible.length === 0) {
+    return <p className="status status-empty">表示するログはありません</p>;
+  }
+
+  return (
+    <ol className="trace-timeline">
+      {visible.map((item, index) => {
+        if (item.type === "legacy") {
+          return (
+            <li key={`legacy-${index}`} className="trace-entry trace-legacy">
+              <pre className="trace-entry-body">{item.text}</pre>
+            </li>
+          );
+        }
+        const { event } = item;
+        const title = traceEntryTitle(event);
+        const status = traceEntryStatus(event);
+        const error = isTraceResultError(event);
+        return (
+          <li
+            key={`trace-${event.seq}-${index}`}
+            className={`trace-entry ${traceKindClass(event.kind)}${error ? " is-error" : ""}`}
+          >
+            <header className="trace-entry-head">
+              <span className="badge trace-kind-badge">
+                {traceKindLabel(event.kind)}
+              </span>
+              {title ? <span className="trace-entry-title">{title}</span> : null}
+              {status ? (
+                <span className={`trace-entry-status${error ? " is-error" : ""}`}>
+                  {status}
+                </span>
+              ) : null}
+              <time
+                className="trace-entry-time muted"
+                dateTime={event.at}
+                title={event.at}
+              >
+                {formatTraceClock(event.at)}
+              </time>
+              {event.run !== undefined ? (
+                <span className="muted">run {event.run}</span>
+              ) : null}
+            </header>
+            <TraceEntryBody event={event} />
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export type { TraceTimelineFilters, TraceTimelineItem };

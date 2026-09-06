@@ -62,7 +62,7 @@ describe("agentTraceCommand", () => {
       stdout,
     });
 
-    expect(chunks.join("")).toContain("[tool] get_briefing({})");
+    expect(chunks.join("")).toContain("[tool] get_briefing");
     await rm(configDir, { recursive: true, force: true });
   });
 
@@ -222,7 +222,7 @@ describe("agentTraceCommand", () => {
 
     const output = chunks.join("");
     expect(output).toContain("[run start]");
-    expect(output).toContain("[tool] get_briefing({})");
+    expect(output).toContain("[tool] get_briefing");
     await rm(configDir, { recursive: true, force: true });
   });
 });

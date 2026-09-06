@@ -213,7 +213,7 @@ describe("formatClaudeStreamLineForConsole", () => {
       },
     });
     expect(formatClaudeStreamLineForConsole(line)).toBe(
-      "[thinking] considering the options",
+      "[thinking]\nconsidering the options",
     );
   });
 
@@ -239,7 +239,7 @@ describe("formatClaudeStreamLineForConsole", () => {
       },
     });
     expect(formatClaudeStreamLineForConsole(line)).toBe(
-      '[tool] get_briefing({"foo":"bar"})',
+      "[tool] get_briefing\nfoo: bar",
     );
   });
 
@@ -253,7 +253,7 @@ describe("formatClaudeStreamLineForConsole", () => {
         ],
       },
     });
-    expect(formatClaudeStreamLineForConsole(line)).toBe("[thinking] hmm\nok");
+    expect(formatClaudeStreamLineForConsole(line)).toBe("[thinking]\nhmm\n\nok");
   });
 });
 

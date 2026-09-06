@@ -156,7 +156,7 @@ export function formatClaudeStreamLineForConsole(line: string): string | null {
   if (parts.length === 0) {
     return null;
   }
-  return parts.join("\n");
+  return parts.join("\n\n");
 }
 
 export function createClaudeCodePlugin(

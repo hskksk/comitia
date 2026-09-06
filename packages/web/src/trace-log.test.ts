@@ -23,6 +23,7 @@ describe("trace-log", () => {
 
   it("maps trace kinds to css classes", () => {
     expect(traceKindClass("thinking")).toBe("trace-thinking");
+    expect(traceKindClass("text")).toBe("trace-text");
     expect(traceKindClass("tool_call")).toBe("trace-tool-call");
   });
 });
