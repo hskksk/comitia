@@ -1,3 +1,5 @@
+import { FAKE_CONSOLE_DEFAULT_PORT } from "@comitia/shared";
+
 export class UsageError extends Error {
   constructor(message: string) {
     super(message);
@@ -105,7 +107,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   project use       いまのプロジェクトを切替
   agent list        登録済みエージェント一覧
   agent register    エージェントを登録（--engine claude-code | fake | opencode | cursor-agent、任意 --project --role --personality --model）
-  agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent、任意 --model）
+  agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent、任意 --model）。fake は操作台（http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
   agent trace       構造化トレースを読む（--json で JSON 出力）

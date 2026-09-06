@@ -151,6 +151,9 @@ export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number];
 export const ENGINES = ["claude-code", "fake", "opencode", "cursor-agent"] as const;
 export type Engine = (typeof ENGINES)[number];
 
+/** Loopback port for the fake-engine console (M23). Board default is 8787. */
+export const FAKE_CONSOLE_DEFAULT_PORT = 8790;
+
 /** Agent discussion attitude (M15). Counted in Unicode code points. */
 export const PERSONALITY_MAX_LENGTH = 200;
 

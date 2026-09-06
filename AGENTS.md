@@ -39,7 +39,7 @@ pnpm comitia help
 
 各マイルストーンは設計上すでに **M16-1 / M20-2 のようなサブタスク** に分かれる。依存する層を順に作るときは、前の PR のマージを待って `main` から次を切らない。**stacked PR** にする。
 
-実例: M20-3（[#81](https://github.com/hskksk/comitia/pull/81)）の base は M20-2 のブランチ。レビューアは層ごとの差分だけを見る。
+実例: M20-3（[#81](https://github.com/hskksk/comitia/pull/81)）の base は M20-2 のブランチ。レビューアは層ごとの差分だけを見る。設計から入る例は M23-2（[#115](https://github.com/hskksk/comitia/pull/115)）の base が M23-1 の設計ブランチ（[#114](https://github.com/hskksk/comitia/pull/114)）。
 
 ### いつ stack するか
 
@@ -48,14 +48,37 @@ pnpm comitia help
 - 同一マイルストーン内で、後続が先行のスキーマ・API・型に依存する（例: schema+domain → MCP/briefing → UI/CLI）
 - 先行 PR が未マージのまま次の層に入りたいとき
 - 設計で番号が付いた一連のスライス（M20-1 → M20-2 → M20-3）
+- **未マージの設計 PR の上に実装を積む**（例: M23-1 設計 docs → M23-2 HTTP）。設計のマージを待たない
 
 **しない**
 
 - 独立したマイルストーン（M16 と M19、M18 の一部など、設計が並列可としているもの）
-- 無関係のバグ修正・docs だけの設計 PR（設計は先に `main` へ入れてよい）
+- 無関係のバグ修正
+- すぐ実装しない docs だけの設計（そのときは設計を先に `main` へ入れてよい）
 - 1 つのレビュー単位に収まる小さな変更
 
 先行がすでに `main` に入っているなら、次は `main` から普通の PR でよい。stack は「未マージの土台の上に積む」ためのもの。
+
+### 設計 PR に実装を積む
+
+新しいマイルストーンが設計ドキュメントから始まるとき、**設計を先に `main` へ入れてから実装ブランチを切らない。** 設計 PR を最下層にし、実装 PR をそのブランチに stack する。
+
+```
+main
+ └── m23-1-design     PR → main          （docs だけ）
+      └── m23-2-impl  PR → m23-1-design  （コード。base は設計ブランチ）
+```
+
+1. 設計 PR は最新の `main` から切る。`docs/design/` と、マイルストーン表・ポインタの更新だけ。コードは入れない。
+2. 実装 PR は **`main` から切らない。** 設計ブランチの HEAD から切り、PR の **base は設計ブランチ名**。
+3. 設計への指摘は下の層で直し、上を rebase する（「下の層を直したとき」と同じ）。
+
+**しない**
+
+- 設計と実装を 1 PR に混ぜる（設計レビューとコードレビューが混ざる）
+- 設計 PR が生きているのに実装を `main` から切る（設計が土台に無い）
+
+実装の予定がない設計だけの更新は、従来どおり `main` への単独 PR でよい。
 
 ### 層の切り方
 
@@ -63,11 +86,12 @@ pnpm comitia help
 
 よくある分割（設計の PR-set に合わせる）:
 
-1. **schema + domain + テスト**（マイグレーション、純関数、ACL）
-2. **MCP / REST / briefing**（ツール、イベント、朝のパック）
-3. **UI / CLI / プロンプト**（Web、`comitia`、`INITIAL_PROMPT` / fake）
+1. **設計（docs）**（`docs/design/`。未マージなら実装の base にする）
+2. **schema + domain + テスト**（マイグレーション、純関数、ACL）
+3. **MCP / REST / briefing**（ツール、イベント、朝のパック）
+4. **UI / CLI / プロンプト**（Web、`comitia`、`INITIAL_PROMPT` / fake）
 
-設計文書に完了条件があるなら、層ごとにどれを満たすかを PR 本文に書く。1 マイルストーンを巨大な 1 PR にまとめない。
+設計文書に完了条件があるなら、層ごとにどれを満たすかを PR 本文に書く。1 マイルストーンを巨大な 1 PR にまとめない。設計がすでに `main` なら、上の 1 を省略して実装の最下層から切る。
 
 ### 作り方
 
@@ -78,9 +102,13 @@ main
  └── m16-1-schema     PR → main
       └── m16-2-mcp   PR → m16-1-schema
            └── m16-3-ui  PR → m16-2-mcp
+
+main
+ └── m23-1-design     PR → main
+      └── m23-2-impl  PR → m23-1-design
 ```
 
-1. 最下層は最新の `main`（必要なら `git fetch origin main`）からブランチを切る。実装し、コミットし、push し、**base = `main`** の PR を開く。
+1. 最下層は最新の `main`（必要なら `git fetch origin main`）からブランチを切る。コミットし、push し、**base = `main`** の PR を開く。
 2. 次の層は **`main` から切らない。** 直前の層の HEAD からブランチを切る。
 3. 次の PR の **base は直前のブランチ名**（`main` ではない）。レビュー差分がその層だけになる。
 4. 繰り返す。各 PR はドラフトのままで次の層に進んでよい。層がレビュー可能になったら Ready。
@@ -100,7 +128,7 @@ Stack（下 → 上）:
 3. #N+2 UI / CLI
 ```
 
-上の層なら「Stacked on #N (`branch-name`)」と書く。完了条件・テスト結果（`pnpm test` / `pnpm typecheck`）を層の範囲で書く。
+上の層なら「Stacked on #N (`branch-name`)」と書く。完了条件・テスト結果（`pnpm test` / `pnpm typecheck`）を層の範囲で書く。設計→実装の鎖なら `1. #N 設計 docs` / `2. #N+1 実装`。
 
 ### 下の層を直したとき
 

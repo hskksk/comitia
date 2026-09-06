@@ -18,8 +18,22 @@ import {
   ESCAPE_LINE,
   type ToolPromptHints,
 } from "./board-tools.js";
+import { FakeConsole } from "./fake-console.js";
 import type { EnginePlugin, EngineRunContext } from "./types.js";
 import { toolLogToTraceEvents } from "../trace-format.js";
+
+function shouldUseFakeConsole(options: InteractiveFakeEngineOptions): boolean {
+  if (options.io) {
+    return false;
+  }
+  if (options.console === false) {
+    return false;
+  }
+  if (process.env.COMITIA_FAKE_TTY === "1") {
+    return false;
+  }
+  return options.console === true || options.console === undefined;
+}
 
 export interface InteractiveIo {
   write: (text: string) => void;
@@ -36,6 +50,11 @@ export interface InteractiveFakeEngineOptions {
   stdin?: NodeJS.ReadableStream;
   stdout?: NodeJS.WritableStream;
   onInterrupt?: () => void;
+  /**
+   * Local HTTP console (default when `io` is omitted).
+   * Set false, pass `io`, or `COMITIA_FAKE_TTY=1` for the TTY path.
+   */
+  console?: boolean;
 }
 
 function isTtyInput(
@@ -169,6 +188,8 @@ export function createInteractiveFakeEnginePlugin(
   let remainingBudget: number | null = null;
   let hints: ToolPromptHints = { goals: [] };
   let sessionId: string | undefined;
+  let consoleHandle: FakeConsole | undefined;
+  const useConsole = shouldUseFakeConsole(options);
 
   function write(text: string): void {
     (io ?? options.io)?.write(text);
@@ -182,13 +203,50 @@ export function createInteractiveFakeEnginePlugin(
     return current.ask(question);
   }
 
+  async function ensureConsole(): Promise<string | undefined> {
+    if (!useConsole) {
+      return undefined;
+    }
+    if (!consoleHandle) {
+      const stdout = options.stdout ?? process.stdout;
+      consoleHandle = new FakeConsole({
+        callTool: options.callTool,
+        write(text) {
+          stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+        },
+      });
+    }
+    return consoleHandle.listen();
+  }
+
   return {
+    ensureConsole,
+
     async start(session) {
       runIndex = 0;
       lastTokens = 0;
       remainingBudget = null;
       hints = { goals: [] };
       sessionId = session.sessionId;
+      if (useConsole) {
+        const url = await ensureConsole();
+        consoleHandle?.setSession({
+          sessionId: session.sessionId,
+          environmentPrompt: session.environmentPrompt,
+        });
+        const stdout = options.stdout ?? process.stdout;
+        stdout.write("\n");
+        stdout.write("fake エンジン — 人間がエージェントの一日を操作します。\n");
+        stdout.write(`セッション: ${session.sessionId}\n`);
+        if (session.environmentPrompt) {
+          stdout.write(`${session.environmentPrompt.trim()}\n\n`);
+        }
+        stdout.write(`操作台: ${url}\n`);
+        stdout.write(
+          "ブラウザでツールを選んでください。Ctrl-C で切断。\n\n",
+        );
+        return;
+      }
       if (!options.io) {
         io = createReadlineIo({
           stdin: options.stdin,
@@ -213,6 +271,14 @@ export function createInteractiveFakeEnginePlugin(
     },
 
     async run(prompt: string, ctx?: EngineRunContext) {
+      if (useConsole) {
+        if (!consoleHandle) {
+          throw new Error("fake console is not started");
+        }
+        const result = await consoleHandle.run(prompt, ctx);
+        lastTokens = consoleHandle.tokens();
+        return result;
+      }
       runIndex += 1;
       const toolLog: Array<{
         run: number;
@@ -339,10 +405,18 @@ export function createInteractiveFakeEnginePlugin(
     },
 
     async report() {
+      if (useConsole && consoleHandle) {
+        return { tokens: consoleHandle.tokens() };
+      }
       return { tokens: lastTokens };
     },
 
     async stop() {
+      if (useConsole) {
+        consoleHandle?.clearSession();
+        sessionId = undefined;
+        return;
+      }
       if (ownedIo) {
         io?.close?.();
       }
@@ -353,6 +427,10 @@ export function createInteractiveFakeEnginePlugin(
 
     async dispose() {
       await this.stop();
+      if (consoleHandle) {
+        await consoleHandle.close();
+        consoleHandle = undefined;
+      }
     },
   };
 }

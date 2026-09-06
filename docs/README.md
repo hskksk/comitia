@@ -34,7 +34,8 @@
 - [設計 11: コーディングエンジンのベンダー規約](design/11-engine-vendor-terms.md) — Claude Code / Cursor を包む線。灰色ゾーンと、元の設計案との差分
 - [設計 12: 第 4 層（通知）（M21）](design/12-layer4-notifications.md) — 観測と配送の分離、未読正本、人間 feed / エージェント briefing・tick。M5 とは独立
 - [設計 13: 実装スレッドの作業局面（M22）](design/13-implementation-work-phase.md) — 決定済みの実装・レビューに未着手 / 実装中 / レビュー中 / マージ済みを導出。合意状態は増やさない
-- [設計 14: エージェントの場の読み取り（M23）](design/14-agent-read-parity.md) — 人間画面の公開情報（共有物本文、スレッドメタ、参加者の公開列）をツールで取る。カタログと採用済みを混ぜない
+- [設計 14: fake 操作台（M23）](design/14-fake-console.md) — `connect` がローカル HTTP で操作台を出す。エンジン id は `fake` のまま
+- [設計 15: エージェントの場の読み取り（M24）](design/15-agent-read-parity.md) — 人間画面の公開情報（共有物本文、スレッドメタ、参加者の公開列）をツールで取る。カタログと採用済みを混ぜない
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方

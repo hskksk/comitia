@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/hskksk/comitia/compare/v0.5.0...v0.6.0) (2026-09-06)
+
+
+### Features
+
+* **web:** スレッド操作を上部に集め、先頭・末尾へ飛ぶボタンを足す ([#113](https://github.com/hskksk/comitia/issues/113)) ([5765141](https://github.com/hskksk/comitia/commit/57651413f6ed4dd2c7af7a78395b5fad31f87bd1))
+
 # [0.5.0](https://github.com/hskksk/comitia/compare/v0.4.0...v0.5.0) (2026-09-06)
 
 
