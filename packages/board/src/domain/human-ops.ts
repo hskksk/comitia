@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, max } from "drizzle-orm";
 import { formatParticipantLabel, type AgreementState } from "@comitia/shared";
 import {
   agentConnections,
@@ -140,6 +140,26 @@ export async function listProjectParticipants(db: Db, projectId: string) {
             ),
           );
 
+  const lastActionRows =
+    ids.length === 0
+      ? []
+      : await db
+          .select({
+            actorParticipantId: events.actorParticipantId,
+            lastActionAt: max(events.createdAt),
+          })
+          .from(events)
+          .where(and(eq(events.projectId, projectId), inArray(events.actorParticipantId, ids)))
+          .groupBy(events.actorParticipantId);
+  const lastActionByParticipant = new Map(
+    lastActionRows
+      .filter((row) => row.actorParticipantId !== null)
+      .map((row) => [
+        row.actorParticipantId as string,
+        row.lastActionAt ? new Date(row.lastActionAt).toISOString() : null,
+      ]),
+  );
+
   const queuedStartTicks =
     agentIds.length === 0
       ? []
@@ -214,6 +234,7 @@ export async function listProjectParticipants(db: Db, projectId: string) {
         archivedAt: person.archivedAt ? person.archivedAt.toISOString() : null,
         roles: rolesByParticipant.get(person.id) ?? [],
         connection,
+        lastActionAt: lastActionByParticipant.get(person.id) ?? null,
         openSession: open
           ? {
               id: open.id,

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { boardClient, type MeResponse, type ParticipantItem } from "../api.js";
 import { engineLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
+import { formatRelativeTimeJa } from "../relativeTime.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 
@@ -98,6 +99,10 @@ export function ParticipantsPage() {
               </span>
             </p>
           ) : null}
+          <p className="muted" title={item.lastActionAt ?? undefined}>
+            {"最終行動: "}
+            {item.lastActionAt ? formatRelativeTimeJa(item.lastActionAt) : "行動なし"}
+          </p>
           {item.openSession ? (
             <p className="muted">
               開いているセッション 残量 {item.openSession.remainingBudget}
