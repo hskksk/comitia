@@ -448,7 +448,7 @@ async function listThreadProposals(
     .from(proposals)
     .where(and(eq(proposals.threadId, threadId), isNull(proposals.archivedAt)))
     .orderBy(asc(proposals.number));
-  return Promise.all(
+  const withLatestVersion = await Promise.all(
     rows.map(async (proposal) => {
       const [version] = await db
         .select()
@@ -456,14 +456,22 @@ async function listThreadProposals(
         .where(eq(proposalVersions.proposalId, proposal.id))
         .orderBy(desc(proposalVersions.versionNumber))
         .limit(1);
+      // 版を 1 件も持たない提案行は表示できるものが無い。ここで落ちると
+      // スレッド画面全体が 500 になるので、その行だけ一覧から外す。
+      if (!version) {
+        return null;
+      }
       return {
         id: proposal.id,
         number: proposal.number,
-        latestVersionId: version!.id,
-        versionNumber: version!.versionNumber,
-        content: version!.content,
+        latestVersionId: version.id,
+        versionNumber: version.versionNumber,
+        content: version.content,
       };
     }),
+  );
+  return withLatestVersion.filter(
+    (proposal): proposal is HumanProposal => proposal !== null,
   );
 }
 

@@ -35,10 +35,17 @@ export async function bootstrapBoard(
       kind: "human",
       displayName: input.ownerDisplayName,
     });
-    await registerParticipant(tx, {
-      kind: "system",
-      displayName: "Comitia",
-    });
+    const [existingSystem] = await tx
+      .select({ id: participants.id })
+      .from(participants)
+      .where(eq(participants.kind, "system"))
+      .limit(1);
+    if (!existingSystem) {
+      await registerParticipant(tx, {
+        kind: "system",
+        displayName: "Comitia",
+      });
+    }
     const project = await createProject(tx, {
       name: input.projectName,
       ownerParticipantId: owner.id,
