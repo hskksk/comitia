@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/hskksk/comitia/compare/v0.4.0...v0.5.0) (2026-09-06)
+
+
+### Features
+
+* **web:** サイドバーとページナビをスクロールから独立させる ([#111](https://github.com/hskksk/comitia/issues/111)) ([e04dae0](https://github.com/hskksk/comitia/commit/e04dae0aa749307fb45406aa6a5bbca868f99e0d))
+
 # [0.4.0](https://github.com/hskksk/comitia/compare/v0.3.0...v0.4.0) (2026-09-06)
 
 
