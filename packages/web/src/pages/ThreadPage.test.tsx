@@ -608,6 +608,54 @@ describe("ThreadPage", () => {
       screen.queryByRole("button", { name: "この案を削除" }),
     ).not.toBeInTheDocument();
   });
+
+  it("places thread actions above the post list", async () => {
+    renderThread();
+    await screen.findByText("ルール改正");
+    const actions = screen.getByRole("region", { name: "このスレッドでの操作" });
+    const postsHeading = screen.getByRole("heading", { name: /^投稿$/ });
+    expect(
+      actions.compareDocumentPosition(postsHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "批准する" }).compareDocumentPosition(
+        postsHeading,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "投稿する" }).compareDocumentPosition(
+        postsHeading,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "着手を表明する" }).compareDocumentPosition(
+        postsHeading,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("jumps to the top and bottom from the floating buttons", async () => {
+    const user = userEvent.setup();
+    const scrollTo = vi.fn();
+    window.scrollTo = scrollTo;
+    renderThread();
+    await screen.findByText("ルール改正");
+
+    await user.click(screen.getByRole("button", { name: "先頭へ" }));
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+
+    scrollTo.mockClear();
+    Object.defineProperty(document.documentElement, "scrollHeight", {
+      configurable: true,
+      value: 2400,
+    });
+    await user.click(screen.getByRole("button", { name: "末尾へ" }));
+    expect(scrollTo).toHaveBeenCalledWith({
+      top: 2400,
+      behavior: "smooth",
+    });
+  });
 });
 
 describe("ThreadPage: 議論中の操作をプロジェクトオーナーにも開く", () => {
