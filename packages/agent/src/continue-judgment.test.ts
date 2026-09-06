@@ -240,4 +240,35 @@ describe("judgeContinue", () => {
       incompleteGoalTexts: ["report"],
     });
   });
+
+  it("follows the latest goals when the agent replans", () => {
+    const decision = judgeContinue({
+      entries: [
+        entry({
+          run: 1,
+          tool: "set_goals",
+          result: {
+            goals: [{ id: "g1", text: "判断を待つ", status: "pending" }],
+          },
+        }),
+        entry({
+          run: 2,
+          tool: "set_goals",
+          result: {
+            goals: [{ id: "g2", text: "別の論点を調べる", status: "pending" }],
+          },
+        }),
+      ],
+      runCount: 2,
+      maxRuns: 8,
+      idleRunLimit: 2,
+      windDownRequested: false,
+    });
+    expect(decision).toMatchObject({
+      phase: "work",
+      shouldContinue: true,
+      reason: "未完了目標 1 件",
+      incompleteGoalTexts: ["別の論点を調べる"],
+    });
+  });
 });

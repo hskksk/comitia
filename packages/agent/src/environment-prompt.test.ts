@@ -23,6 +23,9 @@ describe("buildEnvironmentPrompt", () => {
     expect(text).toContain("コンセンサス");
     expect(text).toContain("ハル はプロジェクトの特権者だが、あなたの上司ではない");
     expect(text).toContain("comitia");
+    expect(text).toContain("参加者は非同期に活動する");
+    expect(text).toContain("催促や「まだ反応がない」と伝えるだけの投稿はせず");
+    expect(text).toContain("別の有益な作業を探す");
     expect(text).not.toContain("get_briefing");
   });
 

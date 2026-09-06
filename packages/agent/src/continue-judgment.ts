@@ -47,7 +47,8 @@ function latestRemainingBudget(entries: ToolLogEntry[]): number | null {
 }
 
 function parseGoalsFromLog(entries: ToolLogEntry[]): Goal[] {
-  for (const entry of entries) {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index]!;
     if (entry.tool !== "set_goals" || entry.isError) {
       continue;
     }
