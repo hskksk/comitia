@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/hskksk/comitia/compare/v0.3.0...v0.4.0) (2026-09-06)
+
+
+### Features
+
+* **web:** スレッド投稿を投稿日時の降順にする ([#110](https://github.com/hskksk/comitia/issues/110)) ([3d8877a](https://github.com/hskksk/comitia/commit/3d8877a773018af8a6cfef06155a0f2e031e6f4c))
+
 # [0.3.0](https://github.com/hskksk/comitia/compare/v0.2.2...v0.3.0) (2026-09-06)
 
 
