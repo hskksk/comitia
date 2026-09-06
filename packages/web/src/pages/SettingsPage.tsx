@@ -8,7 +8,7 @@ import {
   type ProjectListItem,
 } from "../api.js";
 import { clearToken } from "../auth.js";
-import { ENGINES } from "@comitia/shared";
+import { ENGINES, FAKE_CONSOLE_DEFAULT_PORT } from "@comitia/shared";
 import { credentialClientLabel, engineLabel } from "../labels.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 import { PersonalityField } from "../PersonalityField.js";
@@ -361,6 +361,19 @@ export function SettingsPage() {
                       <strong>{agent.displayName}</strong>{" "}
                       <span className="muted">· {engineLabel(agent.engine)}</span>
                     </p>
+                    {agent.engine === "fake" ? (
+                      <p className="muted">
+                        <a
+                          href={`http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          操作台を開く
+                        </a>
+                        {" · "}
+                        先に <code>comitia agent connect</code>
+                      </p>
+                    ) : null}
                     {agent.personality ? (
                       <p className="muted">態度: {agent.personality}</p>
                     ) : null}
@@ -437,6 +450,20 @@ export function SettingsPage() {
               ))}
             </select>
           </label>
+          {newAgentEngine === "fake" ? (
+            <p className="hint">
+              コーディング CLI は使いません。接続は{" "}
+              <code>comitia agent connect 名前</code>。ブラウザの操作台（
+              <a
+                href={`http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {`http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}`}
+              </a>
+              ）でツールを選びます。
+            </p>
+          ) : null}
           <label>
             プロジェクト
             <select

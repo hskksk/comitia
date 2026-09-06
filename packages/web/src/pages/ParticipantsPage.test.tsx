@@ -72,8 +72,42 @@ describe("ParticipantsPage", () => {
       "href",
       "/p/proj-1/participants/agent-1",
     );
+    expect(screen.queryByRole("link", { name: "操作台" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "起こす" }));
     expect(wakeMock).toHaveBeenCalledWith("agent-1");
+  });
+
+  it("links fake agents to the local console", async () => {
+    participantsMock.mockResolvedValueOnce({
+      items: [
+        {
+          id: "agent-fake",
+          kind: "agent",
+          displayName: "ウォーカー",
+          label: "ウォーカー@ハル",
+          engine: "fake",
+          personality: null,
+          ownerParticipantId: "owner-1",
+          roles: [],
+          connection: { status: "connected", lastSeenAt: null },
+          lastActionAt: null,
+          openSession: null,
+          wake: "idle",
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/p/proj-1/participants"]}>
+        <Routes>
+          <Route path="/p/:projectId/participants" element={<ParticipantsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("ウォーカー@ハル")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "操作台" })).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:8790",
+    );
   });
 
   it("shows the wake badge without dropping the connection badge or remaining line", async () => {

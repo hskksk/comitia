@@ -80,6 +80,9 @@ describe("SettingsPage", () => {
     );
     await user.type(await screen.findByLabelText("名前"), "ウォーカー");
     await user.selectOptions(screen.getByLabelText("エンジン"), "fake");
+    expect(
+      screen.getByRole("link", { name: "http://127.0.0.1:8790" }),
+    ).toHaveAttribute("href", "http://127.0.0.1:8790");
     await user.type(
       screen.getByLabelText("性格（任意）"),
       "慎重にリスクを先に出す",
@@ -95,6 +98,10 @@ describe("SettingsPage", () => {
     expect(await screen.findByText("トークン（一度だけ表示）")).toBeInTheDocument();
     expect(screen.getByText("comt_once")).toBeInTheDocument();
     expect(await screen.findByText("ウォーカー")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "操作台を開く" })).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:8790",
+    );
   });
 
   it("offers Cursor Agent in the engine select", async () => {
