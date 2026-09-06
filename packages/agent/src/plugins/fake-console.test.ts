@@ -62,6 +62,9 @@ describe("fake console HTTP", () => {
     expect(html).toContain("fake 操作台");
     expect(html).toContain("ツールの結果");
     expect(html).toContain("右でツールを選ぶと、応答はここに出ます");
+    expect(html.indexOf('id="form"')).toBeGreaterThan(0);
+    expect(html.indexOf('id="form"')).toBeLessThan(html.indexOf('id="call"'));
+    expect(html.indexOf('id="call"')).toBeLessThan(html.indexOf("ツール一覧"));
 
     const waiting = await readJson(`${url}/api/state`);
     expect(waiting.body.status).toBe("waiting");

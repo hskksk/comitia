@@ -283,9 +283,7 @@ export function fakeConsolePageHtml(): string {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
-        padding: 0.75rem 1rem;
-        border-top: 1px solid var(--color-border);
-        background: var(--color-card);
+        margin: 0.35rem 0 0;
       }
       .btn-primary,
       .btn-secondary {
@@ -361,10 +359,10 @@ export function fakeConsolePageHtml(): string {
               <h2 id="form-title">ツール</h2>
               <p class="why" id="form-why"></p>
               <form id="form"></form>
-            </div>
-            <div class="actions">
-              <button type="button" class="btn-primary" id="call">呼び出す</button>
-              <button type="button" class="btn-secondary" id="cancel">ツール一覧</button>
+              <div class="actions">
+                <button type="button" class="btn-primary" id="call">呼び出す</button>
+                <button type="button" class="btn-secondary" id="cancel">ツール一覧</button>
+              </div>
             </div>
           </div>
         </aside>
