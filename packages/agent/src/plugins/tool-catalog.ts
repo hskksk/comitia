@@ -104,7 +104,8 @@ export const DECLARATION_KIND_LABELS: Record<string, string> = {
   ratify: "人間オーナーが批准する（候補版の著者本人は不可）",
   send_back: "判断待ちから議論へ差し戻す",
   reject_thread: "スレッドを不採用にする",
-  complete_thread: "スレッドを完了にする",
+  complete_thread:
+    "スレッドを完了にする（決定済み。ブレストは議論中から）",
   resolve_objection: "異議の解消。このツールでは不可",
   extend_window: "窓・期限を延長する（スレッドオーナー）",
   shorten_window: "窓・期限を短縮する（プロジェクトオーナー）",
@@ -117,4 +118,5 @@ export const DECLARE_PAYLOAD_HELP = `宣言種ごとの JSON。空 Enter で省�
   send_back → {"reason":"差し戻し理由"}
   reject_thread → 任意 {"summary":"不採用理由"}。合意物に残すなら {"recordAsAgreement":true,"binding":false,"summary":"..."}
   extend_window / shorten_window → {"hours":<新しい窓・期限の長さ>}
+  complete_thread → 空でよい。決定済み（ブレストは議論中）からのみ
   その他は空でよいことが多い。resolve_objection と clock_satisfy はこのツールからは呼べない`;

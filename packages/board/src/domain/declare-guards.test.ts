@@ -370,4 +370,87 @@ describe("宣言のガード（トランザクションと状態遷移）", () =
     });
     expect(result.thread.timingDurationHours).toBe(12);
   });
+
+  it("決定済みの提案スレッドを完了できる", async () => {
+    const { agent, project } = await setup("owner_decision");
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "proposal",
+      title: "提案を閉じる",
+      trigger: "テスト",
+      duplicateSearchQuery: "proposal-complete",
+      consensusType: "owner_decision",
+      target: "repo_artifact",
+      conflictCitationsChecked: true,
+    });
+    const { version } = await addProposal(db, {
+      threadId: thread.id,
+      authorId: agent.id,
+      content: "案",
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "select_candidate",
+      payload: { proposalVersionId: version.id },
+    });
+    await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "owner_decide",
+      payload: { binding: false, summary: "採用" },
+    });
+
+    const result = await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "complete_thread",
+      payload: {},
+    });
+    expect(result.thread.state).toBe("completed");
+  });
+
+  it("議論中のブレストを完了できる", async () => {
+    const { agent, project } = await setup("owner_decision");
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "brainstorm",
+      title: "ブレスト",
+      trigger: "テスト",
+      duplicateSearchQuery: "brainstorm-complete",
+      conflictCitationsChecked: true,
+    });
+
+    const result = await declare(db, {
+      threadId: thread.id,
+      actorId: agent.id,
+      kind: "complete_thread",
+      payload: {},
+    });
+    expect(result.thread.state).toBe("completed");
+  });
+
+  it("議論中の相談は完了できない", async () => {
+    const { agent, project } = await setup("owner_decision");
+    const thread = await createThread(db, {
+      projectId: project.id,
+      ownerId: agent.id,
+      type: "consultation",
+      title: "相談",
+      trigger: "テスト",
+      duplicateSearchQuery: "consultation-complete",
+      conflictCitationsChecked: true,
+    });
+
+    await expect(
+      declare(db, {
+        threadId: thread.id,
+        actorId: agent.id,
+        kind: "complete_thread",
+        payload: {},
+      }),
+    ).rejects.toThrow(InvalidTransition);
+  });
 });

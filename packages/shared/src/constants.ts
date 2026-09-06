@@ -18,6 +18,21 @@ export const THREAD_STATES = [
 ] as const;
 export type ThreadState = (typeof THREAD_STATES)[number];
 
+/**
+ * Whether `complete_thread` is allowed.
+ * Brainstorm skips decision states (discussing → completed).
+ * Other types complete only after decided.
+ */
+export function canCompleteThread(input: {
+  type: string;
+  state: string;
+}): boolean {
+  if (input.type === "brainstorm") {
+    return input.state === "discussing";
+  }
+  return input.state === "decided";
+}
+
 /** Derived work progress for decided implementation/review threads. Not a thread state. */
 export const WORK_PHASES = [
   "unclaimed",

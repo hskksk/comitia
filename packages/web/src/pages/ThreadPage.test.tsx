@@ -257,7 +257,7 @@ describe("ThreadPage", () => {
     expect(screen.getByRole("button", { name: "不採用" })).toBeDisabled();
   });
 
-  it.each(["implementation", "review"] as const)(
+  it.each(["implementation", "review", "proposal", "consultation"] as const)(
     "shows and completes decided %s threads",
     async (type) => {
       const user = userEvent.setup();
@@ -307,6 +307,45 @@ describe("ThreadPage", () => {
   });
 
   it("does not show completion for the awaiting-decision fixture", async () => {
+    renderThread();
+
+    await screen.findByText("ルール改正");
+
+    expect(
+      screen.queryByRole("button", { name: "完了にする" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("completes a discussing brainstorm thread", async () => {
+    const user = userEvent.setup();
+    threadMock.mockResolvedValue({
+      ...threadView,
+      thread: {
+        ...threadView.thread,
+        type: "brainstorm",
+        state: "discussing",
+        consensusType: null,
+      },
+    });
+    renderThread();
+
+    await screen.findByText("ルール改正");
+    await user.click(screen.getByRole("button", { name: "完了にする" }));
+
+    expect(declareMock).toHaveBeenCalledWith("t1", {
+      kind: "complete_thread",
+    });
+  });
+
+  it("does not show completion for a discussing proposal", async () => {
+    threadMock.mockResolvedValue({
+      ...threadView,
+      thread: {
+        ...threadView.thread,
+        type: "proposal",
+        state: "discussing",
+      },
+    });
     renderThread();
 
     await screen.findByText("ルール改正");

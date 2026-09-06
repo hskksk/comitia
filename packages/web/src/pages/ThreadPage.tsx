@@ -1,3 +1,4 @@
+import { canCompleteThread } from "@comitia/shared";
 import { type FormEvent, useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -769,8 +770,7 @@ export function ThreadPage() {
           ) : null}
         </form>
       ) : null}
-      {view.thread.state === "decided" &&
-      (view.thread.type === "implementation" || view.thread.type === "review") ? (
+      {canCompleteThread(view.thread) ? (
         <div className="actions">
           <button
             type="button"
