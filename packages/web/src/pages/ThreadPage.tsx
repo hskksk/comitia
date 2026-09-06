@@ -7,6 +7,7 @@ import {
   type MeResponse,
 } from "../api.js";
 import { PostTypeBadge, ThreadBadges } from "../components/Badges.js";
+import { FieldCaption } from "../components/FieldCaption.js";
 import { MarkdownBody } from "../components/MarkdownBody.js";
 import { SynthesisCard } from "../components/SynthesisCard.js";
 import {
@@ -20,7 +21,7 @@ import { sortThreadPostsByCreatedAtDesc } from "../threadPostView.js";
 import { useRouteLoad } from "../useRouteLoad.js";
 import { activeWorkClaimantNames } from "../workClaimLabels.js";
 
-const COMPOSER_TYPES = [
+const COMPOSER_POST_TYPES = [
   ["comment", "コメント"],
   ["question", "質問"],
   ["position", "意見"],
@@ -29,6 +30,9 @@ const COMPOSER_TYPES = [
   ["synthesis", "統合"],
   ["report", "報告"],
 ] as const;
+
+type ComposerPostType = (typeof COMPOSER_POST_TYPES)[number][0];
+type ComposerKind = ComposerPostType | "proposal";
 
 export function ThreadPage() {
   const { projectId, id } = useParams<{ projectId: string; id: string }>();
@@ -45,9 +49,7 @@ export function ThreadPage() {
   const [error, setError] = useState<string | null>(null);
   const [isDeclaring, setIsDeclaring] = useState(false);
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
-  const [postType, setPostType] = useState<(typeof COMPOSER_TYPES)[number][0]>(
-    "comment",
-  );
+  const [composerKind, setComposerKind] = useState<ComposerKind>("comment");
   const [postBody, setPostBody] = useState("");
   const [rationale, setRationale] = useState("");
   const [proposalContent, setProposalContent] = useState("");
@@ -72,7 +74,7 @@ export function ThreadPage() {
     setReason("");
     setError(null);
     setRejectConfirmOpen(false);
-    setPostType("comment");
+    setComposerKind("comment");
     setPostBody("");
     setRationale("");
     setProposalContent("");
@@ -172,7 +174,11 @@ export function ThreadPage() {
     if (!id || !postBody.trim()) {
       return;
     }
-    const needsRationale = postType === "objection" || postType === "approval";
+    if (composerKind === "proposal") {
+      return;
+    }
+    const needsRationale =
+      composerKind === "objection" || composerKind === "approval";
     if (needsRationale && (!rationale.trim() || !targetVersionId)) {
       setError("根拠と対象の提案が必要です");
       return;
@@ -181,10 +187,10 @@ export function ThreadPage() {
     setIsDeclaring(true);
     try {
       await boardClient.addPost(id, {
-        type: postType,
+        type: composerKind,
         body: postBody,
         rationale: needsRationale ? rationale : undefined,
-        blocking: postType === "objection" ? true : undefined,
+        blocking: composerKind === "objection" ? true : undefined,
         proposalVersionId: needsRationale ? targetVersionId : undefined,
       });
       setPostBody("");
@@ -355,7 +361,19 @@ export function ThreadPage() {
       </div>
     </div>
   ) : null;
-  const needsRationale = postType === "objection" || postType === "approval";
+  const isProposing = canPropose && composerKind === "proposal";
+  const composerSelectKind: ComposerKind = isProposing
+    ? "proposal"
+    : composerKind === "proposal"
+      ? "comment"
+      : composerKind;
+  const composerKindOptions: ReadonlyArray<readonly [ComposerKind, string]> =
+    canPropose
+      ? [["proposal", "案"], ...COMPOSER_POST_TYPES]
+      : COMPOSER_POST_TYPES;
+  const needsRationale =
+    !isProposing &&
+    (composerKind === "objection" || composerKind === "approval");
   const canClaimWork =
     view.thread.state !== "completed" && view.thread.state !== "rejected";
   const showComplete = canCompleteThread(view.thread);
@@ -372,7 +390,6 @@ export function ThreadPage() {
     showOwnerDecide ||
     showRejectWhileDiscussing ||
     canCompose ||
-    canPropose ||
     canClaimWork ||
     isProjectOwner;
 
@@ -430,7 +447,7 @@ export function ThreadPage() {
           {awaiting ? (
             <form className="decision-panel" onSubmit={onRatify}>
               <label>
-                要約
+                <FieldCaption required>要約</FieldCaption>
                 <textarea
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
@@ -438,7 +455,7 @@ export function ThreadPage() {
                 />
               </label>
               <label>
-                差し戻し理由
+                <FieldCaption>差し戻し理由</FieldCaption>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -473,113 +490,124 @@ export function ThreadPage() {
             </form>
           ) : null}
           {canCompose ? (
-            <form className="composer" onSubmit={onPost}>
-              <h2>投稿する</h2>
-              <label>
-                型
-                <select
-                  value={postType}
-                  onChange={(event) =>
-                    setPostType(
-                      event.target.value as (typeof COMPOSER_TYPES)[number][0],
-                    )
-                  }
-                >
-                  {COMPOSER_TYPES.map(([value, label]) => (
-                    <option key={value} value={value}>
+            <form
+              className="composer"
+              onSubmit={isProposing ? onAddProposal : onPost}
+            >
+              <h2>{isProposing ? "案を出す" : "投稿する"}</h2>
+              <div className="composer-kind-field">
+                <FieldCaption required>種類</FieldCaption>
+                <div className="composer-kinds" role="radiogroup" aria-label="種類">
+                  {composerKindOptions.map(([value, label]) => (
+                    <label key={value} className="composer-kind">
+                      <input
+                        type="radio"
+                        name="composer-kind"
+                        value={value}
+                        checked={composerSelectKind === value}
+                        onChange={() => setComposerKind(value)}
+                      />
                       {label}
-                    </option>
+                    </label>
                   ))}
-                </select>
-              </label>
-              <label>
-                本文
-                <textarea
-                  value={postBody}
-                  onChange={(event) => setPostBody(event.target.value)}
-                  required
-                />
-              </label>
-              {needsRationale ? (
+                </div>
+              </div>
+              {isProposing ? (
                 <>
+                  {systemTemplates.length > 0 ? (
+                    <TemplatePicker
+                      label="ベースにするテンプレ"
+                      templates={systemTemplates}
+                      templateId={proposalTemplateId}
+                      emptyLabel="選ばない（空のまま書く）"
+                      requirement="optional"
+                      onSelect={(id, content) => {
+                        setProposalTemplateId(id);
+                        if (content) {
+                          setProposalContent(content);
+                        }
+                      }}
+                    />
+                  ) : null}
                   <label>
-                    根拠
+                    <FieldCaption required>内容</FieldCaption>
                     <textarea
-                      value={rationale}
-                      onChange={(event) => setRationale(event.target.value)}
+                      value={proposalContent}
+                      onChange={(event) =>
+                        setProposalContent(event.target.value)
+                      }
                       required
                     />
                   </label>
-                  <label>
-                    対象の提案
-                    <select
-                      value={targetVersionId}
-                      onChange={(event) =>
-                        setTargetVersionId(event.target.value)
-                      }
-                      required
-                    >
-                      <option value="">選ぶ</option>
-                      {view.proposals.map((proposal) => (
-                        <option
-                          key={proposal.id}
-                          value={proposal.latestVersionId}
-                        >
-                          #{proposal.number} v{proposal.versionNumber}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <p className="hint muted">
+                    版を持つ議案になります。コメントや異議とは別に、合意の候補にできます。
+                  </p>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={isDeclaring || !proposalContent.trim()}
+                  >
+                    案を出す
+                  </button>
                 </>
-              ) : null}
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={isDeclaring || !postBody.trim()}
-              >
-                投稿する
-              </button>
-            </form>
-          ) : null}
-          {canPropose ? (
-            <form className="composer" onSubmit={onAddProposal}>
-              <h2>案を出す</h2>
-              {systemTemplates.length > 0 ? (
-                <TemplatePicker
-                  label="ベースにするテンプレ"
-                  templates={systemTemplates}
-                  templateId={proposalTemplateId}
-                  emptyLabel="選ばない（空のまま書く）"
-                  onSelect={(id, content) => {
-                    setProposalTemplateId(id);
-                    if (content) {
-                      setProposalContent(content);
-                    }
-                  }}
-                />
-              ) : null}
-              <label>
-                内容
-                <textarea
-                  value={proposalContent}
-                  onChange={(event) => setProposalContent(event.target.value)}
-                  required
-                />
-              </label>
-              <button
-                type="submit"
-                className="btn-secondary"
-                disabled={isDeclaring || !proposalContent.trim()}
-              >
-                案を出す
-              </button>
+              ) : (
+                <>
+                  <label>
+                    <FieldCaption required>本文</FieldCaption>
+                    <textarea
+                      value={postBody}
+                      onChange={(event) => setPostBody(event.target.value)}
+                      required
+                    />
+                  </label>
+                  {needsRationale ? (
+                    <>
+                      <label>
+                        <FieldCaption required>根拠</FieldCaption>
+                        <textarea
+                          value={rationale}
+                          onChange={(event) => setRationale(event.target.value)}
+                          required
+                        />
+                      </label>
+                      <label>
+                        <FieldCaption required>対象の提案</FieldCaption>
+                        <select
+                          value={targetVersionId}
+                          onChange={(event) =>
+                            setTargetVersionId(event.target.value)
+                          }
+                          required
+                        >
+                          <option value="">選ぶ</option>
+                          {view.proposals.map((proposal) => (
+                            <option
+                              key={proposal.id}
+                              value={proposal.latestVersionId}
+                            >
+                              #{proposal.number} v{proposal.versionNumber}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={isDeclaring || !postBody.trim()}
+                  >
+                    投稿する
+                  </button>
+                </>
+              )}
             </form>
           ) : null}
           {canClaimWork ? (
             <form className="composer" onSubmit={onClaimWork}>
               <h2>着手を表明する</h2>
               <label>
-                paths（1 行 1 件。全部なら "."）
+                <FieldCaption required>paths（1 行 1 件。全部なら "."）</FieldCaption>
                 <textarea
                   value={claimPathsText}
                   onChange={(event) => setClaimPathsText(event.target.value)}
@@ -612,7 +640,7 @@ export function ThreadPage() {
             >
               <h2>オーナーの宣言</h2>
               <label>
-                要約
+                <FieldCaption required>要約</FieldCaption>
                 <textarea
                   value={ownerSummary}
                   onChange={(event) => setOwnerSummary(event.target.value)}
@@ -663,7 +691,7 @@ export function ThreadPage() {
               }}
             >
               <label>
-                不採用の理由
+                <FieldCaption required>不採用の理由</FieldCaption>
                 <textarea
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
