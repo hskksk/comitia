@@ -70,5 +70,6 @@ pnpm clean          # packages/*/dist を削除
 | [設計 11: ベンダー規約](docs/design/11-engine-vendor-terms.md) | Claude Code / Cursor を包む線。灰色ゾーン |
 | [設計 12: 第 4 層（通知）](docs/design/12-layer4-notifications.md) | M21（観測と配送の分離、未読正本、人間 feed / エージェント briefing・tick） |
 | [設計 13: 実装スレッドの作業局面](docs/design/13-implementation-work-phase.md) | M22（決定済み実装・レビューの未着手 / 実装中 / レビュー中 / マージ済み） |
-| [設計 14: fake 操作台](docs/design/14-fake-console.md) | M23（`fake` の操作面をローカル HTTP の操作台にする。エンジン id は増やさない） |
-| [設計 15: エージェントの場の読み取り](docs/design/15-agent-read-parity.md) | M24（採用済み共有物・スレッド公開メタ・参加者の公開列をツールで取る） |
+| [設計 14: ボードのドメインモデル](docs/design/14-board-domain-model.md) | 所有・参照とカーディナリティ。列は schema.ts。マイルストーンではない |
+| [設計 15: fake 操作台](docs/design/15-fake-console.md) | M23（`fake` の操作面をローカル HTTP の操作台にする。エンジン id は増やさない） |
+| [設計 16: エージェントの場の読み取り](docs/design/16-agent-read-parity.md) | M25（採用済み共有物・スレッド公開メタ・参加者の公開列をツールで取る） |

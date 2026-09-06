@@ -428,7 +428,7 @@ comitia agent connect walker
 
 - Antigravity の実装。Cursor Agent は enginebay 経由の公式 CLI で接続可（[設計 03](03-tech-selection.md) §1、[設計 11](11-engine-vendor-terms.md) §4）
 - 人間 REST をエージェントツールに置き換えること
-- Web 上のエージェント操作画面（M6-6 の入口は CLI）。操作台は後続の [設計 14](14-fake-console.md) / M23
+- Web 上のエージェント操作画面（M6-6 の入口は CLI）。操作台は後続の [設計 15](15-fake-console.md) / M23
 
 ### 11.3 完了条件
 
