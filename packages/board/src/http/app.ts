@@ -88,6 +88,9 @@ export function createBoardApp(input: {
     if (error instanceof DomainError) {
       return c.json({ error: error.message }, 400);
     }
+    // 想定外の例外は本文なしの 500 になる。ログにも残らないと切り分ける手掛かりが
+    // 何も残らないため、ここで必ず記録する。
+    console.error("unhandled error", error);
     return c.json({ error: "internal error" }, 500);
   });
 

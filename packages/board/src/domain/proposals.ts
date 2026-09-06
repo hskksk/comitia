@@ -1,11 +1,27 @@
 import { desc, eq } from "drizzle-orm";
 import { proposals, proposalVersions } from "../db/schema.js";
-import type { Db } from "../db/test-setup.js";
+import type { Db, DbClient } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { GateViolation } from "./errors.js";
 import { getThreadRow } from "./helpers.js";
 
+/**
+ * 提案と第 1 版は必ず揃って生まれる。
+ * 途中で落ちて「版を持たない提案行」が残ると、人間のスレッド画面が 500 になるため
+ * （listThreadProposals）、2 本の insert とイベント記録を 1 トランザクションにまとめる。
+ */
 export async function addProposal(
+  db: DbClient,
+  input: {
+    threadId: string;
+    authorId: string;
+    content: string;
+  },
+) {
+  return db.transaction(async (tx) => addProposalInTx(tx, input));
+}
+
+async function addProposalInTx(
   db: Db,
   input: {
     threadId: string;
