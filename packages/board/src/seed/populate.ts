@@ -2,6 +2,7 @@ import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { declare } from "../domain/declare.js";
 import { addMembership } from "../domain/memberships.js";
+import { claimWork } from "../domain/work-claims.js";
 import { registerParticipant } from "../domain/participants.js";
 import { assignRole } from "../domain/roles.js";
 import { createThread } from "../domain/threads.js";
@@ -112,6 +113,11 @@ export async function populateSeedProject(
     authorId: sou.id,
     type: "report",
     body: "PR 作成済み。事後レビュー歓迎。",
+  });
+  await claimWork(db, {
+    threadId: typo.id,
+    participantId: sou.id,
+    paths: ["docs/README.md", "README.md", "packages/web/src/", "docs/ops/"],
   });
 
   const design = await createThread(db, {

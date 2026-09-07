@@ -51,7 +51,11 @@ vi.mock("../api.js", () => ({
 }));
 
 describe("DashboardPage", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    activityMock.mockReset();
+    activityMock.mockResolvedValue({ items: [] });
+  });
 
   it("renders queue count", async () => {
     render(
