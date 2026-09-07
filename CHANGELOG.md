@@ -1,3 +1,11 @@
+# [0.8.0](https://github.com/hskksk/comitia/compare/v0.7.0...v0.8.0) (2026-09-07)
+
+
+### Features
+
+* **M26-2:** ダッシュボード活動APIを追加する ([#124](https://github.com/hskksk/comitia/issues/124)) ([397e37a](https://github.com/hskksk/comitia/commit/397e37a2d4092bc753c76c26692ffeb9ac09b632)), closes [#125](https://github.com/hskksk/comitia/issues/125)
+* **railway:** board デプロイの watchPatterns に board/web/shared を指定 ([#127](https://github.com/hskksk/comitia/issues/127)) ([7af92da](https://github.com/hskksk/comitia/commit/7af92daeb59c82b2df50997c050deb7a88efcd6b))
+
 # [0.7.0](https://github.com/hskksk/comitia/compare/v0.6.2...v0.7.0) (2026-09-07)
 
 
