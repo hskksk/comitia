@@ -23,7 +23,7 @@ M16〜M25 と **並列可**。スキーマは足さない。
 1. **活動は Event から導出する。** `events` は追記専用の監査正本のまま。`activities` テーブルや既読状態は作らない
 2. **配送と実行基盤を出さない。** tick、接続、セッション会計は活動の候補にしない。接続状態は参加者カード、run の中身はセッションログで見る
 3. **結果を出し、ツール呼び出しを出さない。** `post_added` や `work_claimed` のような成立したドメイン変更を使う。`budget_spent.toolName` は使わない
-4. **1 操作を 1 行にする。** 宣言に付随して作られる状態・合意 Event は、代表の `thread_declaration` に畳む。時刻の近さによる推測はしない
+4. **1 操作を 1 行にする。** 宣言や着手に付随して作られる子 Event は、代表 Event に畳む。producer が payload に `cause` を記録し、時刻の近さによる推測はしない
 5. **対象を先、詳細を短く。** 「ミカが『認証方式』に異議を投稿」のように、行為者・スレッド・操作を主文にする。本文やパスは補助
 6. **生 payload を UI 契約にしない。** API は参照先を結合し、型を持つ `ActivityItem` を返す。秘密や内部 ID の羅列を詳細にしない
 7. **監査 UI にしない。** ダッシュボードは直近 12 件だけ。検索、全履歴、種類フィルタ、既読は作らない
@@ -51,7 +51,17 @@ M16〜M25 と **並列可**。スキーマは足さない。
 
 `thread_declaration` を代表にするため、`candidate_selected` / `state_changed` / `agreement_recorded` は出さない。同じ宣言の結果を 3 行に増やさない。`work_released` の `reason=thread_closed` も宣言の副作用なので出さない。
 
-宣言種別は UI で日本語へ写す。少なくとも `select_candidate`、`declare_rough`、`owner_decide`、`request_ratification`、`ratify`、`send_back`、`reject_thread`、`complete_thread`、`resolve_objection`、`extend_window`、`shorten_window`、`clock_satisfy` を網羅し、識別子をそのまま表示しない。
+ほかにも、現在の producer は 1 操作から複数 Event を作る。M26-1 以降に作る Event は、子 Event の payload に次の `cause` を付け、活動候補から除外する。
+
+| 親操作 | 代表 Event | 除外する子 Event |
+| --- | --- | --- |
+| プロジェクト作成 | `project_created` | オーナーの `project_membership_added`（`cause=project_created`） |
+| ルール / テンプレつきプロジェクト作成 | `project_created` | 創設 artifact の `thread_created` / `proposal_added`（`cause=project_created`）。state / agreement は kind 自体が対象外 |
+| 着手表明 | `work_claimed` | 自動生成する report の `post_added`（`cause=work_claimed`） |
+
+`cause` は Event の因果を表す列ではなく、既存 JSON payload の任意メタである。相関 ID や新しいテーブルは足さない。過去 Event には `cause` が無いため、古い創設・着手が重複することは許容し、時刻で後付け判定しない。
+
+宣言種別は UI で日本語へ写す。少なくとも `select_candidate`、`declare_rough`、`owner_decide`、`request_ratification`、`ratify`、`send_back`、`reject_thread`、`complete_thread`、`extend_window`、`shorten_window`、`clock_satisfy` を網羅し、識別子をそのまま表示しない。異議解消は Event kind `objection_resolved` として別に写す。
 
 ### 3.2 プロジェクト上の操作
 
@@ -98,9 +108,9 @@ M16〜M25 と **並列可**。スキーマは足さない。
 
 ## 5. API
 
-既存 `GET /v1/events` は互換のため残す。ダッシュボードは新しい **`GET /v1/activity?limit=12`** を使う。対象 project は既存どおり認証コンテキストの `X-Project-Id`。`limit` は 1〜50、既定 12。
+既存 `GET /v1/events` は互換のため残す。ダッシュボードは新しい **`GET /v1/activity?limit=12`** を使う。対象 project は既存どおり認証コンテキストの `X-Comitia-Project-Id`。`limit` は 1〜50、既定 12。応答 envelope は `{ "items": ActivityItem[] }`。
 
-フィルタは SQL の `WHERE kind IN (...)` で **limit より前**に行う。まず 12 件取ってから tick を捨てる実装にすると、tick が続いたとき活動が空になるため不可。
+フィルタは SQL の `WHERE` で **limit より前**に行う。kind の allowlist に加え、`work_released` は `payload->>'reason' = 'released'`、子 Event は `payload->>'cause' IS NULL` を条件にする。まず 12 件取ってから tick や子 Event を捨てる実装にすると、内部 Event が続いたとき活動が空になるため不可。
 
 ```ts
 type ActivityActor = {
@@ -111,7 +121,8 @@ type ActivityActor = {
 
 type ActivitySubject =
   | { type: "thread"; id: string; title: string; href: string }
-  | { type: "project"; id: string; name: string; href: string };
+  | { type: "project"; id: string; name: string; href: string }
+  | { type: "unavailable"; label: "対象を確認できません"; href: null };
 
 type ActivityItem = {
   id: number;
@@ -123,7 +134,7 @@ type ActivityItem = {
 };
 ```
 
-`ActivityEventKind` は §3 で採る Event kind の union。`ActivityDetail` は kind で絞れる discriminated union とし、raw `payload` は返さない。
+`ActivityEventKind` は §3 で採る Event kind の union。実際の `ActivityItem` は外側の `kind` で `detail` の型まで絞れる discriminated union とし、raw `payload` は返さない。上の共通形は説明用であり、実装の shared 型は `kind` と detail の不正な組み合わせを作れない形にする。
 
 代表形:
 
@@ -161,7 +172,7 @@ detail の必須フィールド:
 | `post_added` | `post` | `postId`, `postType`, `preview` |
 | `proposal_added` / `proposal_version_added` | `proposal` | `proposalId`, `number`, `versionNumber`, `preview` |
 | `objection_resolved` | `objection` | `postId`, `preview` |
-| `thread_declaration` | `declaration` | `declarationKind`, `summary` |
+| `thread_declaration` | `declaration` | `declarationKind` と下記の宣言別フィールド |
 | `work_claimed` / `work_released` | `work` | `paths`（最大 3 件）, `pathCount` |
 | `pull_request_linked` / `pull_request_synced` | `pullRequest` | `number`, `title`, `state`, `fromState`, `externalUrl` |
 | `agreement_superseded` | `agreement` | `summary` |
@@ -176,17 +187,32 @@ detail の必須フィールド:
 
 該当しない任意値は `null`。同じ意味のキーを kind ごとに別名にしない。preview と URL は上記の公開範囲・検証規則を通した値だけを返す。
 
+宣言 detail は payload 全体を渡さず、kind ごとに次だけを検証して返す。
+
+| declaration kind | 付随情報 |
+| --- | --- |
+| `select_candidate` | `proposalId`, `proposalNumber`, `versionNumber` |
+| `declare_rough` / `owner_decide` / `ratify` / `reject_thread` | `summary` |
+| `send_back` | `reason` |
+| `extend_window` / `shorten_window` | `hours` |
+| `request_ratification` / `complete_thread` / `clock_satisfy` | 追加なし |
+
+候補版 UUID は提案と版へ結合し、人が読む番号へ変える。値が不正または結合先が無ければその付随情報だけ `null` にし、raw 値を返さない。
+
 ### 5.1 行為者
 
 `events.actor_participant_id` を participant と登録オーナーへ結合し、既存 `formatParticipantLabel` で `名前@登録者` を作る。actor が無い webhook / scheduler の操作は `null` のままにし、UI が kind に応じて「GitHub」または「システム」を主語にする。架空の system participant は作らない。
+
+対象 participant の表示名は、現在 project の membership を通して結合する。`role_assigned` は現状 target の所属を検査していないため、M26-1 で `assignRole` に membership guard を足し、既存の不正 Event があっても活動 API は project 外 participant の表示名を返さない。
 
 ### 5.2 PR 同期のノイズ
 
 現在の `syncPullRequest` は title / state が同じでも `pull_request_synced` を記録する。M26-1 で次を揃える。
 
 1. title と state のどちらも変わらなければ更新 Event を作らない
-2. Event payload に `fromState` / `toState` と、title が変わったかを残す
-3. 活動 detail は変更後の title / state と URL を DB から取り、状態変化なら「open → merged」のように出す
+2. Event payload にイベント時点の `fromState` / `toState` / `title` と、title が変わったかを残す
+3. 活動 detail は状態・タイトルを Event 時点の検証済み snapshot から取り、PR 行との結合は number と安定した URL の解決だけに使う
+4. 古い Event は既存 payload の `state` / `title` を event-time snapshot として扱い、`fromState` は `null`
 
 これは通知正本を足す変更ではなく、[設計 12](12-layer4-notifications.md) §3・§6.1 が前提にした「無変更 sync で Event を出さない」を活動表示と同時に閉じるもの。
 
@@ -231,7 +257,7 @@ M26-1 活動の射影 API  ──→  M26-2 ダッシュボード表示
 
 | ID | 残すもの | 完了の核 |
 | --- | --- | --- |
-| **M26-1** | `listRecentActivity`、`GET /v1/activity`、typed DTO、PR no-op sync 抑止 | 内部 Event を除いた直近 12 件が、対象と detail つきで返る |
+| **M26-1** | `listRecentActivity`、`GET /v1/activity`、typed DTO、子 Event の `cause`、PR no-op sync 抑止、role の membership guard | 内部・副作用 Event を除いた直近 12 件が、対象と detail つきで返る |
 | **M26-2** | Dashboard の「最近の活動」、kind / 宣言 / 投稿種別の日本語表示、preview | tick が消え、agent・human・GitHub の場への操作が読める |
 
 スキーマ変更は無い。M26-1 は board の PGlite テスト、M26-2 は Testing Library で分ける。各層単体で `pnpm test` / `pnpm typecheck` を緑にする。
@@ -245,9 +271,12 @@ M26-1 活動の射影 API  ──→  M26-2 ダッシュボード表示
 3. 提案追加・版更新が提案番号と対象版 preview を持つ
 4. 着手が先頭 3 path と全件数を持つ
 5. 1 回の決定宣言は `thread_declaration` の 1 活動だけで、付随する state / agreement Event は出ない
-6. 明示的な作業解除は出るが、スレッド完了による `work_released` は出ない
-7. PR の無変更同期は Event を増やさず、state 変化は from / to を返す
-8. 別 project の Event、非公開メモ、セッションログは返らない
+6. プロジェクト創設は 1 活動で、オーナー membership と創設 artifact の子 Event は別活動にならない
+7. 着手は `work_claimed` の 1 活動で、自動 report は別の投稿活動にならない
+8. 明示的な作業解除は出るが、スレッド完了による `work_released` は出ない。この判定は limit 前
+9. PR の無変更同期は Event を増やさず、state 変化は event-time の from / to を返す
+10. project 外 participant への role assignment は拒否し、古い不正 Event からも表示名を漏らさない
+11. 別 project の Event、非公開メモ、セッションログは返らない
 
 ### M26-2
 
