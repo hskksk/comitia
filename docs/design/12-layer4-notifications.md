@@ -59,7 +59,7 @@
 | 判断キュー | 人間の **blocking** 判断 | Phase 1 では通知トリガーに **含めない**（キュー自体が pull UI）。将来「キュー新着バッジ」は M21-2 以降で検討 |
 | 非ブロッキング Inbox | 人間の **non-blocking** 作業一覧 | PR 行は M5。第 4 層は **未読通知** で「Inbox を見ろ」を補助。Inbox の membership ルールは変えない |
 | `awaiting_entered_at` | 人間の時間合意の **通知起点** | 別系統のまま（[設計 06](06-layer2.md) §6.4・§13）。第 4 層の `notifications` に吸収しない |
-| Dashboard `GET /v1/events` | プロジェクト全体の直近 Event | ドメインイベントの窓。`notifications` の未読とは別 |
+| Dashboard `GET /v1/activity` | プロジェクト全体の「最近の活動」 | Event から導出する共用の窓。`notifications` の未読とは別 |
 | `claim_work` の overlap | 着手者への **即時ツール応答** | 通知レイヤではない（同期フィードバック） |
 | M5 `pull_request_synced` | 同期の監査 | 通知発火の **入力** にできるが、1:1 対応させない（diff なし Event は通知にしない） |
 
