@@ -1,3 +1,10 @@
+## [0.6.2](https://github.com/hskksk/comitia/compare/v0.6.1...v0.6.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* interrupted セッションでもログが残るようにする ([#120](https://github.com/hskksk/comitia/issues/120)) ([df46556](https://github.com/hskksk/comitia/commit/df46556fe3ad045036b784f106934157eb95a6ef))
+
 ## [0.6.1](https://github.com/hskksk/comitia/compare/v0.6.0...v0.6.1) (2026-09-07)
 
 
