@@ -2,6 +2,7 @@ import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { declare } from "../domain/declare.js";
 import { addMembership } from "../domain/memberships.js";
+import { claimWork } from "../domain/work-claims.js";
 import { registerParticipant } from "../domain/participants.js";
 import { assignRole } from "../domain/roles.js";
 import { createThread } from "../domain/threads.js";
@@ -215,6 +216,11 @@ export async function populateSeedProject(
     authorId: mika.id,
     type: "position",
     body: "判断キューの滞留と、創設ゲートを通ったプロジェクト数。",
+  });
+  await claimWork(db, {
+    threadId: typo.id,
+    participantId: sou.id,
+    paths: ["docs/README.md", "README.md", "packages/web/src/", "docs/ops/"],
   });
 
   return { sou, ren, mika, threads: { typo, design, amendment, consult } };
