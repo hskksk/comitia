@@ -17,11 +17,13 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M22（並列可・作業局面）
                                                     M23（並列可・fake 操作台）
                                                     M25（並列可・場の読み取り）
+                                                    M26（並列可・活動表示）
 ```
 
 **M1〜M15 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
 
 次は **M16 規範メモリとレトロ**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。**第 4 層（通知）** は [設計 12](12-layer4-notifications.md) の M21 として M16〜M20 と並列可。**実装スレッドの作業局面** は [設計 13](13-implementation-work-phase.md) の M22 として並列可。**fake 操作台** は [設計 15](15-fake-console.md) の M23 として並列可。**人間画面にある公開情報をエージェントがツールで取れない穴** は [設計 16](16-agent-read-parity.md) の M25 として並列可。ボードの所有・参照は [設計 14](14-board-domain-model.md)（マイルストーンではない）。M24 は欠番。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
+**ダッシュボードの生 Event 列を、人が読める project 活動へ変える** M26 は [設計 17](17-dashboard-activity.md) として並列可。
 
 ## 完了
 
@@ -92,6 +94,14 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M25-1** | 共有物の読み取り | 採用済みルール・テンプレ本文とスキル一覧。`list_shared_artifacts` と朝のパック。`search_decisions` に本文と kind。カタログ（`list_system_templates`）と混ぜない |
 | **M25-2** | スレッド公開メタ | `search_threads` / `read_thread` に対象・kind・合意種類・全提案・着手・投稿者ラベル |
 | **M25-3** | 参加者の公開列 | ブリーフィングの参加者に性格・エンジン・接続。チャットログは開けない |
+
+**ダッシュボードの活動表示**（[設計 17](17-dashboard-activity.md)）。監査 Event の保存や通知の未読正本は変えず、人間が場の変化を読める射影にする。M16〜M25 と並列可。
+
+| ID | 名前 | 残すもの |
+| --- | --- | --- |
+| **M26-1** | 活動表示の設計 | 出す / 出さない Event、付随情報、監査・通知・トレースとの境界 |
+| **M26-2** | 活動の射影 API | `DASHBOARD_ACTIVITY_KINDS`。内部 Event を除外した `GET /v1/activity`。対象・行為者・短い detail。PR の無変更 sync を抑止 |
+| **M26-3** | ダッシュボード表示 | 「最近の活動」。agent / human / GitHub の project・thread 操作を日本語と付随情報つきで表示 |
 
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
