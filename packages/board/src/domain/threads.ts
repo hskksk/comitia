@@ -35,6 +35,7 @@ export async function createThread(
     conflictCitationsChecked?: boolean;
     parentThreadId?: string;
     engineDiversity?: EngineDiversity;
+    eventCause?: "project_created";
   },
 ) {
   if (!input.trigger.trim()) {
@@ -125,6 +126,7 @@ export async function createThread(
       consensusType,
       conflictCitationsChecked: input.conflictCitationsChecked ?? false,
       conflictCitationCount: input.conflictCitations?.length ?? 0,
+      ...(input.eventCause ? { cause: input.eventCause } : {}),
     },
   });
 

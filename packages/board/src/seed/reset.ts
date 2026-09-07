@@ -41,6 +41,8 @@ export async function deleteProjectTree(db: Db, projectId: string) {
     .where(eq(personalNotes.projectId, projectId));
   const noteIds = noteRows.map((row) => row.id);
 
+  await db.delete(events).where(eq(events.projectId, projectId));
+
   if (threadIds.length > 0) {
     await db
       .delete(threadConflictCitations)
@@ -92,7 +94,6 @@ export async function deleteProjectTree(db: Db, projectId: string) {
     await db.delete(personalNotes).where(eq(personalNotes.projectId, projectId));
   }
 
-  await db.delete(events).where(eq(events.projectId, projectId));
   await db.delete(roleAssignments).where(eq(roleAssignments.projectId, projectId));
   await db.delete(projectInvites).where(eq(projectInvites.projectId, projectId));
   await db

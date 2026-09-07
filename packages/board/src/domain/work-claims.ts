@@ -83,6 +83,7 @@ export async function claimWork(
       authorId: input.participantId,
       type: "report",
       body: `${actor.displayName} が着手を表明: ${input.paths.join(", ")}`,
+      eventCause: "work_claimed",
     });
 
     await recordEvent(tx, {

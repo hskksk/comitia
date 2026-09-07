@@ -479,7 +479,6 @@ export async function endSession(
     payload: {
       sessionId: input.sessionId,
       endedAt: endedAt.toISOString(),
-      projects: notes,
     },
   });
 

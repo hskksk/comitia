@@ -441,6 +441,20 @@ const MEMBERSHIP_EVENT_KINDS = new Set([
   "project_membership_removed",
 ]);
 
+function humanEventPayload(kind: string, payload: unknown): unknown {
+  if (
+    kind !== "session_ended" ||
+    payload === null ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  ) {
+    return payload;
+  }
+  const safe = { ...(payload as Record<string, unknown>) };
+  delete safe.projects;
+  return safe;
+}
+
 export async function listRecentEvents(
   db: Db,
   input: { projectId: string; limit: number },
@@ -521,7 +535,7 @@ export async function listRecentEvents(
         ? labelById.get(row.actorParticipantId) ?? null
         : null,
       targetDisplayName: targetId ? labelById.get(targetId) ?? null : null,
-      payload: row.payload,
+      payload: humanEventPayload(row.kind, row.payload),
       createdAt: row.createdAt.toISOString(),
     };
   });

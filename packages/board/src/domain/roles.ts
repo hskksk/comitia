@@ -2,6 +2,7 @@ import { roleAssignments } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { recordEvent } from "./events.js";
 import { assertProjectOwner } from "./helpers.js";
+import { assertProjectMember } from "./memberships.js";
 
 export type ProjectRole =
   | "facilitator"
@@ -20,6 +21,7 @@ export async function assignRole(
   },
 ) {
   await assertProjectOwner(db, input.projectId, input.actorId);
+  await assertProjectMember(db, input.projectId, input.participantId);
 
   const [assignment] = await db
     .insert(roleAssignments)

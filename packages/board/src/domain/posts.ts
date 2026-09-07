@@ -19,6 +19,7 @@ export async function addPost(
     rationale?: string;
     blocking?: boolean;
     proposalVersionId?: string;
+    eventCause?: "work_claimed";
   },
 ) {
   if (input.type === "declaration") {
@@ -69,6 +70,7 @@ export async function addPost(
       postId: post!.id,
       type: input.type,
       proposalVersionId: input.proposalVersionId ?? null,
+      ...(input.eventCause ? { cause: input.eventCause } : {}),
     },
   });
 
