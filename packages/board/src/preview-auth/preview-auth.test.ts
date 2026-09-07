@@ -6,41 +6,98 @@ import { authenticateToken } from "../domain/credentials.js";
 import { createBoardApp } from "../http/app.js";
 import { ensurePreviewBootstrap } from "./bootstrap.js";
 import { readPreviewAuthConfig } from "./config.js";
+import {
+  derivePreviewBootstrapToken,
+  isRailwayPrPreviewEnvironment,
+} from "./railway.js";
 
 const PREVIEW_TOKEN = `comt_${"a".repeat(64)}`;
 
-describe("preview auth config", () => {
-  it("accepts a valid bootstrap token", () => {
-    const previous = process.env.COMITIA_BOOTSTRAP_TOKEN;
-    process.env.COMITIA_BOOTSTRAP_TOKEN = PREVIEW_TOKEN;
-    try {
-      expect(readPreviewAuthConfig()).toEqual({
-        enabled: true,
-        bootstrapToken: PREVIEW_TOKEN,
-        ownerDisplayName: "Preview",
-        projectName: "preview",
-      });
-    } finally {
-      if (previous === undefined) {
-        delete process.env.COMITIA_BOOTSTRAP_TOKEN;
-      } else {
-        process.env.COMITIA_BOOTSTRAP_TOKEN = previous;
-      }
-    }
+describe("preview auth railway detection", () => {
+  it("detects PR deploys from a non-main branch", () => {
+    expect(
+      isRailwayPrPreviewEnvironment({
+        RAILWAY_ENVIRONMENT_ID: "env-pr",
+        RAILWAY_ENVIRONMENT_NAME: "cursor-login-preview-auth-6407",
+        RAILWAY_GIT_BRANCH: "cursor/login-preview-auth-6407",
+      }),
+    ).toBe(true);
   });
 
-  it("ignores malformed bootstrap tokens", () => {
-    const previous = process.env.COMITIA_BOOTSTRAP_TOKEN;
-    process.env.COMITIA_BOOTSTRAP_TOKEN = "not-a-token";
-    try {
-      expect(readPreviewAuthConfig().enabled).toBe(false);
-    } finally {
-      if (previous === undefined) {
-        delete process.env.COMITIA_BOOTSTRAP_TOKEN;
-      } else {
-        process.env.COMITIA_BOOTSTRAP_TOKEN = previous;
-      }
-    }
+  it("does not auto-enable on production", () => {
+    expect(
+      isRailwayPrPreviewEnvironment({
+        RAILWAY_ENVIRONMENT_ID: "env-prod",
+        RAILWAY_ENVIRONMENT_NAME: "production",
+        RAILWAY_GIT_BRANCH: "main",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not auto-enable on persistent staging", () => {
+    expect(
+      isRailwayPrPreviewEnvironment({
+        RAILWAY_ENVIRONMENT_ID: "env-staging",
+        RAILWAY_ENVIRONMENT_NAME: "staging",
+        RAILWAY_GIT_BRANCH: "main",
+      }),
+    ).toBe(false);
+  });
+
+  it("derives a stable bootstrap token from Railway env + database URL", () => {
+    const token = derivePreviewBootstrapToken({
+      environmentId: "env-pr-1",
+      databaseUrl: "postgres://u:p@host/db",
+    });
+    expect(token).toMatch(/^comt_[0-9a-f]{64}$/);
+    expect(token).toBe(
+      derivePreviewBootstrapToken({
+        environmentId: "env-pr-1",
+        databaseUrl: "postgres://u:p@host/db",
+      }),
+    );
+  });
+});
+
+describe("preview auth config", () => {
+  it("accepts a valid explicit bootstrap token", () => {
+    expect(
+      readPreviewAuthConfig({
+        COMITIA_BOOTSTRAP_TOKEN: PREVIEW_TOKEN,
+      }),
+    ).toEqual({
+      enabled: true,
+      autoPreview: false,
+      bootstrapToken: PREVIEW_TOKEN,
+      ownerDisplayName: "Preview",
+      projectName: "preview",
+    });
+  });
+
+  it("auto-derives bootstrap token for Railway PR environments", () => {
+    const config = readPreviewAuthConfig({
+      RAILWAY_ENVIRONMENT_ID: "env-pr-1",
+      RAILWAY_ENVIRONMENT_NAME: "pr-128",
+      RAILWAY_GIT_BRANCH: "cursor/login-preview-auth-6407",
+      DATABASE_URL: "postgres://u:p@host/db",
+    });
+    expect(config.enabled).toBe(true);
+    expect(config.autoPreview).toBe(true);
+    expect(config.bootstrapToken).toBe(
+      derivePreviewBootstrapToken({
+        environmentId: "env-pr-1",
+        databaseUrl: "postgres://u:p@host/db",
+      }),
+    );
+    expect(config.projectName).toBe("cursor.login-preview-auth-6407");
+  });
+
+  it("ignores malformed explicit bootstrap tokens", () => {
+    expect(
+      readPreviewAuthConfig({
+        COMITIA_BOOTSTRAP_TOKEN: "not-a-token",
+      }).enabled,
+    ).toBe(false);
   });
 });
 
@@ -48,6 +105,7 @@ describe("preview auth bootstrap", () => {
   it("bootstraps an empty board with the configured token", async () => {
     await ensurePreviewBootstrap(db, {
       enabled: true,
+      autoPreview: true,
       bootstrapToken: PREVIEW_TOKEN,
       ownerDisplayName: "Preview",
       projectName: "preview",
@@ -65,6 +123,7 @@ describe("preview auth bootstrap", () => {
 
     await ensurePreviewBootstrap(db, {
       enabled: true,
+      autoPreview: true,
       bootstrapToken: PREVIEW_TOKEN,
       ownerDisplayName: "Preview",
       projectName: "preview",
@@ -98,6 +157,7 @@ describe("preview auth routes", () => {
   it("returns the bootstrap token after preview bootstrap", async () => {
     await ensurePreviewBootstrap(db, {
       enabled: true,
+      autoPreview: true,
       bootstrapToken: PREVIEW_TOKEN,
       ownerDisplayName: "Preview",
       projectName: "preview",

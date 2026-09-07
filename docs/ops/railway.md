@@ -57,18 +57,29 @@ GitHub App は後からでよい。未設定なら `POST /v1/init` とトーク�
 
 ## PR / プレビュー環境
 
-Railway の PR Environment など、GitHub OAuth の Callback URL が本番固定でログインできない場合は、**プレビュー専用**の固定トークンを使う。
+Railway の PR Environment では GitHub OAuth の Callback URL が本番固定のためログインできない。**PR ごとの Variables 設定は不要** — ボードが Railway 注入の値から自動判定する。
 
-1. 64 文字の hex で `comt_…` トークンを決める（例: `openssl rand -hex 32` の先頭に `comt_`）
-2. プレビュー環境の Variables にだけ設定する（**production には入れない**）
+### 自動プレビューログイン（既定）
+
+次をすべて満たすと、空 DB 起動時に bootstrap し、ログイン画面に「プレビューに入る」が出る。
+
+- Railway 上（`RAILWAY_ENVIRONMENT_ID` あり）
+- `RAILWAY_ENVIRONMENT_NAME` が `production` ではない
+- `RAILWAY_GIT_BRANCH` が `main` 以外（PR デプロイ）、または環境名が `pr-…` 形式
+
+bootstrap トークンは **`RAILWAY_ENVIRONMENT_ID` + `DATABASE_URL` から決定論的に導出**（PR 環境ごとに固有。Variables 不要）。OAuth は非表示。
+
+**staging 常駐環境には当たらない** — `staging` + `main` ブランチデプロイは production 扱いと同様にプレビューログイン無効。
 
 | 変数 | 意味 |
 | --- | --- |
-| `COMITIA_BOOTSTRAP_TOKEN` | 空 DB 起動時にこのトークンで bootstrap。ログイン画面に「プレビューに入る」が出る |
+| `COMITIA_AUTO_PREVIEW=0` | 非 production でも自動プレビューを明示的に OFF（常駐 staging 用） |
+| `COMITIA_AUTO_PREVIEW=1` | production 以外で強制 ON（通常不要） |
+| `COMITIA_BOOTSTRAP_TOKEN` | 手動 override（ローカル検証用。本番・staging 不可） |
 | `COMITIA_BOOTSTRAP_OWNER_NAME` | 任意。既定 `Preview` |
-| `COMITIA_BOOTSTRAP_PROJECT_NAME` | 任意。既定 `preview` |
+| `COMITIA_BOOTSTRAP_PROJECT_NAME` | 任意。未設定時は Git ブランチ名から生成 |
 
-起動時に人間が 0 人なら自動で init 相当が走る。既存 DB には触らない。OAuth はプレビューでは非表示（Callback が本番向きのため）。
+PR Environment の base は **production のままでよい**。staging を base にして bootstrap トークンを載せる必要はない（常駐 staging にログイン権が付く問題を避けるため）。
 
 ## GitHub App（任意）
 
