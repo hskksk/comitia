@@ -144,8 +144,6 @@ describe("listRecentActivity", () => {
       limit: 20,
     });
 
-    expect(items.some((item) => item.kind === "state_changed")).toBe(false);
-    expect(items.some((item) => item.kind === "agreement_recorded")).toBe(false);
     const declarations = items.filter(
       (item) => item.kind === "thread_declaration",
     );

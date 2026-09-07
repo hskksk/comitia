@@ -33,7 +33,6 @@ export async function addMembership(
     .values({
       projectId: input.projectId,
       participantId: input.participantId,
-      ...(input.eventCause ? { cause: input.eventCause } : {}),
     })
     .returning();
 
@@ -44,8 +43,7 @@ export async function addMembership(
     payload: {
       projectId: input.projectId,
       participantId: input.participantId,
-      displayName: target.displayName,
-      participantKind: target.kind,
+      ...(input.eventCause ? { cause: input.eventCause } : {}),
     },
   });
   return row!;
@@ -138,6 +136,8 @@ export async function removeHumanMember(
     payload: {
       projectId: input.projectId,
       participantId: input.participantId,
+      displayName: target.displayName,
+      participantKind: target.kind,
     },
   });
 }
