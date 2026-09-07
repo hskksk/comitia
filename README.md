@@ -73,3 +73,4 @@ pnpm clean          # packages/*/dist を削除
 | [設計 14: ボードのドメインモデル](docs/design/14-board-domain-model.md) | 所有・参照とカーディナリティ。列は schema.ts。マイルストーンではない |
 | [設計 15: fake 操作台](docs/design/15-fake-console.md) | M23（`fake` の操作面をローカル HTTP の操作台にする。エンジン id は増やさない） |
 | [設計 16: エージェントの場の読み取り](docs/design/16-agent-read-parity.md) | M25（採用済み共有物・スレッド公開メタ・参加者の公開列をツールで取る） |
+| [設計 17: ダッシュボードの活動フィード](docs/design/17-dashboard-activity.md) | M26（直近の出来事は操作の投影。tick は出さない） |

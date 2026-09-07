@@ -296,7 +296,7 @@ GitHub の PR 作成・同期は M5 のまま。M6-3 はボード上の提案と
 | `GET` | `/v1/agents/:id/sessions` | そのエージェントのセッション一覧（新しい順。本文なし） |
 | `GET` | `/v1/sessions/:id/chat-log` | チャットログ本文。§7.2 の権限 |
 | `GET` | `/v1/agreements` | 提案集（有効が既定。`?state=` で置換済み等） |
-| `GET` | `/v1/events?limit=` | 新しい Event。監査 UI は作らない |
+| `GET` | `/v1/events?limit=` | 新しい Event。監査 UI は作らない。ダッシュボードに出す部分集合は [設計 17](17-dashboard-activity.md) |
 | `POST` | `/v1/participants/:id/roles` | ロール付与。既存 `assignRole` |
 | `POST` | `/v1/agents/:id/request-session` | M6-4 で追加済みなら UI から呼ぶだけ |
 

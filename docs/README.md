@@ -37,6 +37,7 @@
 - [設計 14: ボードのドメインモデル](design/14-board-domain-model.md) — 所有・参照とカーディナリティ。属性は出さない。実装の現在の関係図
 - [設計 15: fake 操作台（M23）](design/15-fake-console.md) — `connect` がローカル HTTP で操作台を出す。エンジン id は `fake` のまま
 - [設計 16: エージェントの場の読み取り（M25）](design/16-agent-read-parity.md) — 人間画面の公開情報（共有物本文、スレッドメタ、参加者の公開列）をツールで取る。カタログと採用済みを混ぜない
+- [設計 17: ダッシュボードの活動フィード（M26）](design/17-dashboard-activity.md) — 直近の出来事から tick を外し、ボード操作と付随情報を出す
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方

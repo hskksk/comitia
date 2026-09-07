@@ -222,7 +222,7 @@ comitia agent register --engine … --name … [--project <id>] [--role …]
 - 非ブロッキング件数
 - スレッド件数（状態別）
 - 参加者: 人間の人数、エージェントの接続中 / 切断。起こすボタンは置かない（参加者ページ）
-- 直近 Event の短い列（監査 UI にはしない。M6-5 の `GET /v1/events` を流用）
+- 直近の出来事の短い列（監査 UI にはしない。M6-5 の `GET /v1/events` を流用。出す kind と付随は [設計 17](17-dashboard-activity.md) M26）
 
 ポーリングはフォーカス時 15 秒（M6-5 と同じ）。WebSocket は足さない。
 
