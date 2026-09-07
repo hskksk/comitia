@@ -32,7 +32,7 @@ const COMPOSER_POST_TYPES = [
 ] as const;
 
 type ComposerPostType = (typeof COMPOSER_POST_TYPES)[number][0];
-type ComposerKind = ComposerPostType | "proposal";
+type ComposerKind = ComposerPostType | "proposal" | "work_claim" | "reject";
 
 export function ThreadPage() {
   const { projectId, id } = useParams<{ projectId: string; id: string }>();
@@ -169,16 +169,13 @@ export function ThreadPage() {
     void runDeclare({ kind: "reject_thread", summary });
   }
 
-  async function onPost(event: FormEvent) {
+  async function onPost(event: FormEvent, postType: ComposerPostType) {
     event.preventDefault();
     if (!id || !postBody.trim()) {
       return;
     }
-    if (composerKind === "proposal") {
-      return;
-    }
     const needsRationale =
-      composerKind === "objection" || composerKind === "approval";
+      postType === "objection" || postType === "approval";
     if (needsRationale && (!rationale.trim() || !targetVersionId)) {
       setError("根拠と対象の提案が必要です");
       return;
@@ -187,10 +184,10 @@ export function ThreadPage() {
     setIsDeclaring(true);
     try {
       await boardClient.addPost(id, {
-        type: composerKind,
+        type: postType,
         body: postBody,
         rationale: needsRationale ? rationale : undefined,
-        blocking: composerKind === "objection" ? true : undefined,
+        blocking: postType === "objection" ? true : undefined,
         proposalVersionId: needsRationale ? targetVersionId : undefined,
       });
       setPostBody("");
@@ -337,6 +334,9 @@ export function ThreadPage() {
   // assertThreadOwnerOrProjectOwner なので、プロジェクトオーナーも打てる。
   const canSelectCandidate = isThreadOwner || isProjectOwner;
   const canRejectThread = isThreadOwner || isProjectOwner;
+  const canClaimWork =
+    view.thread.state !== "completed" && view.thread.state !== "rejected";
+  const showRejectWhileDiscussing = discussing && canRejectThread;
 
   const rejectConfirm = rejectConfirmOpen ? (
     <div className="decision-confirm" role="group" aria-label="不採用の確認">
@@ -361,24 +361,40 @@ export function ThreadPage() {
       </div>
     </div>
   ) : null;
-  const isProposing = canPropose && composerKind === "proposal";
-  const composerSelectKind: ComposerKind = isProposing
-    ? "proposal"
-    : composerKind === "proposal"
-      ? "comment"
-      : composerKind;
-  const composerKindOptions: ReadonlyArray<readonly [ComposerKind, string]> =
-    canPropose
-      ? [["proposal", "案"], ...COMPOSER_POST_TYPES]
-      : COMPOSER_POST_TYPES;
+  const composerSelectKind: ComposerKind =
+    composerKind === "proposal" && !canPropose ? "comment" : composerKind;
+  const composerKindOptions: ReadonlyArray<readonly [ComposerKind, string]> = [
+    ...(canPropose ? ([["proposal", "案"]] as const) : []),
+    ...(canCompose ? COMPOSER_POST_TYPES : []),
+    ...(canClaimWork ? ([["work_claim", "着手"]] as const) : []),
+    ...(showRejectWhileDiscussing ? ([["reject", "不採用"]] as const) : []),
+  ];
+  const composerKindValues = composerKindOptions.map(([value]) => value);
+  const activeComposerKind = composerKindValues.includes(composerSelectKind)
+    ? composerSelectKind
+    : (composerKindValues[0] ?? "comment");
+  const isProposing = activeComposerKind === "proposal";
+  const isClaimingWork = activeComposerKind === "work_claim";
+  const isRejecting = activeComposerKind === "reject";
   const needsRationale =
-    !isProposing &&
-    (composerKind === "objection" || composerKind === "approval");
-  const canClaimWork =
-    view.thread.state !== "completed" && view.thread.state !== "rejected";
+    activeComposerKind === "objection" || activeComposerKind === "approval";
+  const showComposer = canCompose || canClaimWork;
+  const composerHeading = isProposing
+    ? "案を出す"
+    : isClaimingWork
+      ? "着手を表明する"
+      : isRejecting
+        ? "不採用にする"
+        : "投稿する";
+  const composerSubmitLabel = isProposing
+    ? "案を出す"
+    : isClaimingWork
+      ? "着手を表明"
+      : isRejecting
+        ? "不採用"
+        : "投稿する";
   const showComplete = canCompleteThread(view.thread);
   const showOwnerDecide = discussing && isThreadOwner && !isBrainstorm;
-  const showRejectWhileDiscussing = discussing && canRejectThread;
   const showTiming =
     awaiting &&
     Boolean(view.thread.timingEndsAt || view.consensusReasons.length > 0);
@@ -388,9 +404,7 @@ export function ThreadPage() {
     showTiming ||
     awaiting ||
     showOwnerDecide ||
-    showRejectWhileDiscussing ||
-    canCompose ||
-    canClaimWork ||
+    showComposer ||
     isProjectOwner;
 
   return (
@@ -489,12 +503,27 @@ export function ThreadPage() {
               {rejectConfirm}
             </form>
           ) : null}
-          {canCompose ? (
+          {showComposer ? (
             <form
               className="composer"
-              onSubmit={isProposing ? onAddProposal : onPost}
+              onSubmit={(event) => {
+                if (isProposing) {
+                  void onAddProposal(event);
+                  return;
+                }
+                if (isClaimingWork) {
+                  void onClaimWork(event);
+                  return;
+                }
+                if (isRejecting) {
+                  event.preventDefault();
+                  onRejectClick();
+                  return;
+                }
+                void onPost(event, activeComposerKind as ComposerPostType);
+              }}
             >
-              <h2>{isProposing ? "案を出す" : "投稿する"}</h2>
+              <h2>{composerHeading}</h2>
               <div className="composer-kind-field">
                 <FieldCaption required>種類</FieldCaption>
                 <div className="composer-kinds" role="radiogroup" aria-label="種類">
@@ -504,8 +533,11 @@ export function ThreadPage() {
                         type="radio"
                         name="composer-kind"
                         value={value}
-                        checked={composerSelectKind === value}
-                        onChange={() => setComposerKind(value)}
+                        checked={activeComposerKind === value}
+                        onChange={() => {
+                          setComposerKind(value);
+                          setRejectConfirmOpen(false);
+                        }}
                       />
                       {label}
                     </label>
@@ -549,6 +581,45 @@ export function ThreadPage() {
                   >
                     案を出す
                   </button>
+                </>
+              ) : isClaimingWork ? (
+                <>
+                  <label>
+                    <FieldCaption required>
+                      paths（1 行 1 件。全部なら "."）
+                    </FieldCaption>
+                    <textarea
+                      value={claimPathsText}
+                      onChange={(event) => setClaimPathsText(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="btn-secondary"
+                    disabled={isDeclaring || !claimPathsText.trim()}
+                  >
+                    着手を表明
+                  </button>
+                </>
+              ) : isRejecting ? (
+                <>
+                  <label>
+                    <FieldCaption required>不採用の理由</FieldCaption>
+                    <textarea
+                      value={summary}
+                      onChange={(event) => setSummary(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="btn-danger"
+                    disabled={isDeclaring || !summary.trim()}
+                  >
+                    不採用
+                  </button>
+                  {rejectConfirm}
                 </>
               ) : (
                 <>
@@ -597,30 +668,10 @@ export function ThreadPage() {
                     className="btn-primary"
                     disabled={isDeclaring || !postBody.trim()}
                   >
-                    投稿する
+                    {composerSubmitLabel}
                   </button>
                 </>
               )}
-            </form>
-          ) : null}
-          {canClaimWork ? (
-            <form className="composer" onSubmit={onClaimWork}>
-              <h2>着手を表明する</h2>
-              <label>
-                <FieldCaption required>paths（1 行 1 件。全部なら "."）</FieldCaption>
-                <textarea
-                  value={claimPathsText}
-                  onChange={(event) => setClaimPathsText(event.target.value)}
-                  required
-                />
-              </label>
-              <button
-                type="submit"
-                className="btn-secondary"
-                disabled={isDeclaring || !claimPathsText.trim()}
-              >
-                着手を表明
-              </button>
             </form>
           ) : null}
           {showOwnerDecide ? (
@@ -680,34 +731,6 @@ export function ThreadPage() {
                   人間批准へ
                 </button>
               </div>
-            </form>
-          ) : null}
-          {showRejectWhileDiscussing ? (
-            <form
-              className="decision-panel"
-              onSubmit={(event) => {
-                event.preventDefault();
-                onRejectClick();
-              }}
-            >
-              <label>
-                <FieldCaption required>不採用の理由</FieldCaption>
-                <textarea
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  required
-                />
-              </label>
-              <div className="actions">
-                <button
-                  type="submit"
-                  className="btn-danger"
-                  disabled={isDeclaring || !summary.trim()}
-                >
-                  不採用
-                </button>
-              </div>
-              {rejectConfirm}
             </form>
           ) : null}
           {isProjectOwner ? (
