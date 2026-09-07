@@ -1,4 +1,5 @@
 import { clearToken, getToken } from "./auth.js";
+export type { ActivityItem, ActivitySubject } from "@comitia/shared";
 
 export const UNAUTHORIZED_EVENT = "comitia:unauthorized";
 const PROJECT_ID_HEADER = "x-comitia-project-id";
@@ -508,6 +509,13 @@ export class BoardClient {
   async events(limit = 10): Promise<{ items: EventItem[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
     return this.request(`/v1/events?${params.toString()}`);
+  }
+
+  async activity(limit = 12): Promise<{
+    items: import("@comitia/shared").ActivityItem[];
+  }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return this.request(`/v1/activity?${params.toString()}`);
   }
 
   async queue(): Promise<{ items: QueueItem[] }> {
