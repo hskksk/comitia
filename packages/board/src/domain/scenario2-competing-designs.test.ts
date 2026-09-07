@@ -12,6 +12,7 @@ import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
 import { createThread } from "./threads.js";
 import { adoptDefaultFounding } from "./founding.js";
+import { addMembership } from "./memberships.js";
 
 describe("シナリオ2: 対立する設計判断", () => {
   it("rough 合意・異議・衝突チェック", async () => {
@@ -52,6 +53,13 @@ describe("シナリオ2: 対立する設計判断", () => {
       projectId: project.id,
       ownerId: owner.id,
     });
+    for (const participant of [ren, sou, mika, yui]) {
+      await addMembership(db, {
+        projectId: project.id,
+        participantId: participant.id,
+        actorId: owner.id,
+      });
+    }
 
     for (const [participantId, role] of [
       [ren.id, "proposer"],
