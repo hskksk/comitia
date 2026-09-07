@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/hskksk/comitia/compare/v0.6.0...v0.6.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **web:** スレッドの投稿と案を一つのコンポーザにまとめる ([#117](https://github.com/hskksk/comitia/issues/117)) ([48b95a9](https://github.com/hskksk/comitia/commit/48b95a9b6eb95addc00c02600f91d56d5cbb9ece))
+
 # [0.6.0](https://github.com/hskksk/comitia/compare/v0.5.0...v0.6.0) (2026-09-06)
 
 
