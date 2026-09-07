@@ -2,9 +2,14 @@ import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../test/helpers.js";
-import { sessions } from "../db/schema.js";
+import { events, sessions } from "../db/schema.js";
 import { getBriefing } from "./briefing.js";
-import { endSession, findOpenSession, openOrGetSession, prepareSessionStart } from "./sessions.js";
+import {
+  endSession,
+  findOpenSession,
+  openOrGetSession,
+  prepareSessionStart,
+} from "./sessions.js";
 import { registerParticipant } from "./participants.js";
 import { createProject } from "./projects.js";
 import { adoptDefaultFounding } from "./founding.js";
@@ -86,5 +91,11 @@ describe("sessions", () => {
       .where(eq(sessions.id, session.id));
     expect(row?.endedAt).not.toBeNull();
     expect(row?.endedReason).toBe("completed");
+
+    const [endedEvent] = await db
+      .select()
+      .from(events)
+      .where(eq(events.kind, "session_ended"));
+    expect(endedEvent?.payload).not.toHaveProperty("projects");
   });
 });

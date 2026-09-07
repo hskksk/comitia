@@ -2,7 +2,10 @@ import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { db } from "../test/helpers.js";
 import { events } from "../db/schema.js";
-import { seedOwnerAgentProject } from "../test/human-fixtures.js";
+import {
+  seedDecidedImplementation,
+  seedOwnerAgentProject,
+} from "../test/human-fixtures.js";
 import { listRecentActivity } from "./activity-feed.js";
 import { recordEvent } from "./events.js";
 import { addPost } from "./posts.js";
@@ -18,6 +21,7 @@ import { declare } from "./declare.js";
 import { listRecentEvents } from "./human-ops.js";
 import { assignRole } from "./roles.js";
 import { PermissionDenied } from "./errors.js";
+import { claimWork } from "./work-claims.js";
 
 describe("listRecentActivity", () => {
   it("filters runtime noise before limit and enriches an agent post", async () => {
@@ -106,6 +110,33 @@ describe("listRecentActivity", () => {
       limit: 1,
     });
     expect(items.map((item) => item.kind)).toEqual(["project_updated"]);
+  });
+
+  it("represents a work claim without its automatic report post", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    await db.delete(events);
+    await claimWork(db, {
+      threadId: thread.id,
+      participantId: agent.id,
+      paths: ["packages/board/src/", "packages/web/src/", "README.md", "docs/"],
+    });
+
+    const items = await listRecentActivity(db, {
+      projectId: project.id,
+      limit: 10,
+    });
+    expect(items.map((item) => item.kind)).toEqual(["work_claimed"]);
+    const [item] = items;
+    if (item?.kind !== "work_claimed") throw new Error("unexpected activity");
+    expect(item.detail).toEqual({
+      type: "work",
+      paths: ["packages/board/src/", "packages/web/src/", "README.md"],
+      pathCount: 4,
+    });
   });
 
   it("represents declarations once with typed proposal context", async () => {
