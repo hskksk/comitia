@@ -40,6 +40,7 @@ import {
   setGoals,
   setSessionFocus,
 } from "../domain/sessions.js";
+import { recordMcpToolTrace } from "../domain/trace.js";
 import { createThread, searchThreads } from "../domain/threads.js";
 import { listSystemTemplates } from "../catalog/index.js";
 import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
@@ -672,7 +673,32 @@ export function createBoardToolRuntime(input: {
     if (!handler) {
       return toolError(`未知のツール: ${name}`);
     }
-    return handler(args);
+    let sid = sessionId;
+    if (!sid) {
+      try {
+        sid = await ensureSessionId();
+      } catch {
+        sid = null;
+      }
+    }
+    const result = await handler(args);
+    const traceSessionId = sid ?? sessionId;
+    if (traceSessionId) {
+      try {
+        await recordMcpToolTrace(db, {
+          sessionId: traceSessionId,
+          tool: name,
+          args,
+          result,
+        });
+      } catch (error) {
+        console.error(
+          `[mcp-trace] failed to record ${name}:`,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+    return result;
   }
 
   function parseJsonContent(result: ToolCallResult): Record<string, unknown> {

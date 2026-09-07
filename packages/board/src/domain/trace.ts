@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import type { TraceEvent, TraceEventInput, TraceKind } from "@comitia/shared";
 import {
   serializeTraceEvent,
@@ -15,10 +15,86 @@ import { getSessionById } from "./sessions.js";
 const DEFAULT_TRACE_LIMIT = 500;
 export const MAX_TRACE_LIMIT = 2_000;
 const CHAT_LOG_PROJECT_PAGE = 200;
+export const TRACE_SOURCE_MCP = "mcp";
+const MCP_TRACE_JSON_LIMIT = 64 * 1024;
+const MCP_BODY_REDACT_TOOLS = new Set([
+  "write_note",
+  "write_memory",
+  "read_note",
+  "comment_note",
+]);
 
 function asSeq(value: unknown): number {
   const seq = typeof value === "number" ? value : Number(value);
   return Number.isFinite(seq) ? seq : 0;
+}
+
+function notMcpSource() {
+  return sql`coalesce(${sessionTraceEntries.payload}->>'source', '') <> ${TRACE_SOURCE_MCP}`;
+}
+
+async function shouldOmitMcpToolDuplicates(
+  db: Db,
+  sessionId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ seq: sessionTraceEntries.seq })
+    .from(sessionTraceEntries)
+    .where(
+      and(
+        eq(sessionTraceEntries.sessionId, sessionId),
+        inArray(sessionTraceEntries.kind, ["tool_call", "tool_result"]),
+        notMcpSource(),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+function truncateJson(value: unknown, limit: number): unknown {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    return value;
+  }
+  if (serialized.length <= limit) {
+    return value;
+  }
+  return { _truncated: true, preview: serialized.slice(0, limit) };
+}
+
+function redactMcpToolBody(value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+  const record = { ...(value as Record<string, unknown>) };
+  for (const key of ["body", "content", "text", "title"]) {
+    if (key in record) {
+      record[key] = "(redacted)";
+    }
+  }
+  return record;
+}
+
+function sanitizeMcpPayload(tool: string, value: unknown): unknown {
+  const redacted = MCP_BODY_REDACT_TOOLS.has(tool)
+    ? redactMcpToolBody(value)
+    : value;
+  return truncateJson(redacted, MCP_TRACE_JSON_LIMIT);
+}
+
+function parseMcpToolResult(result: {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+}): unknown {
+  const text = result.content[0]?.text;
+  if (typeof text !== "string") {
+    return result.content;
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
 }
 
 function traceEventToRow(
@@ -68,6 +144,48 @@ export function alignChatLogTail(slice: string): string {
   return slice.slice(slice.indexOf("\n") + 1);
 }
 
+/** Record a board-side MCP tool call so traces survive adapter upload loss. */
+export async function recordMcpToolTrace(
+  db: Db,
+  input: {
+    sessionId: string;
+    tool: string;
+    args: Record<string, unknown>;
+    result: {
+      content: Array<{ type: "text"; text: string }>;
+      isError?: boolean;
+    };
+  },
+): Promise<void> {
+  const session = await getSessionById(db, input.sessionId);
+  const at = new Date().toISOString();
+  const isError = input.result.isError === true;
+  await appendSessionTraceEntries(db, {
+    sessionId: input.sessionId,
+    participantId: session.participantId,
+    entries: [
+      {
+        v: TRACE_VERSION,
+        at,
+        kind: "tool_call",
+        tool: input.tool,
+        args: sanitizeMcpPayload(input.tool, input.args),
+        source: TRACE_SOURCE_MCP,
+      },
+      {
+        v: TRACE_VERSION,
+        at,
+        kind: "tool_result",
+        tool: input.tool,
+        ok: !isError,
+        isError,
+        result: sanitizeMcpPayload(input.tool, parseMcpToolResult(input.result)),
+        source: TRACE_SOURCE_MCP,
+      },
+    ],
+  });
+}
+
 /**
  * Build display text from structured traces when `sessions.chat_log` is empty.
  * Phase 2 stores traces as the source of truth; chat_log is a projection.
@@ -77,6 +195,7 @@ export async function buildChatLogFromTraces(
   sessionId: string,
   options: { tailChars: number; fromStart: boolean },
 ): Promise<{ chatLog: string; truncated: boolean }> {
+  const omitMcpTools = await shouldOmitMcpToolDuplicates(db, sessionId);
   if (options.fromStart) {
     const events: TraceEvent[] = [];
     let afterSeq = 0;
@@ -89,6 +208,7 @@ export async function buildChatLogFromTraces(
           and(
             eq(sessionTraceEntries.sessionId, sessionId),
             gt(sessionTraceEntries.seq, afterSeq),
+            omitMcpTools ? notMcpSource() : undefined,
           ),
         )
         .orderBy(asc(sessionTraceEntries.seq))
@@ -117,12 +237,13 @@ export async function buildChatLogFromTraces(
       .select()
       .from(sessionTraceEntries)
       .where(
-        beforeSeq === undefined
-          ? eq(sessionTraceEntries.sessionId, sessionId)
-          : and(
-              eq(sessionTraceEntries.sessionId, sessionId),
-              lt(sessionTraceEntries.seq, beforeSeq),
-            ),
+        and(
+          eq(sessionTraceEntries.sessionId, sessionId),
+          beforeSeq !== undefined
+            ? lt(sessionTraceEntries.seq, beforeSeq)
+            : undefined,
+          omitMcpTools ? notMcpSource() : undefined,
+        ),
       )
       .orderBy(desc(sessionTraceEntries.seq))
       .limit(CHAT_LOG_PROJECT_PAGE);
@@ -204,6 +325,7 @@ export async function getOwnerSessionTrace(
     Math.max(input.limit ?? DEFAULT_TRACE_LIMIT, 1),
     MAX_TRACE_LIMIT,
   );
+  const omitMcpTools = await shouldOmitMcpToolDuplicates(db, input.sessionId);
 
   const rows = await db
     .select()
@@ -212,6 +334,7 @@ export async function getOwnerSessionTrace(
       and(
         eq(sessionTraceEntries.sessionId, input.sessionId),
         gt(sessionTraceEntries.seq, afterSeq),
+        omitMcpTools ? notMcpSource() : undefined,
       ),
     )
     .orderBy(asc(sessionTraceEntries.seq))

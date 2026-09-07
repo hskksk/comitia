@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   DEFAULT_SESSION_BUDGET,
+  TRACE_VERSION,
   WIND_DOWN_RESERVE,
 } from "@comitia/shared";
 import {
@@ -9,6 +10,7 @@ import {
   handovers,
   sessionGoals,
   sessionProjectEngagements,
+  sessionTraceEntries,
   sessions,
   type HandoverProjectNote,
 } from "../db/schema.js";
@@ -316,6 +318,24 @@ export async function interruptStaleSessions(
         payload: {
           sessionId: updated.id,
           endedAt: input.now.toISOString(),
+        },
+      });
+
+      const [maxRow] = await tx
+        .select({
+          maxSeq: sql<number>`coalesce(max(${sessionTraceEntries.seq}), 0)`,
+        })
+        .from(sessionTraceEntries)
+        .where(eq(sessionTraceEntries.sessionId, updated.id));
+      await tx.insert(sessionTraceEntries).values({
+        sessionId: updated.id,
+        seq: Number(maxRow?.maxSeq ?? 0) + 1,
+        at: input.now,
+        kind: "adapter_note",
+        run: null,
+        payload: {
+          v: TRACE_VERSION,
+          message: "一定時間動きがなかったのでセッションを中断した",
         },
       });
       interrupted += 1;
