@@ -351,8 +351,12 @@ function needsProjectHeader(path: string): boolean {
 }
 
 export class BoardClient {
-  async authConfig(): Promise<{ githubOAuth: boolean }> {
+  async authConfig(): Promise<{ githubOAuth: boolean; previewLogin: boolean }> {
     return this.request("/v1/auth/config");
+  }
+
+  async previewLogin(): Promise<{ token: string }> {
+    return this.request("/v1/auth/preview-login", { method: "POST", body: "{}" });
   }
 
   async me(): Promise<MeResponse> {

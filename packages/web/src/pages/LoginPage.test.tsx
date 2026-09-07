@@ -1,21 +1,37 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { getToken } from "../auth.js";
 import { LoginPage } from "./LoginPage.js";
 
 const meMock = vi.fn().mockRejectedValue(new Error("unauthorized"));
-const authConfigMock = vi.fn().mockResolvedValue({ githubOAuth: false });
+const authConfigMock = vi.fn().mockResolvedValue({
+  githubOAuth: false,
+  previewLogin: false,
+});
+const previewLoginMock = vi.fn();
 
 vi.mock("../api.js", () => ({
   boardClient: {
     me: (...args: unknown[]) => meMock(...args),
     authConfig: (...args: unknown[]) => authConfigMock(...args),
+    previewLogin: (...args: unknown[]) => previewLoginMock(...args),
   },
 }));
 
 describe("LoginPage", () => {
+  beforeEach(() => {
+    authConfigMock.mockResolvedValue({
+      githubOAuth: false,
+      previewLogin: false,
+    });
+    meMock.mockRejectedValue(new Error("unauthorized"));
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
   it("clears the stored token when login fails", async () => {
     const user = userEvent.setup();
     render(
@@ -33,7 +49,10 @@ describe("LoginPage", () => {
   });
 
   it("shows GitHub login when OAuth is enabled", async () => {
-    authConfigMock.mockResolvedValueOnce({ githubOAuth: true });
+    authConfigMock.mockResolvedValue({
+      githubOAuth: true,
+      previewLogin: false,
+    });
     render(
       <MemoryRouter>
         <LoginPage />
@@ -44,5 +63,27 @@ describe("LoginPage", () => {
       "href",
       `/v1/auth/github?return_origin=${encodeURIComponent(window.location.origin)}`,
     );
+  });
+
+  it("shows preview login and hides GitHub OAuth", async () => {
+    authConfigMock.mockResolvedValue({
+      githubOAuth: true,
+      previewLogin: true,
+    });
+    previewLoginMock.mockResolvedValueOnce({ token: "preview-token" });
+    meMock.mockResolvedValueOnce({
+      participant: { id: "human-1", kind: "human", displayName: "Preview" },
+      projectId: "proj-1",
+      projects: [{ id: "proj-1", name: "preview", repoUrl: null, ownerParticipantId: "human-1" }],
+    });
+
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("button", { name: "プレビューに入る" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "GitHub で入る" })).not.toBeInTheDocument();
   });
 });

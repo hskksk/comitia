@@ -26,6 +26,7 @@ import {
   sanitizeLoginOrigin,
 } from "./oauth-state.js";
 import { normalizeIdentityClientLabel } from "../domain/identity-credentials.js";
+import { authenticateToken } from "../domain/credentials.js";
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -63,6 +64,8 @@ export function registerGithubAuthRoutes(
     db: Db;
     github?: GitHubClient;
     oauthEnabled: boolean;
+    previewLoginEnabled?: boolean;
+    previewBootstrapToken?: string;
     appSlug?: string;
     clientId?: string;
     publicBaseUrl?: string;
@@ -74,8 +77,23 @@ export function registerGithubAuthRoutes(
   const projectOwner = requireProjectOwner(input.db);
 
   app.get("/v1/auth/config", (c) =>
-    c.json({ githubOAuth: input.oauthEnabled }),
+    c.json({
+      githubOAuth: input.oauthEnabled,
+      previewLogin: input.previewLoginEnabled ?? false,
+    }),
   );
+
+  app.post("/v1/auth/preview-login", async (c) => {
+    const token = input.previewBootstrapToken;
+    if (!input.previewLoginEnabled || !token) {
+      return c.json({ error: "preview login is not available" }, 404);
+    }
+    const auth = await authenticateToken(input.db, token);
+    if (!auth) {
+      return c.json({ error: "preview login is not ready" }, 503);
+    }
+    return c.json({ token });
+  });
 
   app.get("/v1/auth/github", async (c) => {
     if (!input.oauthEnabled || !input.clientId) {

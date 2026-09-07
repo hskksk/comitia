@@ -13,6 +13,18 @@ import { assignSessionStartMinute } from "./connections.js";
 import { bootstrapBoard, registerAgent } from "./bootstrap.js";
 
 describe("bootstrap", () => {
+  it("uses a provided owner token when bootstrapping", async () => {
+    const fixedToken = `comt_${"b".repeat(64)}`;
+    const result = await bootstrapBoard(db, {
+      ownerDisplayName: "ハル",
+      projectName: "comitia",
+      ownerToken: fixedToken,
+    });
+    expect(result.ownerToken).toBe(fixedToken);
+    const auth = await authenticateToken(db, fixedToken);
+    expect(auth?.participant.id).toBe(result.owner.id);
+  });
+
   it("creates owner, project, and owner token once", async () => {
     const first = await bootstrapBoard(db, {
       ownerDisplayName: "ハル",

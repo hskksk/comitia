@@ -55,6 +55,10 @@ export function createBoardApp(input: {
     appSlug?: string;
     clientId?: string;
   };
+  previewAuth?: {
+    enabled: boolean;
+    bootstrapToken?: string;
+  };
 }) {
   const { db } = input;
   const app = new Hono<BoardEnv>();
@@ -73,6 +77,8 @@ export function createBoardApp(input: {
     db,
     github: input.github,
     oauthEnabled: input.githubOAuth?.enabled ?? false,
+    previewLoginEnabled: input.previewAuth?.enabled ?? false,
+    previewBootstrapToken: input.previewAuth?.bootstrapToken,
     appSlug: input.githubOAuth?.appSlug,
     clientId: input.githubOAuth?.clientId,
     publicBaseUrl: input.githubPublicBaseUrl,
