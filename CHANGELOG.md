@@ -1,3 +1,10 @@
+# [0.9.0](https://github.com/hskksk/comitia/compare/v0.8.0...v0.9.0) (2026-09-07)
+
+
+### Features
+
+* ログイン画面の刷新と PR プレビュー用 bootstrap トークン ([#128](https://github.com/hskksk/comitia/issues/128)) ([589808b](https://github.com/hskksk/comitia/commit/589808b6aaae5625536bce93834fecd02a9c2be5))
+
 # [0.8.0](https://github.com/hskksk/comitia/compare/v0.7.0...v0.8.0) (2026-09-07)
 
 
