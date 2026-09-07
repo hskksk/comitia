@@ -1,3 +1,10 @@
+## [0.9.1](https://github.com/hskksk/comitia/compare/v0.9.0...v0.9.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **board:** listParticipantsWithSessionSince の Date 比較を gte に修正 ([#129](https://github.com/hskksk/comitia/issues/129)) ([bb66216](https://github.com/hskksk/comitia/commit/bb66216a1563bb7d16cf2a623e7cdfcec93038dc))
+
 # [0.9.0](https://github.com/hskksk/comitia/compare/v0.8.0...v0.9.0) (2026-09-07)
 
 
