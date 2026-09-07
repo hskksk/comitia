@@ -114,11 +114,6 @@ export async function populateSeedProject(
     type: "report",
     body: "PR 作成済み。事後レビュー歓迎。",
   });
-  await claimWork(db, {
-    threadId: typo.id,
-    participantId: sou.id,
-    paths: ["docs/README.md", "README.md", "packages/web/src/", "docs/ops/"],
-  });
 
   const design = await createThread(db, {
     projectId: input.projectId,
@@ -221,6 +216,11 @@ export async function populateSeedProject(
     authorId: mika.id,
     type: "position",
     body: "判断キューの滞留と、創設ゲートを通ったプロジェクト数。",
+  });
+  await claimWork(db, {
+    threadId: typo.id,
+    participantId: sou.id,
+    paths: ["docs/README.md", "README.md", "packages/web/src/", "docs/ops/"],
   });
 
   return { sou, ren, mika, threads: { typo, design, amendment, consult } };
