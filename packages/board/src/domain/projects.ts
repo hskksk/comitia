@@ -62,6 +62,7 @@ export async function createProject(
     projectId: project!.id,
     participantId: input.ownerParticipantId,
     actorId: input.ownerParticipantId,
+    eventCause: "project_created",
   });
 
   await recordEvent(db, {
@@ -82,6 +83,7 @@ export async function createProject(
       kind: "project_rule",
       templateId: input.projectRule.templateId,
       content: input.projectRule.content,
+      eventCause: "project_created",
     });
   }
   if (input.threadTemplate) {
@@ -91,6 +93,7 @@ export async function createProject(
       kind: "thread_template",
       templateId: input.threadTemplate.templateId,
       content: input.threadTemplate.content,
+      eventCause: "project_created",
     });
   }
 

@@ -658,6 +658,24 @@ describe("human ops REST", () => {
     );
     expect(membershipEvent?.actorDisplayName).toBe("ハル");
     expect(membershipEvent?.targetDisplayName).toBe("ミカ@ハル");
+
+    const activity = await app.request("/v1/activity?limit=50", { headers });
+    expect(activity.status).toBe(200);
+    const activityBody = (await activity.json()) as {
+      items: Array<{ kind: string; subject: { type: string } }>;
+    };
+    expect(activityBody.items.length).toBeGreaterThan(0);
+    expect(
+      activityBody.items.every((item) => item.kind !== "tick_delivered"),
+    ).toBe(true);
+    expect(activityBody.items.some((item) => item.subject.type === "thread")).toBe(
+      true,
+    );
+
+    const invalidActivity = await app.request("/v1/activity?limit=51", {
+      headers,
+    });
+    expect(invalidActivity.status).toBe(400);
   });
 
   it("derives wake status: queued tick, undigested session, idle, and digested (null)", async () => {

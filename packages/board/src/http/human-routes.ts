@@ -66,6 +66,7 @@ import {
 } from "../domain/owned-agents.js";
 import type { GitHubClient } from "../github/types.js";
 import { listSystemTemplates } from "../catalog/index.js";
+import { listRecentActivity } from "../domain/activity-feed.js";
 import {
   type BoardEnv,
   requireAuth,
@@ -834,6 +835,19 @@ export function registerHumanRoutes(
       return c.json({ error: "limit は 1〜200 です" }, 400);
     }
     const items = await listRecentEvents(db, {
+      projectId: c.get("projectId"),
+      limit,
+    });
+    return c.json({ items });
+  });
+
+  app.get("/v1/activity", auth, human, member, async (c) => {
+    const limitRaw = c.req.query("limit");
+    const limit = limitRaw ? Number(limitRaw) : 12;
+    if (!Number.isFinite(limit) || limit < 1 || limit > 50) {
+      return c.json({ error: "limit は 1〜50 です" }, 400);
+    }
+    const items = await listRecentActivity(db, {
       projectId: c.get("projectId"),
       limit,
     });
