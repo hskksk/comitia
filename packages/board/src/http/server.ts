@@ -23,6 +23,8 @@ import {
 } from "../gateway/send-tick.js";
 import { createBoardApp, type BoardGateway } from "./app.js";
 import { readGitHubConfig } from "../github/config.js";
+import { readPreviewAuthConfig } from "../preview-auth/config.js";
+import { ensurePreviewBootstrap } from "../preview-auth/bootstrap.js";
 import { createOctokitGitHubClient } from "../github/octokit-client.js";
 import type { GitHubClient } from "../github/types.js";
 import { listenBoardHttpServer, resolveListenHost } from "./listen-host.js";
@@ -107,6 +109,8 @@ export async function startBoardServer(input: {
   };
 
   const githubConfig = readGitHubConfig();
+  const previewAuth = readPreviewAuthConfig();
+  await ensurePreviewBootstrap(db, previewAuth);
   const github =
     input.github ??
     (githubConfig.installationReady && githubConfig.oauthEnabled
@@ -123,6 +127,10 @@ export async function startBoardServer(input: {
       enabled: githubConfig.oauthEnabled,
       appSlug: githubConfig.appSlug,
       clientId: githubConfig.clientId,
+    },
+    previewAuth: {
+      enabled: previewAuth.enabled,
+      bootstrapToken: previewAuth.bootstrapToken,
     },
   });
 

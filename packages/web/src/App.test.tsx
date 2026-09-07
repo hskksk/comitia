@@ -17,7 +17,7 @@ vi.mock("./api.js", () => ({
   boardClient: {
     me: (...args: unknown[]) => meMock(...args),
     queue: vi.fn().mockResolvedValue({ items: [] }),
-    authConfig: vi.fn().mockResolvedValue({ githubOAuth: false }),
+    authConfig: vi.fn().mockResolvedValue({ githubOAuth: false, previewLogin: false }),
     getProject: vi.fn().mockResolvedValue({
       id: "proj-1",
       name: "comitia",

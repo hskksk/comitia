@@ -8,7 +8,7 @@ import {
 } from "../db/schema.js";
 import type { DbClient } from "../db/types.js";
 import { assignSessionStartMinute } from "./connections.js";
-import { hashToken, issueToken } from "./credentials.js";
+import { hashToken, issueToken, isTokenFormat } from "./credentials.js";
 import { GateViolation } from "./errors.js";
 import { recordEvent } from "./events.js";
 import { registerParticipant } from "./participants.js";
@@ -19,7 +19,12 @@ import { getProject } from "./helpers.js";
 
 export async function bootstrapBoard(
   db: DbClient,
-  input: { ownerDisplayName: string; projectName: string; repoUrl?: string },
+  input: {
+    ownerDisplayName: string;
+    projectName: string;
+    repoUrl?: string;
+    ownerToken?: string;
+  },
 ) {
   return db.transaction(async (tx) => {
     const [existingHuman] = await tx
@@ -51,7 +56,10 @@ export async function bootstrapBoard(
       ownerParticipantId: owner.id,
       repoUrl: input.repoUrl,
     });
-    const ownerToken = issueToken();
+    const ownerToken = input.ownerToken ?? issueToken();
+    if (!isTokenFormat(ownerToken)) {
+      throw new GateViolation("invalid owner token format");
+    }
     await tx.insert(agentCredentials).values({
       participantId: owner.id,
       projectId: null,

@@ -13,6 +13,7 @@ pnpm dev
 Vite が `/v1` と `/healthz` をボードへプロキシする。
 
 - GitHub App が設定されていれば「GitHub で入る」
+- PR プレビューで `COMITIA_BOOTSTRAP_TOKEN` が設定されていれば「プレビューに入る」（OAuth は非表示）
 - 未設定時・テスト用は `<details>` 内のオーナートークン入力（`comitia init` の `ownerToken`）
 
 ## 本番

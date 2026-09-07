@@ -55,6 +55,21 @@ GitHub App 用の変数は `preserve()` なので、ダッシュボードに既�
 
 GitHub App は後からでよい。未設定なら `POST /v1/init` とトークン登録で入れる。
 
+## PR / プレビュー環境
+
+Railway の PR Environment など、GitHub OAuth の Callback URL が本番固定でログインできない場合は、**プレビュー専用**の固定トークンを使う。
+
+1. 64 文字の hex で `comt_…` トークンを決める（例: `openssl rand -hex 32` の先頭に `comt_`）
+2. プレビュー環境の Variables にだけ設定する（**production には入れない**）
+
+| 変数 | 意味 |
+| --- | --- |
+| `COMITIA_BOOTSTRAP_TOKEN` | 空 DB 起動時にこのトークンで bootstrap。ログイン画面に「プレビューに入る」が出る |
+| `COMITIA_BOOTSTRAP_OWNER_NAME` | 任意。既定 `Preview` |
+| `COMITIA_BOOTSTRAP_PROJECT_NAME` | 任意。既定 `preview` |
+
+起動時に人間が 0 人なら自動で init 相当が走る。既存 DB には触らない。OAuth はプレビューでは非表示（Callback が本番向きのため）。
+
 ## GitHub App（任意）
 
 公開 URL が決まってから [M5 dogfood](m5-dogfood.md) の App 設定を、このドメインに合わせる。

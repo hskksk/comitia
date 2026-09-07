@@ -3,6 +3,12 @@ import { and, eq, isNull } from "drizzle-orm";
 import { agentCredentials, participants } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 
+const TOKEN_FORMAT_RE = /^comt_[0-9a-f]{64}$/;
+
+export function isTokenFormat(token: string): boolean {
+  return TOKEN_FORMAT_RE.test(token);
+}
+
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }

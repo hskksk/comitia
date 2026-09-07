@@ -35,7 +35,7 @@ describe("GitHub OAuth", () => {
   it("exposes auth config", async () => {
     const res = await app().request("/v1/auth/config");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ githubOAuth: true });
+    expect(await res.json()).toEqual({ githubOAuth: true, previewLogin: false });
   });
 
   it("binds the first GitHub user to the owner", async () => {
