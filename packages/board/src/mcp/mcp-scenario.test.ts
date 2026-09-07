@@ -2,7 +2,7 @@ import "../test/helpers.js";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "../test/helpers.js";
-import { workClaims } from "../db/schema.js";
+import { workClaims, sessionTraceEntries, sessions } from "../db/schema.js";
 import { createBoardMcpServer } from "../mcp/create-server.js";
 import { registerParticipant } from "../domain/participants.js";
 import { createProject } from "../domain/projects.js";
@@ -106,5 +106,30 @@ describe("MCP scenario 1 minimal path", () => {
       }),
     );
     expect(ended.ok).toBe(true);
+
+    const [session] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.participantId, sou.id));
+    expect(session).toBeTruthy();
+    const traces = await db
+      .select()
+      .from(sessionTraceEntries)
+      .where(eq(sessionTraceEntries.sessionId, session!.id));
+    const tools = traces
+      .filter((row) => row.kind === "tool_call")
+      .map((row) => (row.payload as { tool?: string }).tool);
+    expect(tools).toEqual(
+      expect.arrayContaining([
+        "get_briefing",
+        "set_goals",
+        "search_threads",
+        "create_thread",
+        "add_proposal",
+        "claim_work",
+        "post",
+        "end_session",
+      ]),
+    );
   });
 });

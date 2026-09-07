@@ -527,11 +527,18 @@ export async function runCli(
     configDir: options.configDir,
   });
   if (options.stdout === undefined) {
-    process.once("SIGINT", () => {
+    let shuttingDown = false;
+    const shutdown = () => {
+      if (shuttingDown) {
+        return;
+      }
+      shuttingDown = true;
       void handle?.close().finally(() => {
         process.exit(0);
       });
-    });
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
   }
 }
 

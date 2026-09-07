@@ -179,6 +179,15 @@ export function ensureTraceChunkNewline(chunk: string): string {
   return chunk.endsWith("\n") ? chunk : `${chunk}\n`;
 }
 
+const TRACE_FLUSH_IMMEDIATE_KINDS: ReadonlySet<TraceKind> = new Set([
+  "tool_call",
+  "tool_result",
+  "run_start",
+  "run_end",
+  "continue_decision",
+  "adapter_note",
+]);
+
 export type TraceSessionLogOptions = {
   redactMode?: TraceRedactMode;
   /** M20-2: coalesce and upload on each emit (non-blocking). */
@@ -224,6 +233,9 @@ export class TraceSessionLog {
     }
     if (this.entriesUploader) {
       this.entriesUploader.enqueueEvent(event);
+    }
+    if (TRACE_FLUSH_IMMEDIATE_KINDS.has(event.kind)) {
+      void this.flushPending();
     }
     this.options.onEvent?.(event);
     return event;

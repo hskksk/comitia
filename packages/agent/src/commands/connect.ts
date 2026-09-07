@@ -1,5 +1,6 @@
 import { GATEWAY, type Tick } from "@comitia/shared";
 import { startLocalA2aServer } from "../a2a-server.js";
+import { postAuthorized, postAuthorizedWithRetry } from "../board-upload.js";
 import { loadConfig } from "../config.js";
 import { createMcpProxyRuntime } from "../mcp-proxy.js";
 import type { EnginePlugin } from "../plugins/types.js";
@@ -18,22 +19,6 @@ export interface ConnectCommandHandle {
 }
 
 const SESSION_START_WAIT_MS = 1_500;
-
-async function postAuthorized(
-  boardUrl: string,
-  token: string,
-  path: string,
-  body: unknown,
-): Promise<Response> {
-  return fetch(`${boardUrl.replace(/\/$/, "")}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-}
 
 async function waitForTick(
   ticks: Tick[],
@@ -106,35 +91,23 @@ export async function connectCommand(
             plugin,
             callTool: (name, args) => proxy.callTool(name, args),
             onChatLog: async (chunk) => {
-              const response = await postAuthorized(
+              await postAuthorizedWithRetry(
                 config.boardUrl,
                 agent.token,
                 `/v1/sessions/${sessionId}/chat-log`,
                 { chunk },
               );
-              if (!response.ok) {
-                const body = await response.text().catch(() => "");
-                console.error(
-                  `[chat-log] POST failed: ${response.status}${body ? ` ${body}` : ""}`,
-                );
-              }
             },
             onChatLogError: (message) => {
               console.error(`[chat-log] ${message}`);
             },
             onTraceEntries: async (entries) => {
-              const response = await postAuthorized(
+              await postAuthorizedWithRetry(
                 config.boardUrl,
                 agent.token,
                 `/v1/sessions/${sessionId}/trace`,
                 { entries },
               );
-              if (!response.ok) {
-                const body = await response.text().catch(() => "");
-                console.error(
-                  `[trace] POST failed: ${response.status}${body ? ` ${body}` : ""}`,
-                );
-              }
             },
             onTraceError: (message) => {
               console.error(`[trace] ${message}`);

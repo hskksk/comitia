@@ -55,6 +55,35 @@ describe("claude live trace streaming", () => {
     expect(chunks[0]).toContain(`"v":${TRACE_VERSION}`);
   });
 
+  it("flushes tool_call immediately instead of waiting for the coalesce timer", async () => {
+    const chunks: string[] = [];
+    const entries: string[] = [];
+    const traceLog = new TraceSessionLog(
+      async (chunk) => {
+        chunks.push(chunk);
+      },
+      {
+        live: true,
+        coalesce: { maxEvents: 50, maxMs: 60_000 },
+        onEntries: async (batch) => {
+          entries.push(...batch.map((event) => event.kind));
+        },
+      },
+    );
+
+    traceLog.emit({ kind: "thinking", run: 1, text: "still buffering" });
+    await Promise.resolve();
+    expect(chunks).toHaveLength(0);
+    expect(entries).toHaveLength(0);
+
+    traceLog.emit({ kind: "tool_call", run: 1, tool: "get_briefing", args: {} });
+    await traceLog.flushPending();
+
+    expect(chunks.join("")).toContain('"kind":"thinking"');
+    expect(chunks.join("")).toContain('"kind":"tool_call"');
+    expect(entries).toEqual(["thinking", "tool_call"]);
+  });
+
   it("live emit followed by flush does not duplicate adapter notes", async () => {
     const chunks: string[] = [];
     const traceLog = new TraceSessionLog(

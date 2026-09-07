@@ -2,7 +2,7 @@ import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../test/helpers.js";
-import { events, sessions } from "../db/schema.js";
+import { events, sessionTraceEntries, sessions } from "../db/schema.js";
 import { getBriefing } from "./briefing.js";
 import { recordEvent } from "./events.js";
 import {
@@ -149,6 +149,15 @@ describe("session digest", () => {
         ),
       );
     expect(recorded).toHaveLength(1);
+    const notes = await db
+      .select()
+      .from(sessionTraceEntries)
+      .where(eq(sessionTraceEntries.sessionId, session.id));
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.kind).toBe("adapter_note");
+    expect(notes[0]?.payload).toMatchObject({
+      message: "一定時間動きがなかったのでセッションを中断した",
+    });
   });
 
   it("markSessionDigested is idempotent", async () => {
