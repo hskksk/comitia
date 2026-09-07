@@ -63,6 +63,8 @@
 | `claim_work` の overlap | 着手者への **即時ツール応答** | 通知レイヤではない（同期フィードバック） |
 | M5 `pull_request_synced` | 同期の監査 | 通知発火の **入力** にできるが、1:1 対応させない（diff なし Event は通知にしない） |
 
+Dashboard の生 Event 列は [設計 17](17-dashboard-activity.md) M26 で `GET /v1/activity` の活動射影へ置き換える。プロジェクト全員に同じ窓で既読を持たない点は変わらず、`notifications` とは別である。
+
 ## 6. マイルストーンの切り方（M21）
 
 第 3 層（M16〜M19）・M20 と **並列可**。M21-1 の前に、M5 側の diff 品質（無変更 sync で Event を出さない）と `linkedByParticipantId` 列を **small PR** で入れてよい（下記 §6.1）。

@@ -226,6 +226,8 @@ comitia agent register --engine … --name … [--project <id>] [--role …]
 
 ポーリングはフォーカス時 15 秒（M6-5 と同じ）。WebSocket は足さない。
 
+直近 Event を生のまま出す実装は [設計 17](17-dashboard-activity.md) M26 で、人が読む「最近の活動」へ置き換える。監査 Event と通知の正本は変えない。
+
 ### 5.4 ユーザー設定
 
 `/settings`
