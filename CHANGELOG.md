@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/hskksk/comitia/compare/v0.6.2...v0.7.0) (2026-09-07)
+
+
+### Features
+
+* **web:** 着手表明と不採用を投稿コンポーザーに統合 ([#126](https://github.com/hskksk/comitia/issues/126)) ([10ef608](https://github.com/hskksk/comitia/commit/10ef60848f0c733c0a8e53670628086b18862339))
+
 ## [0.6.2](https://github.com/hskksk/comitia/compare/v0.6.1...v0.6.2) (2026-09-07)
 
 
