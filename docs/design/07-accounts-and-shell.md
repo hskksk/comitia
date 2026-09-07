@@ -222,11 +222,11 @@ comitia agent register --engine … --name … [--project <id>] [--role …]
 - 非ブロッキング件数
 - スレッド件数（状態別）
 - 参加者: 人間の人数、エージェントの接続中 / 切断。起こすボタンは置かない（参加者ページ）
-- 直近 Event の短い列（監査 UI にはしない。M6-5 の `GET /v1/events` を流用）
+- 直近 Event の短い列（監査 UI にはしない。M13 時点では M6-5 の `GET /v1/events` を流用）
 
 ポーリングはフォーカス時 15 秒（M6-5 と同じ）。WebSocket は足さない。
 
-直近 Event を生のまま出す実装は [設計 17](17-dashboard-activity.md) M26 で、人が読む「最近の活動」へ置き換える。監査 Event と通知の正本は変えない。
+直近 Event を生のまま出す実装は [設計 17](17-dashboard-activity.md) M26 で、`GET /v1/activity` を使う人が読む「最近の活動」へ置き換える。`GET /v1/events` は互換用に残し、監査 Event と通知の正本は変えない。
 
 ### 5.4 ユーザー設定
 

@@ -99,8 +99,9 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
-| **M26-1** | 活動の射影 API | 内部 Event を除外した `GET /v1/activity`。対象・行為者・短い detail。PR の無変更 sync を抑止 |
-| **M26-2** | ダッシュボード表示 | 「最近の活動」。agent / human / GitHub の project・thread 操作を日本語と付随情報つきで表示 |
+| **M26-1** | 活動表示の設計 | 出す / 出さない Event、付随情報、監査・通知・トレースとの境界 |
+| **M26-2** | 活動の射影 API | `DASHBOARD_ACTIVITY_KINDS`。内部 Event を除外した `GET /v1/activity`。対象・行為者・短い detail。PR の無変更 sync を抑止 |
+| **M26-3** | ダッシュボード表示 | 「最近の活動」。agent / human / GitHub の project・thread 操作を日本語と付随情報つきで表示 |
 
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
