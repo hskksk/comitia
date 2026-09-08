@@ -13,8 +13,7 @@ pnpm dev
 Vite が `/v1` と `/healthz` をボードへプロキシする。
 
 - GitHub App が設定されていれば「GitHub で入る」
-- PR プレビュー（Railway PR Environment）では Variables 不要で「プレビューに入る」が自動表示（OAuth は非表示）。CLI 用は「CLI 用にトークンをコピー」
-- 手動検証用は `COMITIA_BOOTSTRAP_TOKEN`、常駐 staging で止めるなら `COMITIA_AUTO_PREVIEW=0`
+- PR プレビュー（Railway PR Environment）では Variables 不要で「プレビューに入る」が自動表示（OAuth・トークン入力は非表示）
 - 未設定時・テスト用は `<details>` 内のオーナートークン入力（`comitia init` の `ownerToken`）
 
 ## 本番

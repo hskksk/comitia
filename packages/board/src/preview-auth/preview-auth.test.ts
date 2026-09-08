@@ -154,7 +154,7 @@ describe("preview auth routes", () => {
     });
   });
 
-  it("returns the bootstrap token after preview bootstrap", async () => {
+  it("redirects to login callback after preview bootstrap", async () => {
     await ensurePreviewBootstrap(db, {
       enabled: true,
       autoPreview: true,
@@ -163,17 +163,15 @@ describe("preview auth routes", () => {
       projectName: "preview",
     });
 
-    const res = await app().request("/v1/auth/preview-login", {
-      method: "POST",
-    });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ token: PREVIEW_TOKEN });
+    const res = await app().request("/v1/auth/preview-enter");
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toContain("/login/callback?token=");
+    expect(location).toContain(encodeURIComponent(PREVIEW_TOKEN));
   });
 
-  it("rejects preview login before bootstrap is ready", async () => {
-    const res = await app().request("/v1/auth/preview-login", {
-      method: "POST",
-    });
+  it("rejects preview enter before bootstrap is ready", async () => {
+    const res = await app().request("/v1/auth/preview-enter");
     expect(res.status).toBe(503);
   });
 });

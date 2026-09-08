@@ -355,10 +355,6 @@ export class BoardClient {
     return this.request("/v1/auth/config");
   }
 
-  async previewLogin(): Promise<{ token: string }> {
-    return this.request("/v1/auth/preview-login", { method: "POST", body: "{}" });
-  }
-
   async me(): Promise<MeResponse> {
     return this.request("/v1/me");
   }

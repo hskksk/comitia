@@ -83,7 +83,7 @@ export function registerGithubAuthRoutes(
     }),
   );
 
-  app.post("/v1/auth/preview-login", async (c) => {
+  app.get("/v1/auth/preview-enter", async (c) => {
     const token = input.previewBootstrapToken;
     if (!input.previewLoginEnabled || !token) {
       return c.json({ error: "preview login is not available" }, 404);
@@ -92,7 +92,7 @@ export function registerGithubAuthRoutes(
     if (!auth) {
       return c.json({ error: "preview login is not ready" }, 503);
     }
-    return c.json({ token });
+    return c.redirect(`/login/callback?token=${encodeURIComponent(token)}`);
   });
 
   app.get("/v1/auth/github", async (c) => {

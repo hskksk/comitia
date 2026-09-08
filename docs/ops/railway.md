@@ -81,17 +81,7 @@ bootstrap トークンは **`RAILWAY_ENVIRONMENT_ID` + `DATABASE_URL` から決�
 
 PR Environment の base は **production のままでよい**。staging を base にして bootstrap トークンを載せる必要はない（常駐 staging にログイン権が付く問題を避けるため）。
 
-### CLI / curl 用トークン
-
-PR 環境の `/login` に **CLI 用にトークンをコピー** ボタンがある（`POST /v1/auth/preview-login`）。`comitia` や curl の Bearer に貼る。
-
-ターミナルだけで取る例（`PREVIEW_URL` は PR 環境の origin）:
-
-```bash
-curl -sS -X POST "$PREVIEW_URL/v1/auth/preview-login" \
-  -H 'content-type: application/json' \
-  -d '{}' | jq -r .token
-```
+ブラウザから入るときは `/login` の **プレビューに入る**（`/v1/auth/preview-enter` → リダイレクト）。CLI 用トークンはサーバー API では返さない。ボードと同じ導出式（`packages/board/src/preview-auth/railway.ts` の `derivePreviewBootstrapToken`）で、Railway の `RAILWAY_ENVIRONMENT_ID` と Postgres の `DATABASE_URL` からローカル計算する。
 
 ## GitHub App（任意）
 
