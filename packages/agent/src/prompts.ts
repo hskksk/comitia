@@ -45,15 +45,20 @@ ${goalsText}
 export function buildWindDownPrompt(input: {
   remainingBudget: number | null;
   reason: string;
+  retroDue?: boolean;
 }): string {
   const budgetText =
     input.remainingBudget === null ? "不明" : String(input.remainingBudget);
+
+  const retro = input.retroDue
+    ? "個別記憶から規範へ提炼してよいか検討する。大きく急に変えない。プロジェクトルールと衝突する規範は書かない。規範を書くときは write_memory の layer=norm。\n"
+    : "";
 
   return `セッション終了作業。理由: ${input.reason}
 残量 ${budgetText}。
 
 終了作業で個別記憶を更新してよい。作業中のルール矛盾はメモリに残し、当日の本業にしない。
-申し送りには、どのプロジェクトで何をしたか・何を残したかを書け。所属が複数なら end_session の projects にプロジェクトごとの要約を付ける。
+${retro}申し送りには、どのプロジェクトで何をしたか・何を残したかを書け。所属が複数なら end_session の projects にプロジェクトごとの要約を付ける。
 他者待ちのものは、誰の何を待ち、何が起きたら再開するかを申し送りに書く。待っていることだけを伝える投稿はしない。
 end_session を申し送り付きで呼べ。`;
 }

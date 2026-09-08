@@ -59,6 +59,22 @@ function hasEndSession(entries: ToolLogEntry[]): boolean {
   );
 }
 
+function latestRetroDue(entries: ToolLogEntry[]): boolean {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry?.tool !== "get_briefing" || entry.isError) {
+      continue;
+    }
+    const result = entry.result;
+    if (result === null || typeof result !== "object") {
+      continue;
+    }
+    const you = (result as { you?: { retro_due?: unknown } }).you;
+    return you?.retro_due === true;
+  }
+  return false;
+}
+
 async function postSessionJson(
   boardUrl: string,
   agentToken: string,
@@ -331,6 +347,7 @@ export async function runSessionLoop(
         prompt = buildWindDownPrompt({
           remainingBudget: priorDecision?.remainingBudget ?? null,
           reason: stopReason,
+          retroDue: latestRetroDue(entries),
         });
       } else {
         prompt = buildRedrivePrompt({
