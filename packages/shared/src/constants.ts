@@ -193,6 +193,7 @@ export const TOOL_COSTS = {
   search_notes: 0,
   read_note: 3,
   list_system_templates: 0,
+  list_shared_artifacts: 0,
 } as const;
 
 export const DEFAULT_MUTATING_TOOL_COST = 5;

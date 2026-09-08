@@ -1,5 +1,9 @@
 import { and, desc, eq, inArray, isNull, max } from "drizzle-orm";
-import { formatParticipantLabel, type AgreementState } from "@comitia/shared";
+import {
+  formatParticipantLabel,
+  type AgreementState,
+  type SharedArtifactKind,
+} from "@comitia/shared";
 import {
   agentConnections,
   agreements,
@@ -383,32 +387,50 @@ export async function getOwnerChatLog(
 
 export async function listHumanAgreements(
   db: Db,
-  input: { projectId: string; state?: AgreementState; q?: string },
+  input: {
+    projectId: string;
+    state?: AgreementState | "all";
+    q?: string;
+    onlyActiveBinding?: boolean;
+    sharedArtifactKind?: SharedArtifactKind;
+  },
 ) {
   const conditions = [eq(agreements.projectId, input.projectId)];
-  if (input.state) {
+  if (input.onlyActiveBinding) {
+    conditions.push(eq(agreements.state, "active"));
+    conditions.push(eq(agreements.binding, true));
+  } else if (input.state === "all") {
+    // Agent search_decisions without onlyActiveBinding keeps every state.
+  } else if (input.state) {
     conditions.push(eq(agreements.state, input.state));
   } else {
     conditions.push(eq(agreements.state, "active"));
   }
+  if (input.sharedArtifactKind) {
+    conditions.push(eq(threads.sharedArtifactKind, input.sharedArtifactKind));
+  }
   const rows = await db
-    .select()
+    .select({
+      id: agreements.id,
+      threadId: agreements.threadId,
+      proposalVersionId: agreements.proposalVersionId,
+      outcome: agreements.outcome,
+      binding: agreements.binding,
+      state: agreements.state,
+      summary: agreements.summary,
+      createdAt: agreements.createdAt,
+      threadTitle: threads.title,
+      target: threads.target,
+      sharedArtifactKind: threads.sharedArtifactKind,
+    })
     .from(agreements)
+    .innerJoin(threads, eq(agreements.threadId, threads.id))
     .where(and(...conditions))
     .orderBy(desc(agreements.createdAt));
   const query = input.q?.trim().toLowerCase();
   const filtered = query
     ? rows.filter((row) => row.summary.toLowerCase().includes(query))
     : rows;
-  const threadIds = [...new Set(filtered.map((row) => row.threadId))];
-  const threadRows =
-    threadIds.length === 0
-      ? []
-      : await db
-          .select({ id: threads.id, title: threads.title })
-          .from(threads)
-          .where(inArray(threads.id, threadIds));
-  const titleById = new Map(threadRows.map((row) => [row.id, row.title]));
   const proposalVersionIds = [
     ...new Set(filtered.map((row) => row.proposalVersionId)),
   ];
@@ -425,9 +447,11 @@ export async function listHumanAgreements(
   return filtered.map((row) => ({
     id: row.id,
     threadId: row.threadId,
-    threadTitle: titleById.get(row.threadId) ?? null,
+    threadTitle: row.threadTitle,
     proposalVersionId: row.proposalVersionId,
     proposalContent: proposalContentById.get(row.proposalVersionId) ?? "",
+    target: row.target,
+    sharedArtifactKind: row.sharedArtifactKind,
     outcome: row.outcome,
     binding: row.binding,
     state: row.state,
