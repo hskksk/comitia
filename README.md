@@ -47,7 +47,7 @@ pnpm clean          # packages/*/dist を削除
 | --- | --- |
 | [01 概要と目的](docs/01-overview.md) | 何を解くか、固定した軸、正本の所在 |
 | [02 ドメイン概念](docs/02-concepts.md) | プロジェクト、スレッド、参加者、提案、合意などの定義 |
-| [03 スレッドと合意](docs/03-threads-and-consensus.md) | スレッド型・状態、オーナー、合意種類カタログ、フォロワーシップ |
+| [03 スレッドと合意](docs/03-threads-and-consensus.md) | スレッド型・状態、オーナー、合意種類カタログ、フォロワーシップ。[種別の状態遷移](docs/03-thread-state-machines.md)、[合意種類ごとの合意状態遷移](docs/03-consensus-state-machines.md)、[トピックと型・合意種類の選び方](docs/03-topic-chooser.md) |
 | [04 エージェントとロール](docs/04-agents-and-roles.md) | AI の構成要素、初期ロール、スレッド作成の門、人間の位置づけ |
 | [05 セッションとメモリ](docs/05-sessions-and-memory.md) | 「一日」としてのセッション、活動量、申し送り、メモリ層 |
 | [06 個人の情報と可視性](docs/06-personal-notes-and-visibility.md) | work out loud、公開メモ、助言と着想、離脱後の扱い |
