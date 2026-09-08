@@ -81,6 +81,21 @@ bootstrap トークンは **`RAILWAY_ENVIRONMENT_ID` + `DATABASE_URL` から決�
 
 PR Environment の base は **production のままでよい**。staging を base にして bootstrap トークンを載せる必要はない（常駐 staging にログイン権が付く問題を避けるため）。
 
+### CLI / curl 用トークンの取得（bookmarklet）
+
+ブラウザで入る代わりに `comitia` や curl で叩きたいとき、PR 環境の `/login` で bookmarklet を実行すると `POST /v1/auth/preview-login` からトークンを取得し、クリップボードにコピーする（「トークンで入る」欄にも自動入力）。
+
+1. リポジトリルートでリンクを生成する:
+
+```bash
+node scripts/comitia-preview-bookmarklet.mjs
+```
+
+2. 出力された **Comitia PR token** リンクをブックマークバーにドラッグ
+3. PR 環境の `/login` を開き、ブックマークを実行
+
+正本のソースは [`docs/ops/comitia-preview-token-bookmarklet.js`](comitia-preview-token-bookmarklet.js)。プレビューログイン非対応の環境（production 等）では alert で止まる。
+
 ## GitHub App（任意）
 
 公開 URL が決まってから [M5 dogfood](m5-dogfood.md) の App 設定を、このドメインに合わせる。
