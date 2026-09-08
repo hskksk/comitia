@@ -440,7 +440,7 @@ export async function getHumanThreadView(
   };
 }
 
-async function listThreadProposals(
+export async function listThreadProposals(
   db: Db,
   threadId: string,
 ): Promise<HumanProposal[]> {
