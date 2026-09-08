@@ -169,6 +169,13 @@ export const DEFAULT_SESSION_BUDGET = 1000;
 /** Budget reserved for wind-down; only end_session is allowed once remaining <= this. */
 export const WIND_DOWN_RESERVE = 10;
 
+/** Memory layers. Default writes are episodic so daily notes do not overwrite norms. */
+export const MEMORY_LAYERS = ["episodic", "norm"] as const;
+export type MemoryLayer = (typeof MEMORY_LAYERS)[number];
+
+/** Closed sessions after which get_briefing.you.retro_due becomes true (M16). */
+export const RETRO_DUE_ENDED_SESSION_COUNT = 7;
+
 /** Gateway timing and capacity limits (M3). */
 export const GATEWAY = {
   digestTimeoutMs: 60_000,
@@ -237,6 +244,7 @@ export const EVENT_KINDS = [
   "github_owner_bound",
   "work_claimed",
   "work_released",
+  "memory_written",
   "project_membership_added",
   "project_membership_removed",
   "project_invite_created",
