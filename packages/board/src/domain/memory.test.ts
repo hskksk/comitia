@@ -25,13 +25,13 @@ async function insertEndedSessions(
   if (count === 0) return;
   await db.insert(sessions).values(
     Array.from({ length: count }, (_, index) => {
-      const started = new Date(startedAt.getTime() + index * 60_000);
+      const started = new Date(startedAt.getTime() + index * 2);
       return {
         participantId,
         budgetLimit: DEFAULT_SESSION_BUDGET,
         windDownReserved: WIND_DOWN_RESERVE,
         startedAt: started,
-        endedAt: new Date(started.getTime() + 30_000),
+        endedAt: new Date(started.getTime() + 1),
         endedReason: "completed" as const,
       };
     }),
@@ -246,14 +246,14 @@ describe("isRetroDueForParticipant", () => {
     await insertEndedSessions(
       agent.id,
       RETRO_DUE_ENDED_SESSION_COUNT - 1,
-      new Date(row!.createdAt.getTime() + 60_000),
+      new Date(row!.createdAt.getTime() + 1),
     );
     expect(await isRetroDueForParticipant(db, agent.id)).toBe(false);
 
     await insertEndedSessions(
       agent.id,
       1,
-      new Date(row!.createdAt.getTime() + 60_000 * 10),
+      new Date(row!.createdAt.getTime() + 1_000),
     );
     expect(await isRetroDueForParticipant(db, agent.id)).toBe(true);
   });
@@ -268,7 +268,7 @@ describe("isRetroDueForParticipant", () => {
     await insertEndedSessions(
       agent.id,
       RETRO_DUE_ENDED_SESSION_COUNT,
-      new Date(row!.createdAt.getTime() + 60_000),
+      new Date(row!.createdAt.getTime() + 1),
     );
     expect(await isRetroDueForParticipant(db, agent.id)).toBe(true);
 
@@ -286,7 +286,7 @@ describe("isRetroDueForParticipant", () => {
     await insertEndedSessions(
       agent.id,
       RETRO_DUE_ENDED_SESSION_COUNT,
-      new Date(reviewed!.normReviewedAt!.getTime() + 60_000),
+      new Date(reviewed!.normReviewedAt!.getTime() + 1),
     );
     expect(await isRetroDueForParticipant(db, agent.id)).toBe(true);
   });
