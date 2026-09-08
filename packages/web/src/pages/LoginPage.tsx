@@ -8,10 +8,11 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [token, setTokenField] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<"preview" | "token" | null>(null);
+  const [loading, setLoading] = useState<"preview" | "token" | "copy" | null>(null);
   const [githubOAuth, setGithubOAuth] = useState(false);
   const [previewLogin, setPreviewLogin] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [tokenNotice, setTokenNotice] = useState<string | null>(null);
 
   useEffect(() => {
     void boardClient
@@ -35,6 +36,7 @@ export function LoginPage() {
 
   async function onPreviewLogin() {
     setError(null);
+    setTokenNotice(null);
     setLoading("preview");
     try {
       const { token: previewToken } = await boardClient.previewLogin();
@@ -47,9 +49,30 @@ export function LoginPage() {
     }
   }
 
+  async function onCopyPreviewToken() {
+    setError(null);
+    setTokenNotice(null);
+    setLoading("copy");
+    try {
+      const { token: previewToken } = await boardClient.previewLogin();
+      setTokenField(previewToken);
+      try {
+        await navigator.clipboard.writeText(previewToken);
+        setTokenNotice("CLI 用トークンをコピーしました。");
+      } catch {
+        setTokenNotice("CLI 用トークンを取得しました。下の欄からコピーしてください。");
+      }
+    } catch {
+      setError("プレビュー環境の準備ができていません。しばらく待ってから再度お試しください。");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setTokenNotice(null);
     setLoading("token");
     try {
       await completeLogin(token);
@@ -92,6 +115,14 @@ export function LoginPage() {
               <p className="login-note muted">
                 PR プレビュー用の共有ログインです。本番では使えません。
               </p>
+              <button
+                type="button"
+                className="btn-secondary login-action-btn"
+                onClick={() => void onCopyPreviewToken()}
+                disabled={loading !== null}
+              >
+                {loading === "copy" ? "取得中…" : "CLI 用にトークンをコピー"}
+              </button>
             </>
           ) : null}
 
@@ -138,6 +169,7 @@ export function LoginPage() {
           </form>
         </details>
 
+        {tokenNotice ? <p className="login-note muted">{tokenNotice}</p> : null}
         {error ? <p className="status status-error login-error">{error}</p> : null}
       </main>
     </div>

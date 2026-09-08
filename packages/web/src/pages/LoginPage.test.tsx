@@ -27,6 +27,7 @@ describe("LoginPage", () => {
       previewLogin: false,
     });
     meMock.mockRejectedValue(new Error("unauthorized"));
+    previewLoginMock.mockReset();
   });
 
   afterEach(() => {
@@ -85,5 +86,27 @@ describe("LoginPage", () => {
 
     expect(await screen.findByRole("button", { name: "プレビューに入る" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "GitHub で入る" })).not.toBeInTheDocument();
+  });
+
+  it("copies preview token for CLI use", async () => {
+    authConfigMock.mockResolvedValue({
+      githubOAuth: false,
+      previewLogin: true,
+    });
+    previewLoginMock.mockResolvedValue({ token: "comt_preview_token" });
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "CLI 用にトークンをコピー" }));
+
+    expect(previewLoginMock).toHaveBeenCalled();
+    expect(await screen.findByText(/CLI 用トークン/)).toBeInTheDocument();
+    await user.click(screen.getByText("トークンで入る"));
+    expect(screen.getByLabelText("トークン")).toHaveValue("comt_preview_token");
   });
 });
