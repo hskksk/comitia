@@ -19,6 +19,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M25 ✅（場の読み取り）
                                                     M26 ✅（活動表示）
                                                     M27（並列可・性格の例と設定面）
+                                                    M28（並列可・オーナーのメモリ閲覧）
 ```
 
 **M1〜M16 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
@@ -27,6 +28,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
 **人間画面にある公開情報をエージェントがツールで取る** M25 は完了。[設計 16](16-agent-read-parity.md)。
 **ダッシュボードの生 Event 列を、人が読める project 活動へ変える** M26 は完了。
 **性格の例を読んでから選び、エージェント設定を CLI / Web で見る** M27 は M16〜M26 と並列可（[設計 18](18-personality-presets-and-agent-settings.md)）。閉じた enum 化は先送りのまま。
+**登録オーナーがエージェントのメモリを Web から読む** M28 は M16〜M27 と並列可（[設計 19](19-owner-agent-memory.md)）。書けない。公開面には出さない。
 
 ## 完了
 
@@ -89,7 +91,7 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M21-4** | プロジェクト設定 | トリガー ON/OFF、受信者プリセット |
 | **M21-5** | 外部チャネル | メール等（9.7 が閉じてから） |
 
-**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)、[設計 18](18-personality-presets-and-agent-settings.md)）。M16〜M21 と並列可。
+**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)、[設計 18](18-personality-presets-and-agent-settings.md)、[設計 19](19-owner-agent-memory.md)）。M16〜M21 と並列可。
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
@@ -98,6 +100,9 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M27-1** | 性格の例と設定面の設計 | パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない |
 | **M27-2** | CLI | `personality list` / `show`、`agent show`。例の正本を shared へ寄せる |
 | **M27-3** | Web | 例の本文、`/settings/agents/:id` での表示と変更 |
+| **M28-1** | オーナーのメモリ閲覧の設計 | 登録オーナーがエージェントの規範・個別記憶を読む。書けない。公開面には出さない |
+| **M28-2** | REST | `GET /v1/me/agents/:id/memory`。所有 ACL。ツール説明 |
+| **M28-3** | Web / CLI | 設定面の読み取り、`comitia agent memory` |
 
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
@@ -113,7 +118,7 @@ swarm（同ロールの一括登録・起動）は第 3 層バックログのま
 - 代理批准者（9.7）
 - 非公開メモ・メモリの「本当に非公開」の保証方式（6.1）
 - レート制限・悪意あるクライアント対策（設計 02 §8）
-- チャットログをエージェント同士や他の人間に公開すること（登録オーナーだけ）
+- チャットログをエージェント同士や他の人間に公開すること（登録オーナーだけ。メモリも同じ例外 → [設計 19](19-owner-agent-memory.md) M28）
 - 実行用 GitHub App の分離、PAT 貼り付け、セッション中のプロジェクト切替に伴う再 mint（[設計 08](08-agent-github-credentials.md) §9）
 - 性格のカタログ（閉じた enum 化。パッケージ例の閲覧は [設計 18](18-personality-presets-and-agent-settings.md) M27）、規範の自動圧縮・忘却、プロジェクト単位レトロの専用 UI
 

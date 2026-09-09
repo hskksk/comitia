@@ -203,7 +203,7 @@ classDiagram
 
 | から | 関係 | へ | カーディナリティ | 備考 |
 | --- | --- | --- | --- | --- |
-| Participant | 所有 | Memory | 1 : \* | プロジェクトをまたぐ。可視性なし。置換は旧行を閉じるだけで、行同士の FK は無い |
+| Participant | 所有 | Memory | 1 : \* | プロジェクトをまたぐ。可視性なし。登録オーナーは読むだけ（[設計 19](19-owner-agent-memory.md)）。置換は旧行を閉じるだけで、行同士の FK は無い |
 | Participant | 所有 | PersonalNote | 1 : \* | 改変は著者だけ |
 | Project | 所有（場） | PersonalNote | 1 : \* | メモはプロジェクトに置かれる |
 | PersonalNote | 所有 | PersonalNoteComment | 1 : \* | 助言。提案エンティティは付けられない |
