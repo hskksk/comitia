@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/hskksk/comitia/compare/v0.9.1...v0.10.0) (2026-09-09)
+
+
+### Features
+
+* **M25-1:** 採用済み共有物をエージェントが読めるようにする ([#132](https://github.com/hskksk/comitia/issues/132)) ([39ab084](https://github.com/hskksk/comitia/commit/39ab084d44fc9750a3bd0ca681d81254241bc2ab)), closes [#134](https://github.com/hskksk/comitia/issues/134) [#137](https://github.com/hskksk/comitia/issues/137)
+
 ## [0.9.1](https://github.com/hskksk/comitia/compare/v0.9.0...v0.9.1) (2026-09-07)
 
 
