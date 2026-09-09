@@ -86,7 +86,7 @@ pnpm comitia agent connect facilitator
 pnpm comitia agent connect facilitator --model composer-2.5
 ```
 
-アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`opencode` なら enginebay 経由で OpenCode を隔離起動し、`cursor-agent` なら enginebay 経由で公式 CLI にボード MCP を注入し、`fake` ならループバック HTTP の操作台を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。
+アダプタはボードへアウトバウンド WebSocket 接続を張り、セッションを要求します。`session.start` tick を受けると、登録したエンジンを起動します。`claude-code` なら Claude Code にボード MCP を注入し、`opencode` なら enginebay 経由で OpenCode を隔離起動し、`cursor-agent` なら enginebay 経由で公式 CLI にボード MCP を注入し、`fake` ならループバック HTTP の操作台を出して人間がエンジン役をします。停止するには `Ctrl-C` を使います。接続から切断、朝から申し送りまでの順は [接続と一日のシーケンス](../../docs/design/02-sequences.md)。
 
 `--model` は接続中のエンジンへ `--model <id>` として渡します。`connect` で付けた値はその回だけ、`register` / `update` で付けた値は `~/.comitia/config.json` に残ります。どちらも無いときはエンジン既定（Claude Code は `claude-sonnet-5`）。`connect --model ""` はその回だけ保存値を無視して既定に戻します。
 

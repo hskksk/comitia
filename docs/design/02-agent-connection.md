@@ -146,6 +146,8 @@ $ comitia agent update mika --engine cursor-agent           # 登録の修正で
 
 ## 7. 接続のライフサイクル
 
+シーケンス図は [接続と一日のシーケンス](02-sequences.md)。要約:
+
 ```
 register → connect（待機） → tick: session.start → get_briefing → set_goals → セッションループ
   → tick: session.end_warning（または目標完了・空転検知） → 終了作業 → end_session（申し送り） → 待機 …
