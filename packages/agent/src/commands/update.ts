@@ -37,11 +37,22 @@ export async function updateCommand(
     throw new Error(`不明なエージェント: ${options.name}`);
   }
 
+  const boardPatch: { personality?: string | null; engine?: string } = {};
+  let personality: string | null | undefined;
   if (options.personality !== undefined) {
+    personality = resolvePersonalitySpec(options.personality);
+    boardPatch.personality = personality;
+  }
+  if (options.engine) {
+    boardPatch.engine = options.engine;
+  }
+
+  if (Object.keys(boardPatch).length > 0) {
     if (!config.boardUrl) {
-      throw new Error("boardUrl が設定されていません。`comitia init` を実行してください。");
+      throw new Error(
+        "boardUrl が設定されていません。`comitia init` を実行してください。",
+      );
     }
-    const personality = resolvePersonalitySpec(options.personality);
     const response = await fetchFn(
       new URL(`/v1/me/agents/${agent.agentId}`, config.boardUrl),
       {
@@ -50,19 +61,19 @@ export async function updateCommand(
           "content-type": "application/json",
           ...ownerAuthHeaders(config),
         },
-        body: JSON.stringify({
-          personality,
-        }),
+        body: JSON.stringify(boardPatch),
       },
     );
     if (!response.ok) {
       throw new Error(await formatHttpError(response));
     }
-    stdout.write(
-      personality === null
-        ? `${options.name} の性格を外しました。\n`
-        : `${options.name} の性格を更新しました。\n`,
-    );
+    if (options.personality !== undefined) {
+      stdout.write(
+        personality === null
+          ? `${options.name} の性格を外しました。\n`
+          : `${options.name} の性格を更新しました。\n`,
+      );
+    }
   }
 
   if (options.engine || options.model !== undefined) {
