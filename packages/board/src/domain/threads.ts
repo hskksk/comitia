@@ -6,6 +6,7 @@ import type {
   SharedArtifactKind,
   ThreadState,
   ThreadType,
+  WorkPhase,
 } from "@comitia/shared";
 import { threadConflictCitations, threads } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
@@ -17,6 +18,9 @@ import {
   countActiveBindingAgreements,
   getThreadRow,
 } from "./helpers.js";
+import { listProjectPullRequestsForThreads } from "./pull-requests.js";
+import { listActiveProjectClaims } from "./work-claims.js";
+import { deriveWorkPhase } from "./work-phase.js";
 
 export async function createThread(
   db: Db,
@@ -143,6 +147,9 @@ export async function searchThreads(
     projectId: string;
     state?: ThreadState;
     textQuery?: string;
+    type?: ThreadType;
+    target?: ProposalTarget;
+    sharedArtifactKind?: SharedArtifactKind;
   },
 ) {
   const conditions = [
@@ -151,6 +158,15 @@ export async function searchThreads(
   ];
   if (input.state) {
     conditions.push(eq(threads.state, input.state));
+  }
+  if (input.type) {
+    conditions.push(eq(threads.type, input.type));
+  }
+  if (input.target) {
+    conditions.push(eq(threads.target, input.target));
+  }
+  if (input.sharedArtifactKind) {
+    conditions.push(eq(threads.sharedArtifactKind, input.sharedArtifactKind));
   }
   const textFilter = buildThreadTextFilter(input.textQuery);
   if (textFilter) {
@@ -161,4 +177,54 @@ export async function searchThreads(
     .select()
     .from(threads)
     .where(and(...conditions));
+}
+
+export type AgentSearchThread = {
+  id: string;
+  title: string;
+  type: ThreadType;
+  state: ThreadState;
+  target: ProposalTarget | null;
+  sharedArtifactKind: SharedArtifactKind | null;
+  consensusType: ConsensusType | null;
+  workPhase: WorkPhase | null;
+  ownerParticipantId: string;
+};
+
+export async function searchThreadsForAgent(
+  db: Db,
+  input: {
+    projectId: string;
+    state?: ThreadState;
+    textQuery?: string;
+    type?: ThreadType;
+    target?: ProposalTarget;
+    sharedArtifactKind?: SharedArtifactKind;
+  },
+): Promise<AgentSearchThread[]> {
+  const rows = await searchThreads(db, input);
+  const [claims, prByThread] = await Promise.all([
+    listActiveProjectClaims(db, input.projectId),
+    listProjectPullRequestsForThreads(
+      db,
+      rows.map((row) => row.id),
+    ),
+  ]);
+  const claimed = new Set(claims.map((claim) => claim.threadId));
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    type: row.type,
+    state: row.state,
+    target: row.target,
+    sharedArtifactKind: row.sharedArtifactKind,
+    consensusType: row.consensusType,
+    ownerParticipantId: row.ownerParticipantId,
+    workPhase: deriveWorkPhase({
+      threadType: row.type,
+      threadState: row.state,
+      hasActiveClaim: claimed.has(row.id),
+      pullRequestStates: (prByThread.get(row.id) ?? []).map((pr) => pr.state),
+    }),
+  }));
 }

@@ -1,7 +1,7 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
 import { db } from "../test/helpers.js";
-import { agreements, projects } from "../db/schema.js";
+import { agentConnections, agreements, projects } from "../db/schema.js";
 import { addProposal } from "./proposals.js";
 import { getBriefing } from "./briefing.js";
 import { writeMemory } from "./memory.js";
@@ -475,5 +475,85 @@ describe("getBriefing (M7-1 material)", () => {
         },
       ]),
     );
+  });
+});
+
+describe("briefing participants public columns (M25-3)", () => {
+  it("shows another agent's personality, engine, and connection without fabricating human rows", async () => {
+    const { owner, agent, project } = await setupParticipants();
+    const other = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "リン",
+      ownerParticipantId: owner.id,
+      engine: "opencode",
+      personality: "対立する案を残す",
+    });
+    const neverConnected = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "ナオ",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: other.id,
+      actorId: owner.id,
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: neverConnected.id,
+      actorId: owner.id,
+    });
+    await db.insert(agentConnections).values([
+      { participantId: agent.id, status: "connected" },
+      { participantId: other.id, status: "disconnected" },
+    ]);
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    const byName = new Map(
+      briefing.situation.participants.map((row) => [row.displayName, row]),
+    );
+
+    expect(byName.get("ハル")).toEqual({
+      id: owner.id,
+      displayName: "ハル",
+      roles: [],
+      kind: "human",
+      engine: null,
+      connection: null,
+    });
+    expect(byName.get("ハル")).not.toHaveProperty("personality");
+
+    expect(byName.get("ソウ@ハル")).toEqual({
+      id: agent.id,
+      displayName: "ソウ@ハル",
+      roles: [],
+      kind: "agent",
+      engine: "claude-code",
+      connection: { status: "connected" },
+    });
+    expect(byName.get("ソウ@ハル")).not.toHaveProperty("personality");
+
+    expect(byName.get("リン@ハル")).toEqual({
+      id: other.id,
+      displayName: "リン@ハル",
+      roles: [],
+      kind: "agent",
+      personality: "対立する案を残す",
+      engine: "opencode",
+      connection: { status: "disconnected" },
+    });
+
+    expect(byName.get("ナオ@ハル")).toEqual({
+      id: neverConnected.id,
+      displayName: "ナオ@ハル",
+      roles: [],
+      kind: "agent",
+      engine: "claude-code",
+      connection: { status: "never" },
+    });
   });
 });

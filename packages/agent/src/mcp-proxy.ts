@@ -20,6 +20,7 @@ export const MCP_PROXY_TOOLS = [
   "search_threads",
   "search_decisions",
   "list_system_templates",
+  "list_shared_artifacts",
   "read_thread",
   "create_thread",
   "add_proposal",
@@ -139,11 +140,15 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   server.registerTool(
     "search_threads",
     {
-      description: "プロジェクト内のスレッドを検索する",
+      description:
+        "プロジェクト内のスレッドを探す。対象・kind・合意種類・作業局面が付く。共有物スレッドは sharedArtifactKind で絞れる。投稿本文は載せない",
       inputSchema: {
         project_id: z.string().uuid().optional(),
         textQuery: z.string().optional(),
         state: z.enum(THREAD_STATES).optional(),
+        type: z.enum(THREAD_TYPES).optional(),
+        target: z.enum(PROPOSAL_TARGETS).optional(),
+        sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
       },
     },
     async (args) =>
@@ -153,10 +158,12 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   server.registerTool(
     "search_decisions",
     {
-      description: "合意物（決定）を検索する",
+      description:
+        "提案集。合意の本文・kind・拘束を返す。comitia のひな型ではなく、プロジェクトが採用した決定。衝突チェックは onlyActiveBinding=true",
       inputSchema: {
         project_id: z.string().uuid().optional(),
         onlyActiveBinding: z.boolean().optional(),
+        sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
       },
     },
     async (args) =>
@@ -167,7 +174,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
     "list_system_templates",
     {
       description:
-        "comitia が持つプロジェクトルール／スレッドテンプレのシステムテンプレを一覧する",
+        "comitia が配るプロジェクトルール／スレッドテンプレのひな型。プロジェクトが採用した共有物ではない。採用済みは list_shared_artifacts",
       inputSchema: {
         kind: z.enum(["project_rule", "thread_template"]).optional(),
       },
@@ -177,9 +184,23 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   );
 
   server.registerTool(
+    "list_shared_artifacts",
+    {
+      description:
+        "プロジェクトが採用した共有物（ルール・テンプレ・スキル）を読む。カタログではなくいま効いている本文",
+      inputSchema: {
+        project_id: z.string().uuid().optional(),
+        kind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("list_shared_artifacts", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
     "read_thread",
     {
-      description: "スレッド内容を読む",
+      description: "スレッド内容を読む。対象・kind・合意種類・全提案・着手・投稿者の表示名を含む",
       inputSchema: {
         thread_id: z.string().uuid(),
       },

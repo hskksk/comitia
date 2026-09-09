@@ -97,7 +97,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "get_briefing",
     summary: "朝の状況パックを取る（セッション消化）",
     description:
-      "申し送り、所属プロジェクト一覧、各プロジェクトのルールと場の状況を返す。開いているスレッドにはリンク済みの具体物（いまは PR）が付く。材料であり、やることリストではない。接続はプロジェクトではなくアカウント単位。所属が複数なら projects を見て、今日どれにどう関わるかを決めてから動く。引数なし。",
+      "申し送り、所属プロジェクト一覧、各プロジェクトのルールと場の状況を返す。採用済みのルール・テンプレ本文は shared_artifacts。開いているスレッドにはリンク済みの具体物（いまは PR）が付く。材料であり、やることリストではない。接続はプロジェクトではなくアカウント単位。所属が複数なら projects を見て、今日どれにどう関わるかを決めてから動く。引数なし。",
     fields: [],
   },
   {
@@ -148,7 +148,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "search_threads",
     summary: "プロジェクト内のスレッドを探す",
     description:
-      "既存の議題を探す。create_thread の重複検索の前に使う。textQuery と状態で絞れる。所属が複数なら project_id か先に use_project。",
+      "既存の議題を探す。create_thread の重複検索の前に使う。textQuery・状態・type・対象・共有物 kind で絞れる。各行に対象・合意種類・作業局面が付く。投稿本文は載せない。所属が複数なら project_id か先に use_project。",
     fields: [
       {
         name: "project_id",
@@ -172,13 +172,38 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
         enumValues: THREAD_STATES,
         enumLabels: THREAD_STATE_LABELS,
       },
+      {
+        name: "type",
+        description: "相談・提案などの箱の種類で絞る。空なら種類を問わない。",
+        required: false,
+        kind: "enum",
+        enumValues: THREAD_TYPES,
+        enumLabels: THREAD_TYPE_LABELS,
+      },
+      {
+        name: "target",
+        description: "提案の対象。repo_artifact か shared_artifact。空なら対象を問わない。",
+        required: false,
+        kind: "enum",
+        enumValues: PROPOSAL_TARGETS,
+        enumLabels: PROPOSAL_TARGET_LABELS,
+      },
+      {
+        name: "sharedArtifactKind",
+        description:
+          "共有物の種類で絞る。採用済みルールのスレッドを当てるときに使う。",
+        required: false,
+        kind: "enum",
+        enumValues: SHARED_ARTIFACT_KINDS,
+        enumLabels: SHARED_ARTIFACT_KIND_LABELS,
+      },
     ],
   },
   {
     name: "search_decisions",
     summary: "拘束中の合意物（決定）を探す",
     description:
-      "既に決まったことを探す。create_thread の衝突確認に使う。新しい提案が既存の拘束決定と矛盾しないか、ここで見る。所属が複数なら project_id か先に use_project。",
+      "既に決まったことを探す。人間の提案集と同じく本文と kind が付く。create_thread の衝突確認に使う。新しい提案が既存の拘束決定と矛盾しないか、ここで見る。カタログ（list_system_templates）ではなく採用済み。所属が複数なら project_id か先に use_project。",
     fields: [
       {
         name: "project_id",
@@ -194,13 +219,22 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
         required: false,
         kind: "boolean",
       },
+      {
+        name: "sharedArtifactKind",
+        description:
+          "共有物の種類で絞る。project_rule / thread_template / skill。空なら具体物も含む全部。",
+        required: false,
+        kind: "enum",
+        enumValues: SHARED_ARTIFACT_KINDS,
+        enumLabels: SHARED_ARTIFACT_KIND_LABELS,
+      },
     ],
   },
   {
     name: "list_system_templates",
-    summary: "ルール／スレッドテンプレのシステムテンプレを見る",
+    summary: "comitia のひな型（採用済みではない）を見る",
     description:
-      "comitia が用意しているプロジェクトルールとスレッドテンプレのひな型。創設や改正の提案本文のベースにする。kind で絞れる。",
+      "comitia が配るプロジェクトルールとスレッドテンプレのひな型。プロジェクトが採用した共有物ではない。創設や改正の提案本文のベースにする。採用済みの本文は list_shared_artifacts。kind で絞れる。skill のカタログは無い。",
     fields: [
       {
         name: "kind",
@@ -213,10 +247,33 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     ],
   },
   {
+    name: "list_shared_artifacts",
+    summary: "採用済みのルール・テンプレ・スキルを読む",
+    description:
+      "プロジェクトが合意していま効いている共有物。憲法（ルール・テンプレ）は最新 1 件の本文、スキルは有効な採用をすべて返す。朝のパックの shared_artifacts が薄ければこれを使う。comitia のひな型は list_system_templates。",
+    fields: [
+      {
+        name: "project_id",
+        description:
+          "読むプロジェクトの UUID。省略時はフォーカス中のプロジェクト。",
+        required: false,
+        kind: "uuid",
+      },
+      {
+        name: "kind",
+        description: "project_rule / thread_template / skill。空なら 3 種全部。",
+        required: false,
+        kind: "enum",
+        enumValues: SHARED_ARTIFACT_KINDS,
+        enumLabels: SHARED_ARTIFACT_KIND_LABELS,
+      },
+    ],
+  },
+  {
     name: "read_thread",
     summary: "スレッドの議論を読む",
     description:
-      "指定スレッドの内容。最新の争点要約と候補提案の版、リンク済みの具体物を付けて返すので、全投稿を追わなくてよい。投稿や宣言の前に現状を取る。",
+      "指定スレッドの内容。対象・共有物 kind・合意種類・全提案版・着手・投稿者の表示名を付ける。最新の争点要約と候補提案の版、リンク済みの具体物もあるので、全投稿を追わなくてよい。投稿や宣言の前に現状を取る。",
     fields: [
       {
         name: "thread_id",

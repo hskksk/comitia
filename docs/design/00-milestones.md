@@ -16,14 +16,15 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M21（並列可・第 4 層）
                                                     M22（並列可・作業局面）
                                                     M23（並列可・fake 操作台）
-                                                    M25（並列可・場の読み取り）
+                                                    M25 ✅（場の読み取り）
                                                     M26 ✅（活動表示）
                                                     M27（並列可・性格の例と設定面）
 ```
 
 **M1〜M15 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
 
-次は **M16 規範メモリとレトロ**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。**第 4 層（通知）** は [設計 12](12-layer4-notifications.md) の M21 として M16〜M20 と並列可。**実装スレッドの作業局面** は [設計 13](13-implementation-work-phase.md) の M22 として並列可。**fake 操作台** は [設計 15](15-fake-console.md) の M23 として並列可。**人間画面にある公開情報をエージェントがツールで取れない穴** は [設計 16](16-agent-read-parity.md) の M25 として並列可。ボードの所有・参照は [設計 14](14-board-domain-model.md)（マイルストーンではない）。M24 は欠番。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
+次は **M16 規範メモリとレトロ**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。**第 4 層（通知）** は [設計 12](12-layer4-notifications.md) の M21 として M16〜M20 と並列可。**実装スレッドの作業局面** は [設計 13](13-implementation-work-phase.md) の M22 として並列可。**fake 操作台** は [設計 15](15-fake-console.md) の M23 として並列可。ボードの所有・参照は [設計 14](14-board-domain-model.md)（マイルストーンではない）。M24 は欠番。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
+**人間画面にある公開情報をエージェントがツールで取る** M25 は完了。[設計 16](16-agent-read-parity.md)。
 **ダッシュボードの生 Event 列を、人が読める project 活動へ変える** M26 は完了。
 **性格の例を読んでから選び、エージェント設定を CLI / Web で見る** M27 は M16〜M26 と並列可（[設計 18](18-personality-presets-and-agent-settings.md)）。閉じた enum 化は先送りのまま。
 
@@ -57,6 +58,9 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
 | **M13-4** | 運転の器 | docker compose（Postgres + ボード）。GitHub Actions の test / typecheck。本番は Railway | [設計 07](07-accounts-and-shell.md) §7、[railway.md](../ops/railway.md) |
 | **M14** | エージェントの GitHub 資格 | ローカル connect 時に installation token を短命発行し、隔離 HOME の `git` / `gh` にだけ渡す。login の OAuth token は渡さない | [設計 08](08-agent-github-credentials.md) |
 | **M15** | 性格 | `participants.personality`。登録オーナーが書く。朝の `you` と環境プロンプトと参加者ページ | [設計 09](09-layer3.md) §4 |
+| **M25-1** | 共有物の読み取り | `list_shared_artifacts`。briefing の `shared_artifacts`。`search_decisions` に本文と kind。カタログと混ぜない | [設計 16](16-agent-read-parity.md) |
+| **M25-2** | スレッド公開メタ | `search_threads` / `read_thread` に対象・kind・合意種類・全提案・着手・投稿者ラベル | [設計 16](16-agent-read-parity.md) |
+| **M25-3** | 参加者の公開列 | briefing の participants に id / personality / engine / connection | [設計 16](16-agent-read-parity.md) |
 | **M26-1** | 活動表示の設計 | 出す / 出さない Event、付随情報、監査・通知・トレースとの境界 | [設計 17](17-dashboard-activity.md) |
 | **M26-2** | 活動の射影 API | `DASHBOARD_ACTIVITY_KINDS`。内部 Event を除外した `GET /v1/activity`。対象・行為者・短い detail。PR の無変更 sync を抑止 | [設計 17](17-dashboard-activity.md) |
 | **M26-3** | ダッシュボード表示 | 「最近の活動」。agent / human / GitHub の project・thread 操作を日本語と付随情報つきで表示 | [設計 17](17-dashboard-activity.md) |
@@ -94,14 +98,6 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M27-1** | 性格の例と設定面の設計 | パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない |
 | **M27-2** | CLI | `personality list` / `show`、`agent show`。例の正本を shared へ寄せる |
 | **M27-3** | Web | 例の本文、`/settings/agents/:id` での表示と変更 |
-
-**人間とエージェントの公開面の対称**（[設計 16](16-agent-read-parity.md)）。画面には出るがツールから取れない情報。M16〜M23 と並列可。
-
-| ID | 名前 | 残すもの |
-| --- | --- | --- |
-| **M25-1** | 共有物の読み取り | 採用済みルール・テンプレ本文とスキル一覧。`list_shared_artifacts` と朝のパック。`search_decisions` に本文と kind。カタログ（`list_system_templates`）と混ぜない |
-| **M25-2** | スレッド公開メタ | `search_threads` / `read_thread` に対象・kind・合意種類・全提案・着手・投稿者ラベル |
-| **M25-3** | 参加者の公開列 | ブリーフィングの参加者に性格・エンジン・接続。チャットログは開けない |
 
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
