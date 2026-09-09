@@ -72,6 +72,10 @@ describe("ParticipantsPage", () => {
       "href",
       "/p/proj-1/participants/agent-1",
     );
+    expect(screen.getByRole("link", { name: "設定" })).toHaveAttribute(
+      "href",
+      "/settings/agents/agent-1",
+    );
     expect(screen.queryByRole("link", { name: "操作台" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "起こす" }));
     expect(wakeMock).toHaveBeenCalledWith("agent-1");
@@ -148,6 +152,52 @@ describe("ParticipantsPage", () => {
     expect(screen.getByText("接続中")).toBeInTheDocument();
     expect(screen.getByText(/残量 500/)).toBeInTheDocument();
     expect(screen.getByText("起床待ち（未消化）")).toBeInTheDocument();
+  });
+
+  it("shows a settings link only on agents the current user owns", async () => {
+    participantsMock.mockResolvedValueOnce({
+      items: [
+        {
+          id: "agent-1",
+          kind: "agent",
+          displayName: "ミカ",
+          label: "ミカ@ハル",
+          engine: "claude-code",
+          personality: null,
+          ownerParticipantId: "owner-1",
+          roles: [],
+          connection: { status: "disconnected", lastSeenAt: null },
+          lastActionAt: null,
+          openSession: null,
+          wake: "idle",
+        },
+        {
+          id: "agent-2",
+          kind: "agent",
+          displayName: "レン",
+          label: "レン@他者",
+          engine: "claude-code",
+          personality: null,
+          ownerParticipantId: "someone-else",
+          roles: [],
+          connection: { status: "disconnected", lastSeenAt: null },
+          lastActionAt: null,
+          openSession: null,
+          wake: "idle",
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/p/proj/participants"]}>
+        <Routes>
+          <Route path="/p/:projectId/participants" element={<ParticipantsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText("ミカ@ハル");
+    const settings = screen.getAllByRole("link", { name: "設定" });
+    expect(settings).toHaveLength(1);
+    expect(settings[0]).toHaveAttribute("href", "/settings/agents/agent-1");
   });
 
   it("shows a notes link only on the current user's own card", async () => {

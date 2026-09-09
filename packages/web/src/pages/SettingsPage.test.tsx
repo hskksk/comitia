@@ -182,7 +182,7 @@ describe("SettingsPage", () => {
     expect(await screen.findByText("OpenCode")).toBeInTheDocument();
   });
 
-  it("fills personality from a packaged preset chip", async () => {
+  it("fills personality from a packaged example", async () => {
     const user = userEvent.setup();
     const cautious = PERSONALITY_PRESETS.find((preset) => preset.id === "慎重");
     listOwnedAgentsMock
@@ -203,8 +203,10 @@ describe("SettingsPage", () => {
         <SettingsPage />
       </MemoryRouter>,
     );
+    expect(await screen.findByRole("heading", { name: "性格の例", level: 2 })).toBeInTheDocument();
+    expect(screen.getAllByText(cautious?.body ?? "")[0]).toBeInTheDocument();
     await user.type(await screen.findByLabelText("名前"), "ウォーカー");
-    await user.click(await screen.findByRole("button", { name: "慎重" }));
+    await user.click(screen.getByRole("button", { name: "慎重の文を入れる" }));
     await user.click(screen.getByRole("button", { name: "登録する" }));
     expect(createAgentMock).toHaveBeenCalledWith({
       displayName: "ウォーカー",
@@ -213,5 +215,29 @@ describe("SettingsPage", () => {
       role: undefined,
       personality: cautious?.body,
     });
+  });
+
+  it("links owned agents to the settings page and shows unset personality", async () => {
+    listOwnedAgentsMock.mockResolvedValue({
+      items: [
+        {
+          id: "a1",
+          displayName: "ウォーカー",
+          engine: "fake",
+          personality: null,
+          ownerParticipantId: "p1",
+        },
+      ],
+    });
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("性格: 未設定")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "設定" })).toHaveAttribute(
+      "href",
+      "/settings/agents/a1",
+    );
   });
 });

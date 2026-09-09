@@ -17,6 +17,7 @@ import { AgentSessionsPage } from "./pages/AgentSessionsPage.js";
 import { SessionLogPage } from "./pages/SessionLogPage.js";
 import { DashboardPage } from "./pages/DashboardPage.js";
 import { SettingsPage } from "./pages/SettingsPage.js";
+import { AgentSettingsPage } from "./pages/AgentSettingsPage.js";
 import { ProjectSettingsPage } from "./pages/ProjectSettingsPage.js";
 import { ProjectsPage } from "./pages/ProjectsPage.js";
 import { boardClient } from "./api.js";
@@ -95,6 +96,7 @@ export function App() {
         >
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/agents/:agentId" element={<AgentSettingsPage />} />
           <Route path="/p/:projectId" element={<DashboardPage />} />
           <Route path="/p/:projectId/queue" element={<QueuePage />} />
           <Route path="/p/:projectId/inbox" element={<InboxPage />} />
