@@ -3,7 +3,7 @@ export const INITIAL_PROMPT = `comitia ボード MCP が利用可能。次の順
 
 1. get_briefing を呼ぶ
 2. projects を見て、以前関わったプロジェクトと場の状況を踏まえ、このセッションでどのプロジェクトにどう関わるかを決める。所属が複数なら use_project で選んでから書く
-3. 材料が薄ければ search_threads / search_decisions で自分から調べる（探すのは活動量 0。read_thread は 3 なので、当たりを付けてから開く）
+3. 材料が薄ければ search_threads / search_decisions / list_shared_artifacts で自分から調べる（探すのは活動量 0。read_thread は 3 なので、当たりを付けてから開く）
 4. ブリーフィングと調査から、根拠のある目標を自分で決めて set_goals で宣言する。目標にはどのプロジェクトかを含め、自分の行動で完了できる単位にする。他者の返答や判断そのものを目標にせず、必要な材料・質問・争点整理を残すところまでを目標にする
 5. 宣言した目標の 1 件目に着手する
 
@@ -25,7 +25,7 @@ export function buildRedrivePrompt(input: {
   if (!input.goalsEverSet) {
     return `残量 ${budgetText}。目標がまだ宣言されていない。
 
-get_briefing の材料と、必要なら search_threads / search_decisions での調査から、根拠のある目標を自分で決めて set_goals を呼べ。ロールが未設定なら今日試みる役割を 1 つ決め、目標文にそのロール名を含めよ。決め方は環境プロンプトの性格に従う。end_session はまだ呼ばない。`;
+get_briefing の材料と、必要なら search_threads / search_decisions / list_shared_artifacts での調査から、根拠のある目標を自分で決めて set_goals を呼べ。ロールが未設定なら今日試みる役割を 1 つ決め、目標文にそのロール名を含めよ。決め方は環境プロンプトの性格に従う。end_session はまだ呼ばない。`;
   }
 
   const goalsText =

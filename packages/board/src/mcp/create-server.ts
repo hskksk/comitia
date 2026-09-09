@@ -13,8 +13,8 @@ import {
 import { z, ZodError } from "zod";
 import type { Db, DbClient } from "../db/test-setup.js";
 import { refundSpend, spend } from "../domain/activity.js";
-import { searchAgreements } from "../domain/agreements.js";
 import { getBriefing } from "../domain/briefing.js";
+import { listSharedArtifacts } from "../domain/constitution.js";
 import { declare } from "../domain/declare.js";
 import {
   DomainError,
@@ -27,6 +27,7 @@ import {
   resolveAgentToolProjectId,
   assertProjectMember,
 } from "../domain/memberships.js";
+import { listHumanAgreements } from "../domain/human-ops.js";
 import { writeMemory } from "../domain/memory.js";
 import { commentNote, readNote, searchNotes, writeNote } from "../domain/notes.js";
 import { addPost } from "../domain/posts.js";
@@ -42,7 +43,7 @@ import {
   setSessionFocus,
 } from "../domain/sessions.js";
 import { recordMcpToolTrace } from "../domain/trace.js";
-import { createThread, searchThreads } from "../domain/threads.js";
+import { createThread, searchThreadsForAgent } from "../domain/threads.js";
 import { listSystemTemplates } from "../catalog/index.js";
 import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
 import { linkPullRequest } from "../domain/pull-requests.js";
@@ -249,22 +250,21 @@ export function createBoardToolRuntime(input: {
             project_id: z.string().uuid().optional(),
             textQuery: z.string().optional(),
             state: z.enum(THREAD_STATES).optional(),
+            type: z.enum(THREAD_TYPES).optional(),
+            target: z.enum(PROPOSAL_TARGETS).optional(),
+            sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
           })
           .parse(args);
         const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
-        const rows = await searchThreads(db, {
+        const rows = await searchThreadsForAgent(db, {
           projectId: scopedProjectId,
           textQuery: parsed.textQuery,
           state: parsed.state,
+          type: parsed.type,
+          target: parsed.target,
+          sharedArtifactKind: parsed.sharedArtifactKind,
         });
-        return {
-          threads: rows.map((t) => ({
-            id: t.id,
-            title: t.title,
-            type: t.type,
-            state: t.state,
-          })),
-        };
+        return { threads: rows };
       }),
 
     search_decisions: async (args) =>
@@ -273,12 +273,15 @@ export function createBoardToolRuntime(input: {
           .object({
             project_id: z.string().uuid().optional(),
             onlyActiveBinding: z.boolean().optional(),
+            sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
           })
           .parse(args);
         const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
-        const rows = await searchAgreements(db, {
+        const rows = await listHumanAgreements(db, {
           projectId: scopedProjectId,
           onlyActiveBinding: parsed.onlyActiveBinding,
+          state: parsed.onlyActiveBinding ? undefined : "all",
+          sharedArtifactKind: parsed.sharedArtifactKind,
         });
         return { agreements: rows };
       }),
@@ -298,6 +301,23 @@ export function createBoardToolRuntime(input: {
             summary: template.summary,
             content: template.content,
           })),
+        };
+      }),
+
+    list_shared_artifacts: async (args) =>
+      runTool("list_shared_artifacts", async () => {
+        const parsed = z
+          .object({
+            project_id: z.string().uuid().optional(),
+            kind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
+          })
+          .parse(args);
+        const scopedProjectId = await resolveScopedProjectId(parsed.project_id);
+        return {
+          artifacts: await listSharedArtifacts(db, {
+            projectId: scopedProjectId,
+            kind: parsed.kind,
+          }),
         };
       }),
 
@@ -778,11 +798,15 @@ export function createBoardMcpServer(input: {
   server.registerTool(
     "search_threads",
     {
-      description: "プロジェクト内のスレッドを検索する",
+      description:
+        "プロジェクト内のスレッドを探す。対象・kind・合意種類・作業局面が付く。共有物スレッドは sharedArtifactKind で絞れる。投稿本文は載せない",
       inputSchema: {
         project_id: z.string().uuid().optional(),
         textQuery: z.string().optional(),
         state: z.enum(THREAD_STATES).optional(),
+        type: z.enum(THREAD_TYPES).optional(),
+        target: z.enum(PROPOSAL_TARGETS).optional(),
+        sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
       },
     },
     async (args) =>
@@ -792,10 +816,12 @@ export function createBoardMcpServer(input: {
   server.registerTool(
     "search_decisions",
     {
-      description: "合意物（決定）を検索する",
+      description:
+        "提案集。合意の本文・kind・拘束を返す。comitia のひな型ではなく、プロジェクトが採用した決定。衝突チェックは onlyActiveBinding=true",
       inputSchema: {
         project_id: z.string().uuid().optional(),
         onlyActiveBinding: z.boolean().optional(),
+        sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
       },
     },
     async (args) =>
@@ -806,7 +832,7 @@ export function createBoardMcpServer(input: {
     "list_system_templates",
     {
       description:
-        "comitia が持つプロジェクトルール／スレッドテンプレのシステムテンプレを一覧する",
+        "comitia が配るプロジェクトルール／スレッドテンプレのひな型。プロジェクトが採用した共有物ではない。採用済みは list_shared_artifacts",
       inputSchema: {
         kind: z.enum(["project_rule", "thread_template"]).optional(),
       },
@@ -816,9 +842,23 @@ export function createBoardMcpServer(input: {
   );
 
   server.registerTool(
+    "list_shared_artifacts",
+    {
+      description:
+        "プロジェクトが採用した共有物（ルール・テンプレ・スキル）を読む。カタログではなくいま効いている本文",
+      inputSchema: {
+        project_id: z.string().uuid().optional(),
+        kind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
+      },
+    },
+    async (args) =>
+      runtime.callTool("list_shared_artifacts", args as Record<string, unknown>),
+  );
+
+  server.registerTool(
     "read_thread",
     {
-      description: "スレッド内容を読む",
+      description: "スレッド内容を読む。対象・kind・合意種類・全提案・着手・投稿者の表示名を含む",
       inputSchema: {
         thread_id: z.string().uuid(),
       },
