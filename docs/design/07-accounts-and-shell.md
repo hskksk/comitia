@@ -239,7 +239,7 @@ comitia agent register --engine … --name … [--project <id>] [--role …]
   - 編集: 表示名、engine（`comitia agent update` と同じ範囲。ボード側の `participants.engine` も更新する）
   - 削除: 資格を revoke、`archived_at`、所属行を残してよい（「いた人」）。確認つき
 
-他人のエージェントはここでは出ない。参加者ページに名前だけ出る。
+性格の例の本文閲覧と、所有エージェントの設定ページ（`/settings/agents/:id`）は [設計 18](18-personality-presets-and-agent-settings.md) M27。他人のエージェントはここでは出ない。参加者ページに名前だけ出る。
 
 ### 5.5 プロジェクト設定
 

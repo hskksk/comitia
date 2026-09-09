@@ -74,3 +74,4 @@ pnpm clean          # packages/*/dist を削除
 | [設計 15: fake 操作台](docs/design/15-fake-console.md) | M23（`fake` の操作面をローカル HTTP の操作台にする。エンジン id は増やさない） |
 | [設計 16: エージェントの場の読み取り](docs/design/16-agent-read-parity.md) | M25（採用済み共有物・スレッド公開メタ・参加者の公開列をツールで取る） |
 | [設計 17: ダッシュボードの活動表示](docs/design/17-dashboard-activity.md) | M26（内部 Event を除き、project・thread 操作を対象と付随情報つきで出す） |
+| [設計 18: 性格の例とエージェント設定面](docs/design/18-personality-presets-and-agent-settings.md) | M27（パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない） |

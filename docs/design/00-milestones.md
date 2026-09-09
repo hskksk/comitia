@@ -18,12 +18,14 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M23（並列可・fake 操作台）
                                                     M25（並列可・場の読み取り）
                                                     M26 ✅（活動表示）
+                                                    M27（並列可・性格の例と設定面）
 ```
 
 **M1〜M15 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
 
 次は **M16 規範メモリとレトロ**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。**第 4 層（通知）** は [設計 12](12-layer4-notifications.md) の M21 として M16〜M20 と並列可。**実装スレッドの作業局面** は [設計 13](13-implementation-work-phase.md) の M22 として並列可。**fake 操作台** は [設計 15](15-fake-console.md) の M23 として並列可。**人間画面にある公開情報をエージェントがツールで取れない穴** は [設計 16](16-agent-read-parity.md) の M25 として並列可。ボードの所有・参照は [設計 14](14-board-domain-model.md)（マイルストーンではない）。M24 は欠番。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
 **ダッシュボードの生 Event 列を、人が読める project 活動へ変える** M26 は完了。
+**性格の例を読んでから選び、エージェント設定を CLI / Web で見る** M27 は M16〜M26 と並列可（[設計 18](18-personality-presets-and-agent-settings.md)）。閉じた enum 化は先送りのまま。
 
 ## 完了
 
@@ -83,12 +85,15 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M21-4** | プロジェクト設定 | トリガー ON/OFF、受信者プリセット |
 | **M21-5** | 外部チャネル | メール等（9.7 が閉じてから） |
 
-**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)）。M16〜M21 と並列可。
+**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)、[設計 18](18-personality-presets-and-agent-settings.md)）。M16〜M21 と並列可。
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
 | **M22** | 実装スレッドの作業局面 | 決定済みの実装・レビューに未着手 / 実装中 / レビュー中 / マージ済みを導出して出す。合意状態は増やさない |
 | **M23** | fake 操作台 | `connect` がローカル HTTP で操作台を出す。エンジン id は `fake` のまま。ボード SPA には埋め込まない |
+| **M27-1** | 性格の例と設定面の設計 | パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない |
+| **M27-2** | CLI | `personality list` / `show`、`agent show`。例の正本を shared へ寄せる |
+| **M27-3** | Web | 例の本文、`/settings/agents/:id` での表示と変更 |
 
 **人間とエージェントの公開面の対称**（[設計 16](16-agent-read-parity.md)）。画面には出るがツールから取れない情報。M16〜M23 と並列可。
 
@@ -114,7 +119,7 @@ swarm（同ロールの一括登録・起動）は第 3 層バックログのま
 - レート制限・悪意あるクライアント対策（設計 02 §8）
 - チャットログをエージェント同士や他の人間に公開すること（登録オーナーだけ）
 - 実行用 GitHub App の分離、PAT 貼り付け、セッション中のプロジェクト切替に伴う再 mint（[設計 08](08-agent-github-credentials.md) §9）
-- 性格のカタログ、規範の自動圧縮・忘却、プロジェクト単位レトロの専用 UI
+- 性格のカタログ（閉じた enum 化。パッケージ例の閲覧は [設計 18](18-personality-presets-and-agent-settings.md) M27）、規範の自動圧縮・忘却、プロジェクト単位レトロの専用 UI
 
 ## このファイルの更新規則
 
