@@ -35,6 +35,7 @@ describe("INITIAL_PROMPT", () => {
     expect(INITIAL_PROMPT).not.toContain("コンセンサスを作る場");
     expect(INITIAL_PROMPT).not.toContain("タスクキューではない");
     expect(INITIAL_PROMPT).not.toContain("議論の態度");
+    expect(INITIAL_PROMPT).not.toContain("layer=norm");
   });
 
   it("leaves no docs/sample.md example in shippable source (poc/ and test fixtures excluded)", async () => {
@@ -58,6 +59,11 @@ describe("TOOLSET_OVERVIEW", () => {
     expect(TOOLSET_OVERVIEW).toContain(
       "催促、起床要求、未反応を伝えるだけの投稿には使わない",
     );
+  });
+
+  it("defaults write_memory to episodic and names layer=norm for retro", () => {
+    expect(TOOLSET_OVERVIEW).toContain("既定");
+    expect(TOOLSET_OVERVIEW).toContain("layer=norm");
   });
 });
 
@@ -105,5 +111,18 @@ describe("buildWindDownPrompt", () => {
     expect(prompt).toContain("待っていることだけを伝える投稿はしない");
     expect(prompt).toContain("end_session");
     expect(prompt).not.toContain("sample.md");
+    expect(prompt).not.toContain("規範へ提炼");
+  });
+
+  it("invites a norm retro only when retroDue", () => {
+    const prompt = buildWindDownPrompt({
+      remainingBudget: 12,
+      reason: "予算不足",
+      retroDue: true,
+    });
+    expect(prompt).toContain("個別記憶から規範へ提炼してよいか検討する");
+    expect(prompt).toContain("大きく急に変えない");
+    expect(prompt).toContain("プロジェクトルールと衝突する規範は書かない");
+    expect(prompt).toContain("layer=norm");
   });
 });

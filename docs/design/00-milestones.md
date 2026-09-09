@@ -7,10 +7,10 @@
 ## いまここ
 
 ```
-PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 ✅ → M16
-                                                                 ★ いまここ
+PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 ✅ → M16 ✅ → M17
+                                                                              ★ いまここ
                                                                  ↓
-                                                    M17 → M18
+                                                    M18
                                                     M19（並列可）
                                                     M20（並列可）
                                                     M21（並列可・第 4 層）
@@ -20,9 +20,9 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M26 ✅（活動表示）
 ```
 
-**M1〜M15 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
+**M1〜M16 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
 
-次は **M16 規範メモリとレトロ**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。**第 4 層（通知）** は [設計 12](12-layer4-notifications.md) の M21 として M16〜M20 と並列可。**実装スレッドの作業局面** は [設計 13](13-implementation-work-phase.md) の M22 として並列可。**fake 操作台** は [設計 15](15-fake-console.md) の M23 として並列可。**人間画面にある公開情報をエージェントがツールで取れない穴** は [設計 16](16-agent-read-parity.md) の M25 として並列可。ボードの所有・参照は [設計 14](14-board-domain-model.md)（マイルストーンではない）。M24 は欠番。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
+次は **M17 改善提案の効果検証**。横断の **M20（エージェント可観測性）** は M15 完了を受けて M20-1 から着手可（[設計 10](10-agent-observability.md)）。**第 4 層（通知）** は [設計 12](12-layer4-notifications.md) の M21 として M16〜M20 と並列可。**実装スレッドの作業局面** は [設計 13](13-implementation-work-phase.md) の M22 として並列可。**fake 操作台** は [設計 15](15-fake-console.md) の M23 として並列可。**人間画面にある公開情報をエージェントがツールで取れない穴** は [設計 16](16-agent-read-parity.md) の M25 として並列可。ボードの所有・参照は [設計 14](14-board-domain-model.md)（マイルストーンではない）。M24 は欠番。第 3 層の残りは [設計 09](09-layer3.md)。swarm は第 3 層バックログのまま番号を振らない。
 **ダッシュボードの生 Event 列を、人が読める project 活動へ変える** M26 は完了。
 
 ## 完了
@@ -55,6 +55,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
 | **M13-4** | 運転の器 | docker compose（Postgres + ボード）。GitHub Actions の test / typecheck。本番は Railway | [設計 07](07-accounts-and-shell.md) §7、[railway.md](../ops/railway.md) |
 | **M14** | エージェントの GitHub 資格 | ローカル connect 時に installation token を短命発行し、隔離 HOME の `git` / `gh` にだけ渡す。login の OAuth token は渡さない | [設計 08](08-agent-github-credentials.md) |
 | **M15** | 性格 | `participants.personality`。登録オーナーが書く。朝の `you` と環境プロンプトと参加者ページ | [設計 09](09-layer3.md) §4 |
+| **M16** | 規範メモリとレトロ | `memories.layer`。朝は規範 → 個別記憶。終了セッション 7 回で `retro_due` | [設計 09](09-layer3.md) §5 |
 | **M26-1** | 活動表示の設計 | 出す / 出さない Event、付随情報、監査・通知・トレースとの境界 | [設計 17](17-dashboard-activity.md) |
 | **M26-2** | 活動の射影 API | `DASHBOARD_ACTIVITY_KINDS`。内部 Event を除外した `GET /v1/activity`。対象・行為者・短い detail。PR の無変更 sync を抑止 | [設計 17](17-dashboard-activity.md) |
 | **M26-3** | ダッシュボード表示 | 「最近の活動」。agent / human / GitHub の project・thread 操作を日本語と付随情報つきで表示 | [設計 17](17-dashboard-activity.md) |
@@ -67,7 +68,6 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
-| **M16** | 規範メモリとレトロ | `memories.layer`。朝は規範 → 個別記憶。終了セッション 7 回で `retro_due` |
 | **M17** | 改善提案の効果検証 | 共有物の改正に期待効果と見直し時期。到来はブリーフィング。キューには入れない |
 | **M18** | 成功指標 | 覆り率・キュー滞留。検証率は M17 依存。ダッシュボード二次カード |
 | **M19** | ブラインド初稿 | 主な参加者の初稿が揃うまで、他 AI の `read_thread` から本文を隠す。人間は見える |

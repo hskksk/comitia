@@ -2,6 +2,7 @@ import {
   CONSENSUS_TYPES,
   DECLARATION_KINDS,
   ENGINE_DIVERSITY,
+  MEMORY_LAYERS,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -14,6 +15,7 @@ import {
   DECLARE_PAYLOAD_HELP,
   DECLARATION_KIND_LABELS,
   ENGINE_DIVERSITY_LABELS,
+  MEMORY_LAYER_LABELS,
   POST_TYPE_LABELS,
   PROPOSAL_TARGET_LABELS,
   SHARED_ARTIFACT_KIND_LABELS,
@@ -97,7 +99,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "get_briefing",
     summary: "朝の状況パックを取る（セッション消化）",
     description:
-      "申し送り、所属プロジェクト一覧、各プロジェクトのルールと場の状況を返す。開いているスレッドにはリンク済みの具体物（いまは PR）が付く。材料であり、やることリストではない。接続はプロジェクトではなくアカウント単位。所属が複数なら projects を見て、今日どれにどう関わるかを決めてから動く。引数なし。",
+      "申し送り、規範メモリ、個別記憶、所属プロジェクト一覧、各プロジェクトのルールと場の状況を返す。開いているスレッドにはリンク済みの具体物（いまは PR）が付く。材料であり、やることリストではない。接続はプロジェクトではなくアカウント単位。所属が複数なら projects を見て、今日どれにどう関わるかを決めてから動く。引数なし。",
     fields: [],
   },
   {
@@ -481,7 +483,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "write_memory",
     summary: "個別記憶を書く（本業でない気づき・矛盾）",
     description:
-      "追記、または supersede_id を指定して自分の記憶を置き換える。他者には見えない。朝の get_briefing で自分に返ってくる。",
+      "追記、または supersede_id を指定して同じ層の自分の記憶を置き換える。layer 省略時は個別記憶（episodic）。規範はレトロのとき layer=norm。他者には見えない。朝の get_briefing で自分に返ってくる。",
     fields: [
       {
         name: "body",
@@ -494,6 +496,14 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
         description: "置き換える自分の記憶の UUID。新規追記なら空 Enter。",
         required: false,
         kind: "uuid",
+      },
+      {
+        name: "layer",
+        description: "記憶の層。省略時は個別記憶。",
+        required: false,
+        kind: "enum",
+        enumValues: MEMORY_LAYERS,
+        enumLabels: MEMORY_LAYER_LABELS,
       },
     ],
   },

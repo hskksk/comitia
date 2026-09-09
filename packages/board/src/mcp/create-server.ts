@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CONSENSUS_TYPES,
   ENGINE_DIVERSITY,
+  MEMORY_LAYERS,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -26,7 +27,7 @@ import {
   resolveAgentToolProjectId,
   assertProjectMember,
 } from "../domain/memberships.js";
-import { listActiveMemory, writeMemory } from "../domain/memory.js";
+import { writeMemory } from "../domain/memory.js";
 import { commentNote, readNote, searchNotes, writeNote } from "../domain/notes.js";
 import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
@@ -528,14 +529,19 @@ export function createBoardToolRuntime(input: {
     write_memory: async (args) =>
       runTool("write_memory", async () => {
         const parsed = z
-          .object({ body: z.string().min(1), supersede_id: z.string().uuid().optional() })
+          .object({
+            body: z.string().min(1),
+            supersede_id: z.string().uuid().optional(),
+            layer: z.enum(MEMORY_LAYERS).optional(),
+          })
           .parse(args);
         const memory = await writeMemory(db, {
           participantId,
           body: parsed.body,
           supersedeId: parsed.supersede_id,
+          layer: parsed.layer,
         });
-        return { memory_id: memory.id };
+        return { memory_id: memory.id, layer: memory.layer };
       }),
 
     write_note: async (args) =>
@@ -727,7 +733,7 @@ export function createBoardMcpServer(input: {
   server.registerTool(
     "get_briefing",
     {
-      description: "コンテキストパック（申し送り・ルール・状況）を取得する",
+      description: "コンテキストパック（申し送り・規範メモリ・個別記憶・ルール・状況）を取得する",
       inputSchema: {},
     },
     async () => runtime.callTool("get_briefing"),
@@ -938,10 +944,12 @@ export function createBoardMcpServer(input: {
   server.registerTool(
     "write_memory",
     {
-      description: "個別記憶を書く（追記、または supersede_id で自分の記憶を置き換え）",
+      description:
+        "個別記憶を書く（既定は layer=episodic。規範はレトロのとき layer=norm。supersede_id で同じ層の自分の記憶を置き換え）",
       inputSchema: {
         body: z.string().min(1),
         supersede_id: z.string().uuid().optional(),
+        layer: z.enum(MEMORY_LAYERS).optional(),
       },
     },
     async (args) => runtime.callTool("write_memory", args as Record<string, unknown>),
