@@ -38,6 +38,7 @@ describe("board tool catalog", () => {
     expect(overview).toContain("read_thread は 3");
     expect(overview).toContain("書く操作は 5");
     expect(overview).toContain("具体物として PR をスレッドに付ける");
+    expect(overview).toContain("layer=norm");
     expect(overview).toContain("list_shared_artifacts");
     expect(overview).toContain("採用済みではない");
     expect(overview).not.toContain("実装の証跡として PR");
@@ -71,6 +72,13 @@ describe("board tool catalog", () => {
       BOARD_TOOLS.find((tool) => tool.name === "read_thread")!,
     );
     expect(readThread).toContain("リンク済みの具体物");
+
+    const writeMemory = formatToolHelp(
+      BOARD_TOOLS.find((tool) => tool.name === "write_memory")!,
+    );
+    expect(writeMemory).toContain("layer=norm");
+    expect(writeMemory).toContain("個別記憶（既定）");
+    expect(writeMemory).toContain("規範（レトロ）");
   });
 });
 

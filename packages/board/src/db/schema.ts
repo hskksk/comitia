@@ -21,6 +21,7 @@ export const participants = pgTable(
     ownerParticipantId: uuid("owner_participant_id"),
     engine: text("engine"),
     personality: text("personality"),
+    normReviewedAt: timestamp("norm_reviewed_at", { withTimezone: true }),
     githubUserId: text("github_user_id"),
     githubLogin: text("github_login"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
@@ -219,6 +220,9 @@ export const memories = pgTable("memories", {
     .notNull()
     .references(() => participants.id),
   body: text("body").notNull(),
+  layer: text("layer", { enum: ["episodic", "norm"] })
+    .notNull()
+    .default("episodic"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

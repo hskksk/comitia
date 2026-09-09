@@ -17,7 +17,7 @@ import {
   wasLatestPreviousSessionInterrupted,
 } from "./sessions.js";
 import { searchThreads } from "./threads.js";
-import { listActiveMemory } from "./memory.js";
+import { listActiveMemory, isRetroDueForParticipant } from "./memory.js";
 import {
   listActiveProjectClaims,
   listUnclaimedDecidedImplementations,
@@ -272,11 +272,12 @@ export async function getBriefing(
     }));
 
   const participant = await getParticipant(db, input.participantId);
-  const [activeMemory, owner] = await Promise.all([
+  const [activeMemory, owner, retroDue] = await Promise.all([
     listActiveMemory(db, input.participantId),
     participant.ownerParticipantId
       ? getParticipant(db, participant.ownerParticipantId)
       : Promise.resolve(null),
+    isRetroDueForParticipant(db, input.participantId),
   ]);
 
   const sole = projectSlices.length === 1 ? projectSlices[0]! : null;
@@ -289,11 +290,21 @@ export async function getBriefing(
     ...(previousInterrupted ? { previous_interrupted: true } : {}),
   };
 
+  const norms = activeMemory
+    .filter((row) => row.layer === "norm")
+    .map((row) => row.body)
+    .join("\n");
+  const episodic = activeMemory
+    .filter((row) => row.layer === "episodic")
+    .map((row) => row.body)
+    .join("\n");
+
   return {
     sessionId: digestedSession.id,
     handover: previousHandover.body,
     previous_projects: previousHandover.projects,
-    memory: activeMemory.map((m) => m.body).join("\n"),
+    norms,
+    memory: episodic,
     you: {
       displayName: formatParticipantLabel({
         kind: participant.kind,
@@ -305,6 +316,7 @@ export async function getBriefing(
       ...(participant.personality
         ? { personality: participant.personality }
         : {}),
+      retro_due: retroDue,
     },
     project: sole
       ? {

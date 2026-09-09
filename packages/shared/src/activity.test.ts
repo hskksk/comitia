@@ -9,5 +9,6 @@ describe("DASHBOARD_ACTIVITY_KINDS", () => {
     expect(DASHBOARD_ACTIVITY_KINDS).not.toContain("tick_delivered");
     expect(DASHBOARD_ACTIVITY_KINDS).not.toContain("budget_spent");
     expect(DASHBOARD_ACTIVITY_KINDS).not.toContain("agent_connected");
+    expect(DASHBOARD_ACTIVITY_KINDS).not.toContain("memory_written");
   });
 });

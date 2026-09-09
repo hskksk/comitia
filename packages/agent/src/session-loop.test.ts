@@ -18,6 +18,11 @@ import {
   startBoardServer,
   type GitHubClient,
 } from "@comitia/board";
+import {
+  DEFAULT_SESSION_BUDGET,
+  RETRO_DUE_ENDED_SESSION_COUNT,
+  WIND_DOWN_RESERVE,
+} from "@comitia/shared";
 import { connectCommand } from "./commands/connect.js";
 import { saveConfig } from "./config.js";
 import { createMcpProxyRuntime } from "./mcp-proxy.js";
@@ -689,6 +694,7 @@ describe("session loop with fake engine", () => {
     const prompts = wrapped.prompts();
     expect(prompts.length).toBeGreaterThan(1);
     expect(prompts.at(-1)).toContain("セッション終了作業");
+    expect(prompts.at(-1)).not.toContain("規範へ提炼");
     expect(toolsCalled.filter((name) => name === "end_session")).toEqual([
       "end_session",
     ]);
@@ -704,6 +710,72 @@ describe("session loop with fake engine", () => {
       .where(eq(schema.handovers.sessionId, sessionId));
     expect(handover?.body).toBe("maxRuns で終了");
     expect(wrapped.stopped()).toBe(true);
+  }, 20_000);
+
+  it("asks wind-down to consider a norm retro after 7 ended sessions", async () => {
+    const { db, registered, boardUrl } = await bootAgent(await createDb());
+    const [agentRow] = await db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.id, registered.agent.id));
+    await db.insert(schema.sessions).values(
+      Array.from({ length: RETRO_DUE_ENDED_SESSION_COUNT }, (_, index) => {
+        const started = new Date(agentRow!.createdAt.getTime() + 1 + index * 2);
+        return {
+          participantId: registered.agent.id,
+          budgetLimit: DEFAULT_SESSION_BUDGET,
+          windDownReserved: WIND_DOWN_RESERVE,
+          startedAt: started,
+          endedAt: new Date(started.getTime() + 1),
+          endedReason: "completed" as const,
+        };
+      }),
+    );
+
+    const requested = await fetch(`${boardUrl}/v1/me/request-session`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${registered.agentToken}`,
+      },
+      body: "{}",
+    });
+    expect(requested.ok).toBe(true);
+    const body = (await requested.json()) as { sessionId: string };
+
+    const runtime = createMcpProxyRuntime({
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+    const wrapped = wrapPlugin(
+      createFakeEnginePlugin({
+        callTool: async (name, args) => runtime.callTool(name, args),
+        script: [
+          { tool: "get_briefing", args: {} },
+          {
+            tool: "set_goals",
+            args: { goals: ["docs/sample.md の typo を直す"] },
+          },
+        ],
+        handover: "レトロ到来で終了",
+      }),
+    );
+
+    await runSessionLoop({
+      plugin: wrapped.plugin,
+      callTool: (name, args) => runtime.callTool(name, args),
+      onChatLog: async () => undefined,
+      maxRuns: 1,
+      idleRunLimit: 2,
+      windDownRequestedRef: { current: false },
+      sessionId: body.sessionId,
+      boardUrl,
+      agentToken: registered.agentToken,
+    });
+
+    expect(wrapped.prompts().at(-1)).toContain(
+      "個別記憶から規範へ提炼してよいか検討する",
+    );
   }, 20_000);
 
   it("uploads @json trace lines to chat log", async () => {

@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CONSENSUS_TYPES,
   ENGINE_DIVERSITY,
+  MEMORY_LAYERS,
   POST_TYPES,
   PROPOSAL_TARGETS,
   SHARED_ARTIFACT_KINDS,
@@ -95,7 +96,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   server.registerTool(
     "get_briefing",
     {
-      description: "コンテキストパック（申し送り・ルール・状況）を取得する",
+      description: "コンテキストパック（申し送り・規範メモリ・個別記憶・ルール・状況）を取得する",
       inputSchema: {},
     },
     async () => runtime.callTool("get_briefing"),
@@ -313,10 +314,12 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   server.registerTool(
     "write_memory",
     {
-      description: "個別記憶を書く（追記、または supersede_id で自分の記憶を置き換え）",
+      description:
+        "個別記憶を書く（既定は layer=episodic。規範はレトロのとき layer=norm。supersede_id で同じ層の自分の記憶を置き換え）",
       inputSchema: {
         body: z.string().min(1),
         supersede_id: z.string().uuid().optional(),
+        layer: z.enum(MEMORY_LAYERS).optional(),
       },
     },
     async (args) => runtime.callTool("write_memory", args as Record<string, unknown>),
