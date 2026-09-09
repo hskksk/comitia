@@ -4,7 +4,12 @@ import { pathToFileURL } from "node:url";
 import { agentLogsCommand } from "./commands/agent-logs.js";
 import { agentTraceCommand } from "./commands/agent-trace.js";
 import { agentListCommand } from "./commands/agent-list.js";
+import { agentShowCommand } from "./commands/agent-show.js";
 import { connectCommand } from "./commands/connect.js";
+import {
+  personalityListCommand,
+  personalityShowCommand,
+} from "./commands/personality.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { initCommand } from "./commands/init.js";
 import { loginCommand } from "./commands/login.js";
@@ -57,6 +62,12 @@ type ParsedCommand =
   | {
       command: "agent-list";
     }
+  | {
+      command: "agent-show";
+      name: string;
+    }
+  | { command: "personality-list" }
+  | { command: "personality-show"; name: string }
   | {
       command: "project-create";
       name: string;
@@ -211,6 +222,24 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       throw new UsageError("Usage: comitia agent list");
     }
     return { command: "agent-list" };
+  }
+  if (args[0] === "agent" && args[1] === "show") {
+    if (!args[2] || args.length !== 3) {
+      throw new UsageError("Usage: comitia agent show <name>");
+    }
+    return { command: "agent-show", name: args[2] };
+  }
+  if (args[0] === "personality" && args[1] === "list") {
+    if (args.length !== 2) {
+      throw new UsageError("Usage: comitia personality list");
+    }
+    return { command: "personality-list" };
+  }
+  if (args[0] === "personality" && args[1] === "show") {
+    if (!args[2] || args.length !== 3) {
+      throw new UsageError("Usage: comitia personality show <name>");
+    }
+    return { command: "personality-show", name: args[2] };
   }
   if (args[0] === "agent" && args[1] === "register") {
     const options = parseOptions(args.slice(2));
@@ -452,6 +481,18 @@ export async function runCli(
     await agentListCommand(io);
     return;
   }
+  if (command.command === "agent-show") {
+    await agentShowCommand({ ...command, ...io });
+    return;
+  }
+  if (command.command === "personality-list") {
+    personalityListCommand(io);
+    return;
+  }
+  if (command.command === "personality-show") {
+    personalityShowCommand({ ...command, stdout: io.stdout });
+    return;
+  }
   if (command.command === "agent-register") {
     await registerCommand({ ...command, configDir: options.configDir });
     return;
@@ -469,7 +510,7 @@ export async function runCli(
     return;
   }
   if (command.command === "agent-update") {
-    await updateCommand({ ...command, configDir: options.configDir, stdout: io.stdout });
+    await updateCommand({ ...command, ...io });
     return;
   }
   if (command.command === "project") {

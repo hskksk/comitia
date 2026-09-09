@@ -16,18 +16,22 @@ const TOP_LEVEL_COMMANDS = [
   "doctor",
   "project",
   "agent",
+  "personality",
 ] as const;
 
 const PROJECT_SUBCOMMANDS = ["create", "list", "use", "set"] as const;
 
 const AGENT_SUBCOMMANDS = [
   "list",
+  "show",
   "register",
   "connect",
   "wake",
   "update",
   "logs",
 ] as const;
+
+const PERSONALITY_SUBCOMMANDS = ["list", "show"] as const;
 
 function levenshtein(a: string, b: string): number {
   const rows = a.length + 1;
@@ -76,6 +80,9 @@ export function formatUnknownCommandMessage(args: string[]): string {
       : undefined) ??
     (top === "project" && args[1]
       ? suggestCommand(args[1], PROJECT_SUBCOMMANDS)
+      : undefined) ??
+    (top === "personality" && args[1]
+      ? suggestCommand(args[1], PERSONALITY_SUBCOMMANDS)
       : undefined);
   const lines = [`不明なコマンド: ${args.join(" ")}`, "", USAGE_TEXT];
   if (suggestion) {
@@ -84,7 +91,9 @@ export function formatUnknownCommandMessage(args: string[]): string {
         ? `agent ${suggestion}`
         : top === "project"
           ? `project ${suggestion}`
-          : suggestion;
+          : top === "personality"
+            ? `personality ${suggestion}`
+            : suggestion;
     lines.splice(2, 0, `もしかして: ${prefixed}`);
   }
   return lines.join("\n");
@@ -106,19 +115,23 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   project list      所属プロジェクト一覧
   project use       いまのプロジェクトを切替
   agent list        登録済みエージェント一覧
+  agent show        エージェント設定（ローカル + ボード）
   agent register    エージェントを登録（--engine claude-code | fake | opencode | cursor-agent、任意 --project --role --personality --model）
   agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent、任意 --model）。fake は操作台（http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
   agent trace       構造化トレースを読む（--json で JSON 出力）
   agent update      エージェント設定を更新（任意 --engine --personality --model）
+  personality list  性格の例（名前と本文）
+  personality show  性格の例の本文
   project           プロジェクトのリポジトリ紐づけを表示
   project set       リポジトリ紐づけを設定・解除（--repo-url <url> | --clear-repo）
 
 性格:
-  --personality 慎重            パッケージ資源（名前だけ。拡張子・パスなし）
+  --personality 慎重            パッケージの例（名前だけ。拡張子・パスなし）
   --personality ./attitude.txt  ファイル（パスと拡張子が必要）
   --personality ""              性格を外す（update）
+  comitia personality list      例の名前と本文
 
 モデル:
   --model composer-2.5          エンジンの --model に渡す（claude-code / opencode / cursor-agent）
@@ -138,6 +151,9 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia agent register --engine fake --name walker --personality 慎重
   comitia agent register --engine opencode --name sou
   comitia agent register --engine cursor-agent --name ren --model composer-2.5
+  comitia personality list
+  comitia personality show 慎重
+  comitia agent show walker
   comitia agent update walker --personality ./attitude.txt
   comitia agent update walker --personality ""
   comitia agent update walker --model composer-2.5

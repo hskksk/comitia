@@ -146,6 +146,13 @@ describe("init and agent register commands", () => {
     expect(parseCliArgs(["status"])).toEqual({ command: "status" });
     expect(parseCliArgs(["doctor"])).toEqual({ command: "doctor" });
     expect(parseCliArgs(["agent", "list"])).toEqual({ command: "agent-list" });
+    expect(parseCliArgs(["agent", "show", "mika"])).toEqual({
+      command: "agent-show",
+      name: "mika",
+    });
+    expect(parseCliArgs(["personality", "list"])).toEqual({
+      command: "personality-list",
+    });
     expect(parseCliArgs(["agent", "wake", "mika"])).toEqual({
       command: "agent-wake",
       name: "mika",
@@ -620,23 +627,12 @@ describe("operator commands", () => {
 
     await updateCommand({
       name: "mika",
-      engine: "cursor-agent",
-      configDir,
-      stdout,
-    });
-    expect((await loadConfig(configDir)).agents.mika).toMatchObject({
-      engine: "cursor-agent",
-      model: "composer-2.5",
-    });
-
-    await updateCommand({
-      name: "mika",
       model: "",
       configDir,
       stdout,
     });
     expect((await loadConfig(configDir)).agents.mika?.model).toBeUndefined();
-    expect((await loadConfig(configDir)).agents.mika?.engine).toBe("cursor-agent");
+    expect((await loadConfig(configDir)).agents.mika?.engine).toBe("claude-code");
     expect(chunks.join("")).toContain("mika の model を外しました。");
   });
 
