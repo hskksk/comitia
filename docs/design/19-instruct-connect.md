@@ -43,8 +43,8 @@ comitia agent connect walker --instruct --model composer-2.5
 
 1. **既定の一日は tick のまま。** 要件 4.8 と設計 02 の正本は動かさない。指示モードは登録オーナーのスポット運転
 2. **アダプタはスケジューラを持たない。** 人間の入力が次の `plugin.run` のプロンプトになる。再駆動・空転検知・終了作業プロンプトは使わない
-3. **接続はする。** トンネル・ヘルス・MCP・作業ディレクトリ・GitHub 実行資格は今の connect と同じ。ボード上は接続中
-4. **tick ではエンジンを起こさない。** `session.start` / `nudge` / `session.end_warning` を駆動に使わない。`request-session` も呼ばない
+3. **接続はする。** トンネル・ヘルス・MCP・作業ディレクトリ・GitHub 実行資格は今の connect と同じ。ボード上は接続中。ボードのスケジューラ・wake・リレーは触らない
+4. **tick ではエンジンを起こさない。** A2A タスクは今どおり完了する（配送成功）。`onTick` がセッションループを始めない。`request-session` も呼ばない
 5. **システムプロンプトはオプトイン。** 既定は渡さない。MCP ツール定義の注入はプロンプトではない（今どおりエンジン設定）
 6. **fake とは混ぜない。** fake は人間がエンジン役。指示モードはモデルエンジンに人間がプロンプトを渡す
 7. **要件・門・活動量の意味論は触らない。** ボードツールを呼べば、今どおりセッションが開き、残量が付く
@@ -68,9 +68,10 @@ comitia agent connect walker --instruct --model composer-2.5
 ```
 comitia agent connect walker --instruct
         │
-        ├─ ボードへ WS リレー（現行。クエリに drive=instruct）
+        ├─ ボードへ WS リレー（現行。クエリを足さない）
         ├─ MCP プロキシ・作業域・GitHub 実行資格（現行）
-        ├─ request-session しない。tick で session loop を始めない
+        ├─ request-session しない
+        ├─ A2A の tick は受けて完了する。セッションループは始めない
         └─ stdin から指示 → plugin.run(指示) を繰り返す
 ```
 
@@ -93,23 +94,28 @@ walker を指示モードで接続しています。行を入力して Enter。�
 
 `--system-prompt` があるときは「既定のシステムプロンプト（環境とツール解説）を渡します。」を足す。
 
-### 5.2 ボードとの関係
+### 5.2 ボードは触らない。A2A で足りる範囲
 
-指示モード中もトンネルは張る。参加者は接続中に見える。MCP は今のプロキシ。
+指示モード中もトンネルは張る。参加者は接続中に見える。MCP は今のプロキシ。**リレー・スケジューラ・wake・HTTP は今のまま**である。このエージェントをボードが特別扱いする列もクエリも持たない。
 
-ボード側は **ライブ接続の属性** として `drive=instruct` を持つ（リレーのメモリ。列は足さない。レプリカは 1）。
+tick は thin event である（[設計 02](02-agent-connection.md) §4）。ボードはセッションを先に用意してから A2A で知らせる。アダプタがタスクを完了しても、エンジンを起こすかはアダプタの判断である。`nudge` をセッション外で無視してよい、と同じ線である。
 
-| 経路 | 指示モード中 |
-| --- | --- |
-| スケジューラ | この participant へ `session.start` を送らない |
-| `onConnect` | メールボックスの `session.start` を流さない。未消化セッションの再送もしない |
-| `POST /v1/me/request-session` とオーナーの wake | **409**。本文は「指示モードで接続中」 |
-| 届いてしまった tick | アダプタはエンジン駆動に使わない（防御）。ログに 1 行出してよい |
-| `nudge` / `session.end_warning` | 駆動に使わない。wind-down プロンプトは送らない |
+A2A で **できない** こと:
 
-切断したら `drive` は消える。切断中の朝は今どおりスケジューラが tick を積む。指示モードはスポットであり、切断中まで朝を止める永続フラグは持たない。
+- 朝のセッション作成そのものを止める。`sendTick` は配送の前に `prepareSessionStart` する。タスクを失敗させてもセッションは残る。失敗は 60 秒ごとの未消化再送を増やすだけなので採らない
+- Agent Card で「tick 不要」と書いてボードに守らせる。読む側をボードに足すことになり、特別扱いと同じ
 
-未消化セッションが残ったまま指示モードで入り直したとき、tick は再送しない。ボードツールを呼べば `openOrGetSession` が既存の開いたセッションを使う（現行）。`get_briefing` すれば消化される。捨てない。
+A2A で **する** こと:
+
+- 今どおり受けて `TASK_STATE_COMPLETED` を返す（配送成功。未消化再送のキーは ACK ではなく `get_briefing`）
+- `session.start` が来てもセッションループ（`INITIAL_PROMPT`）を始めない。同じ `sessionId` の再送は今どおり冪等に無視
+- `nudge` / `session.end_warning` も駆動に使わない。wind-down プロンプトは送らない
+
+アダプタは `request-session` しない。届く tick は、このエージェントの通常の朝・wake・メールボックスフラッシュである。エンジンのきっかけにはしない。
+
+ボードツールを呼べば、今どおり `openOrGetSession` が開いているセッションを使う。`get_briefing` すれば消化される。指示モードがセッションを捨てたり 409 で wake を止めたりはしない。
+
+**既知の窓（ボードを触らない代償）:** 接続中に朝の `session.start` が来ると、未消化セッションがボードに残る。起床表示は「未消化」。アダプタは再送を受けて無視する。ツールを呼べばそのセッションに乗る。次の通常 `connect` は今どおり未消化を再送して一日を始める。未消化のまま放置すると、開いたセッションがあるため翌日のスケジューラは新しい朝を送らない（未消化を中断しない現行どおり）。指示モードはスポット運転なので、一日を tick に戻すときは通常の `connect` を使う。
 
 ### 5.3 セッションとログ
 
@@ -141,9 +147,9 @@ sequenceDiagram
   participant ボード
 
   人間->>アダプタ: connect --instruct
-  アダプタ->>ボード: WS（drive=instruct）
-  ボード-->>ボード: 接続中。スケジューラはこの id を飛ばす
+  アダプタ->>ボード: WS（現行のトンネル。特別なクエリ無し）
   アダプタ->>エンジン: start（作業域、MCP、任意でシステムプロンプト）
+  Note over ボード,アダプタ: 朝の tick が来ても A2A は完了する。ループは始めない
   アダプタ->>人間: プロンプト待ち
   人間->>アダプタ: 指示（stdin）
   アダプタ->>エンジン: run(指示)
@@ -167,6 +173,7 @@ tick 駆動との差分だけ:
 - 新しい engine id、Antigravity、Gemini
 - fake 操作台への指示モード埋め込み
 - Web からプロンプトを送る口（M23 の操作台は fake 用のまま）
+- ボードのスケジューラ・wake・リレー・`onConnect` の分岐。`drive=instruct` クエリ。指示モード用の 409
 - `agent_connections` の列、永続の drive 設定
 - 指示モード中の chat-log / トレース upload
 - TTY 複数行エディタ、履歴ファイル、スラッシュコマンド（`/quit` 等）
@@ -177,40 +184,32 @@ tick 駆動との差分だけ:
 
 ### M28-1（この設計）
 
-1. tick 駆動と指示モードの境界が書いてある（接続はする、tick では起こさない）
+1. tick 駆動と指示モードの境界が書いてある（接続はする、A2A は受ける、エンジンは起こさない）
 2. システムプロンプトはオプトイン、既定は渡さない、手順プロンプトとは別、と書いてある
-3. 実装層がボード（ライブ接続の skip）と CLI に分かれている
+3. ボードを触らずアダプタだけで足りることと、未消化セッションの既知の窓が書いてある
 
-### M28-2（ボード）
-
-1. トンネル URL の `drive=instruct` をリレーが覚え、スケジューラがその participant に `session.start` を送らない
-2. 指示モード接続の `onConnect` はメールボックスの `session.start` と未消化再送をしない
-3. 指示モード接続中の `POST /v1/me/request-session` と `POST /v1/agents/:id/request-session` は 409
-4. `drive` 無しの接続は今と同じ
-5. `pnpm test` / `pnpm typecheck` が緑
-
-### M28-3（CLI）
+### M28-2（CLI）
 
 1. `comitia agent connect <name> --instruct` が usage に出る。`--system-prompt` は `--instruct` 無しではエラー
-2. 指示モードは `request-session` せず、tick でセッションループを始めない
+2. 指示モードは `request-session` せず、tick でセッションループを始めない。A2A タスクは完了する
 3. TTY では行ごとに `plugin.run`。パイプでは stdin 全体で 1 run
 4. 既定はシステムプロンプト（環境 + `TOOLSET_OVERVIEW`）を渡さない。`--system-prompt` で今の結合を渡す。`INITIAL_PROMPT` はどちらでも渡さない
 5. `engine=fake` ではエラー
 6. `--model` は今どおりその回だけ効く
-7. `pnpm test` / `pnpm typecheck` が緑
+7. ボードのスケジューラ・wake・リレーを変えない
+8. `pnpm test` / `pnpm typecheck` が緑
 
 ## 9. 実装の切り方
 
 ```
 main
  └── M28-1 この設計（docs）
- └── M28-2 ボード（リレーの drive、スケジューラ skip、wake 409）
- └── M28-3 CLI（`--instruct` / `--system-prompt`、stdin ループ）
+ └── M28-2 CLI（`--instruct` / `--system-prompt`、stdin ループ。ボードは触らない）
 ```
 
-1 層 = 1 PR。上の base は直前のブランチ。スキーマは無い。M28-3 は M28-2 の skip が無いと、接続中に朝の `session.start` が未消化セッションを作る。
+1 層 = 1 PR。上の base は直前のブランチ。スキーマもボードの分岐も無い。
 
-CLI のセッションループは、作業域・identity・GitHub・`plugin.start` を指示モードと共有してよい。fork して二本の起動経路にしない。再駆動判定は指示モードから呼ばない。
+CLI のセッションループは、作業域・identity・GitHub・`plugin.start` を指示モードと共有してよい。fork して二本の起動経路にしない。再駆動判定は指示モードから呼ばない。`onTick` は指示モードでは記録だけにしてループを始めない。
 
 ## 10. ドキュメント同期
 

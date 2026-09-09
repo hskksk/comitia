@@ -100,9 +100,8 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M27-1** | 性格の例と設定面の設計 | パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない |
 | **M27-2** | CLI | `personality list` / `show`、`agent show`。例の正本を shared へ寄せる |
 | **M27-3** | Web | 例の本文、`/settings/agents/:id` での表示と変更 |
-| **M28-1** | connect 指示モードの設計 | tick ではなく stdin で `run`。システムプロンプトはオプトイン（既定は渡さない） |
-| **M28-2** | ボード | 指示モード接続中はスケジューラと wake が `session.start` を積まない |
-| **M28-3** | CLI | `connect --instruct` / `--system-prompt`。fake とは混ぜない |
+| **M28-1** | connect 指示モードの設計 | tick ではなく stdin で `run`。システムプロンプトはオプトイン（既定は渡さない）。ボードは触らない |
+| **M28-2** | CLI | `connect --instruct` / `--system-prompt`。A2A は受けるがループは始めない。fake とは混ぜない |
 
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
