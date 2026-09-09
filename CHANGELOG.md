@@ -1,3 +1,10 @@
+# [0.12.0](https://github.com/hskksk/comitia/compare/v0.11.0...v0.12.0) (2026-09-09)
+
+
+### Features
+
+* **M27-2:** 性格の例とエージェント設定を CLI で読めるようにする ([#140](https://github.com/hskksk/comitia/issues/140)) ([829eb32](https://github.com/hskksk/comitia/commit/829eb328f0e6326adaf1685507ec0d20f6009c25)), closes [#141](https://github.com/hskksk/comitia/issues/141)
+
 # [0.11.0](https://github.com/hskksk/comitia/compare/v0.10.0...v0.11.0) (2026-09-09)
 
 
