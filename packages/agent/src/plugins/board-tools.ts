@@ -148,7 +148,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "search_threads",
     summary: "プロジェクト内のスレッドを探す",
     description:
-      "既存の議題を探す。create_thread の重複検索の前に使う。textQuery と状態で絞れる。所属が複数なら project_id か先に use_project。",
+      "既存の議題を探す。create_thread の重複検索の前に使う。textQuery・状態・type・対象・共有物 kind で絞れる。各行に対象・合意種類・作業局面が付く。投稿本文は載せない。所属が複数なら project_id か先に use_project。",
     fields: [
       {
         name: "project_id",
@@ -171,6 +171,31 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
         kind: "enum",
         enumValues: THREAD_STATES,
         enumLabels: THREAD_STATE_LABELS,
+      },
+      {
+        name: "type",
+        description: "相談・提案などの箱の種類で絞る。空なら種類を問わない。",
+        required: false,
+        kind: "enum",
+        enumValues: THREAD_TYPES,
+        enumLabels: THREAD_TYPE_LABELS,
+      },
+      {
+        name: "target",
+        description: "提案の対象。repo_artifact か shared_artifact。空なら対象を問わない。",
+        required: false,
+        kind: "enum",
+        enumValues: PROPOSAL_TARGETS,
+        enumLabels: PROPOSAL_TARGET_LABELS,
+      },
+      {
+        name: "sharedArtifactKind",
+        description:
+          "共有物の種類で絞る。採用済みルールのスレッドを当てるときに使う。",
+        required: false,
+        kind: "enum",
+        enumValues: SHARED_ARTIFACT_KINDS,
+        enumLabels: SHARED_ARTIFACT_KIND_LABELS,
       },
     ],
   },
@@ -248,7 +273,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "read_thread",
     summary: "スレッドの議論を読む",
     description:
-      "指定スレッドの内容。最新の争点要約と候補提案の版、リンク済みの具体物を付けて返すので、全投稿を追わなくてよい。投稿や宣言の前に現状を取る。",
+      "指定スレッドの内容。対象・共有物 kind・合意種類・全提案版・着手・投稿者の表示名を付ける。最新の争点要約と候補提案の版、リンク済みの具体物もあるので、全投稿を追わなくてよい。投稿や宣言の前に現状を取る。",
     fields: [
       {
         name: "thread_id",

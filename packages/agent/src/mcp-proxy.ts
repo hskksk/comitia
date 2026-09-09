@@ -140,11 +140,15 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   server.registerTool(
     "search_threads",
     {
-      description: "プロジェクト内のスレッドを検索する",
+      description:
+        "プロジェクト内のスレッドを探す。対象・kind・合意種類・作業局面が付く。共有物スレッドは sharedArtifactKind で絞れる。投稿本文は載せない",
       inputSchema: {
         project_id: z.string().uuid().optional(),
         textQuery: z.string().optional(),
         state: z.enum(THREAD_STATES).optional(),
+        type: z.enum(THREAD_TYPES).optional(),
+        target: z.enum(PROPOSAL_TARGETS).optional(),
+        sharedArtifactKind: z.enum(SHARED_ARTIFACT_KINDS).optional(),
       },
     },
     async (args) =>
@@ -196,7 +200,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
   server.registerTool(
     "read_thread",
     {
-      description: "スレッド内容を読む",
+      description: "スレッド内容を読む。対象・kind・合意種類・全提案・着手・投稿者の表示名を含む",
       inputSchema: {
         thread_id: z.string().uuid(),
       },

@@ -6,7 +6,7 @@ import { computeRemaining } from "./activity.js";
 import { searchAgreements } from "./agreements.js";
 import { getBriefingSharedArtifacts, getProjectSetup } from "./constitution.js";
 import { getParticipant, getProject } from "./helpers.js";
-import { listProjectParticipants } from "./human-ops.js";
+import { listProjectParticipants, type ConnectionStatus } from "./human-ops.js";
 import { listMembershipsForParticipant, resolveUniqueMembershipProjectId } from "./memberships.js";
 import {
   getLatestPreviousHandover,
@@ -53,6 +53,33 @@ function withPullRequests<T extends { id: string }>(
   }));
 }
 
+type BriefingParticipant = {
+  id: string;
+  displayName: string;
+  roles: string[];
+  kind: string;
+  personality?: string;
+  engine: string | null;
+  connection: { status: ConnectionStatus } | null;
+};
+
+function toBriefingParticipant(
+  row: Awaited<ReturnType<typeof listProjectParticipants>>[number],
+): BriefingParticipant {
+  const isAgent = row.kind === "agent";
+  return {
+    id: row.id,
+    displayName: row.label,
+    roles: row.roles,
+    kind: row.kind,
+    ...(isAgent && row.personality ? { personality: row.personality } : {}),
+    engine: isAgent ? row.engine : null,
+    connection: isAgent
+      ? { status: row.connection?.status ?? "never" }
+      : null,
+  };
+}
+
 function withWorkPhase<
   T extends {
     id: string;
@@ -89,11 +116,7 @@ export type ProjectBriefingSlice = {
     open_threads: BriefingThreadRow[];
     work_claims: Awaited<ReturnType<typeof listActiveProjectClaims>>;
     unclaimed_decided: Awaited<ReturnType<typeof listUnclaimedDecidedImplementations>>;
-    participants: Array<{
-      displayName: string;
-      roles: string[];
-      kind: string;
-    }>;
+    participants: Array<BriefingParticipant>;
     gates: {
       conflict_citations_required: boolean;
       setup: Awaited<ReturnType<typeof getProjectSetup>>;
@@ -184,11 +207,7 @@ async function loadProjectSlice(
       open_threads: openThreads,
       work_claims: workClaims,
       unclaimed_decided: unclaimedDecided,
-      participants: participants.map((row) => ({
-        displayName: row.label,
-        roles: row.roles,
-        kind: row.kind,
-      })),
+      participants: participants.map(toBriefingParticipant),
       gates: {
         conflict_citations_required: bindingAgreements.length > 0,
         setup,
