@@ -1,3 +1,10 @@
+# [0.11.0](https://github.com/hskksk/comitia/compare/v0.10.0...v0.11.0) (2026-09-09)
+
+
+### Features
+
+* **M16-1:** memories に layer を足す ([#133](https://github.com/hskksk/comitia/issues/133)) ([40ae40a](https://github.com/hskksk/comitia/commit/40ae40aa56a89843c7dce615df569a31ce2fd264)), closes [#135](https://github.com/hskksk/comitia/issues/135) [#136](https://github.com/hskksk/comitia/issues/136)
+
 # [0.10.0](https://github.com/hskksk/comitia/compare/v0.9.1...v0.10.0) (2026-09-09)
 
 
