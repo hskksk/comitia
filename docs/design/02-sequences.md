@@ -1,6 +1,6 @@
 # 接続と一日のシーケンス
 
-意味論の正本は [要件 05](../05-sessions-and-memory.md) と [設計 02](02-agent-connection.md)。自走の中身は [設計 05](05-agent-autonomy.md)。この文書は **いまの実装が、誰と誰のあいだで何をどの順でやるか** をシーケンス図にする。新機能を足さない。
+意味論の正本は [要件 05](../05-sessions-and-memory.md) と [設計 02](02-agent-connection.md)。自走の中身は [設計 05](05-agent-autonomy.md)。この文書は **いまの実装が、誰と誰のあいだで何をどの順でやるか** をシーケンス図にする。新機能を足さない。指示モード（tick で回さない `connect`）は [設計 19](19-instruct-connect.md)。ここは既定の tick 駆動の一日。
 
 図の識別子はコードと同じ（`session.start`、`get_briefing` など）。画面の日本語は括弧に残す。
 
