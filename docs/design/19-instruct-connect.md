@@ -148,36 +148,136 @@ tick 駆動は `environmentPrompt` を今どおり必ず渡す。bay-engine の 
 
 `runSessionLoop` は一日のループのまま残す。指示モードはそれを呼ばない。起動シーケンスを共通の「プロンプトソース」に再設計しない。
 
-## 6. シーケンス（指示モード）
+## 6. 一日の流れ（指示モード）
 
-既定の一日は [設計 02 のシーケンス](02-sequences.md) のまま。こちらは例外経路。
+既定の一日の正本は [設計 02 のシーケンス](02-sequences.md)。登録、tick の配管、ヘルス ping、切断の WS 処理は同じなので複製しない。**変わるのは、何がエンジンを起こし、何が一日を閉じるか** である。
+
+| | tick 駆動（02-sequences） | 指示モード |
+| --- | --- | --- |
+| 接続直後 | 1.5 秒待ち、無ければ `request-session` | 待たない。`request-session` しない |
+| エンジン start | `session.start` のあと | 接続のあと、最初の指示の前 |
+| 最初の `run` | `INITIAL_PROMPT` | 人間の 1 行 |
+| 次の `run` | 再駆動 / 終了作業プロンプト | 次の 1 行 |
+| ボードのセッション | tick が行を開く。`get_briefing` が消化 | ツールを呼ぶまで無いこともある。呼べば `openOrGetSession` |
+| 終わり | `end_session` のあと、WS は張ったまま次の朝を待つ | EOF / Ctrl-C で切断。アダプタは `end_session` しない |
+| アダプタ → ボードのログ | chat-log / trace / token-usage | `sessionId` が無いので POST しない |
+
+### 6.1 接続（tick を待たない）
+
+[02-sequences §4](02-sequences.md) との差分: メールボックスと未消化の再送はボードが今どおりやる。アダプタは `session.start` を受けてもループを始めない。1.5 秒待ちと `request-session` が無い。
 
 ```mermaid
 sequenceDiagram
+  autonumber
+  actor 人間
+  participant アダプタ
+  participant A2A as ローカル A2A
+  participant ボード
+
+  人間->>アダプタ: comitia agent connect mika --instruct
+  アダプタ->>A2A: 127.0.0.1 に A2A サーバ
+  アダプタ->>ボード: WS /tunnel?agentId&token
+  ボード->>ボード: connections.status = connected
+  ボード->>ボード: メールボックスを配送
+  opt 未消化セッションがある
+    ボード-->>A2A: A2A タスク session.start
+    A2A-->>アダプタ: onTick
+    Note over アダプタ: runSessionLoop を呼ばない
+  end
+  Note over アダプタ: 1.5 秒待ちも request-session もしない
+  アダプタ->>アダプタ: 作業域・資格の準備（§6.2）
+  アダプタ->>人間: プロンプト待ち
+```
+
+### 6.2 指示の run（セッションループの代わり）
+
+朝の材料取り（`GET /v1/me`、GitHub 資格、clone）は tick 駆動の [§6.1](02-sequences.md) と同じヘルサを、**接続直後**に一度やる。きっかけが `session.start` ではない。
+
+```mermaid
+sequenceDiagram
+  autonumber
   actor 人間
   participant アダプタ
   participant エンジン
   participant ボード
 
-  人間->>アダプタ: connect --instruct
-  アダプタ->>ボード: WS（現行のトンネル。特別なクエリ無し）
-  アダプタ->>エンジン: start（作業域、MCP、任意でシステムプロンプト）
-  Note over ボード,アダプタ: 朝の tick が来ても A2A は完了する。ループは始めない
-  アダプタ->>人間: プロンプト待ち
-  人間->>アダプタ: 指示（stdin）
-  アダプタ->>エンジン: run(指示)
-  エンジン->>ボード: ツール（任意。呼べばセッションが開く）
-  エンジン-->>アダプタ: 出力（TTY）
-  人間->>アダプタ: 次の指示 / Ctrl-D
-  アダプタ->>ボード: 切断
+  アダプタ->>ボード: GET /v1/me
+  アダプタ->>ボード: POST /v1/me/github-credentials
+  opt repoUrl がある
+    アダプタ->>アダプタ: 作業ディレクトリへ clone / pull
+  end
+  alt --system-prompt あり
+    アダプタ->>エンジン: start（隔離作業域、MCP、環境 + TOOLSET_OVERVIEW）
+  else 既定
+    アダプタ->>エンジン: start（隔離作業域、MCP、システムプロンプト空）
+  end
+
+  loop EOF まで
+    人間->>アダプタ: 1 行
+    アダプタ->>エンジン: run（その行。INITIAL_PROMPT ではない）
+    opt エンジンがツールを呼ぶ
+      エンジン->>ボード: MCP → POST /v1/tools/…
+      ボード->>ボード: 開いたセッションが無ければ openOrGetSession
+      opt それが get_briefing
+        ボード->>ボード: セッションを消化（briefingAt）
+      end
+      ボード-->>エンジン: 結果 + remaining_budget
+    end
+    エンジン-->>アダプタ: run 終了（TTY に出力）
+    Note over アダプタ: 継続判定も再駆動も token-usage POST もしない
+  end
 ```
 
-tick 駆動との差分だけ:
+プロンプトが `get_briefing` → `set_goals` を要求するのは tick 駆動の `INITIAL_PROMPT` だけである。指示モードの既定では、エンジンは人間の行と MCP のツール定義だけを見る。作法どおり一日を回したいときは、人間がそう書くか `--system-prompt` を付ける。
 
-- `request-session` が無い
-- `INITIAL_PROMPT` が無い
-- 再駆動判定が無い
-- 人間の入力が run の唯一のきっかけ
+### 6.3 接続中に朝の tick が来たとき
+
+ボードのスケジューラと wake は今どおり `session.start` を送る（[02-sequences §7](02-sequences.md)）。アダプタは A2A を完了し、エンジンは起こさない。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant スケジューラ
+  participant ボード
+  participant A2A as ローカル A2A
+  participant アダプタ
+  participant エンジン
+
+  Note over アダプタ,エンジン: 指示待ち、または指示の run 中
+  スケジューラ->>ボード: sendTick(session.start)
+  ボード->>ボード: セッション行を開く（briefingAt は空）
+  ボード-->>A2A: A2A タスク session.start
+  A2A-->>アダプタ: onTick
+  Note over アダプタ: runSessionLoop を呼ばない。INITIAL_PROMPT を渡さない
+  opt このあとエンジンがツールを呼ぶ
+    エンジン->>ボード: ツール
+    Note over ボード: いま開いた未消化セッションに乗る
+  end
+```
+
+未消化のまま指示モードを切ると、翌日のスケジューラは開いたセッションを見て新しい朝を送らない。次の通常 `connect` は未消化を再送して一日を始める。
+
+### 6.4 終わり方
+
+tick 駆動は `end_session` のあと WS を張ったまま眠る。[02-sequences §2](02-sequences.md) の「接続中 → セッション中 → 接続中」に戻らない。指示モードの終わりは切断である。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor 人間
+  participant アダプタ
+  participant エンジン
+  participant ボード
+
+  alt EOF（Ctrl-D）または Ctrl-C
+    人間->>アダプタ: 終了
+  end
+  アダプタ->>エンジン: stop
+  アダプタ->>ボード: WS close
+  ボード->>ボード: connections.status = disconnected
+  Note over ボード: 開いているセッションは閉じない（切断と同じ）
+  Note over アダプタ: end_session は呼ばない。人間が指示したときだけエンジンが呼ぶ
+```
 
 ## 7. 触らないもの
 
@@ -204,6 +304,7 @@ tick 駆動との差分だけ:
 1. tick 駆動と指示モードの境界が書いてある（接続はする、A2A は受ける、エンジンは起こさない）
 2. システムプロンプトはオプトイン、既定は渡さない、手順プロンプトとは別、と書いてある
 3. ボードを触らず、セッションループも一般化せず、アダプタの connect に足すだけで足りること。未消化セッションの既知の窓
+4. 指示モードの一日（接続・run・朝の tick・終わり方）のシーケンスがある。02-sequences の複製ではない
 
 ### M28-2（CLI）
 

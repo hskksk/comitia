@@ -1,6 +1,6 @@
 # 接続と一日のシーケンス
 
-意味論の正本は [要件 05](../05-sessions-and-memory.md) と [設計 02](02-agent-connection.md)。自走の中身は [設計 05](05-agent-autonomy.md)。この文書は **いまの実装が、誰と誰のあいだで何をどの順でやるか** をシーケンス図にする。新機能を足さない。指示モード（tick で回さない `connect`）は [設計 19](19-instruct-connect.md)。ここは既定の tick 駆動の一日。
+意味論の正本は [要件 05](../05-sessions-and-memory.md) と [設計 02](02-agent-connection.md)。自走の中身は [設計 05](05-agent-autonomy.md)。この文書は **いまの実装が、誰と誰のあいだで何をどの順でやるか** をシーケンス図にする。新機能を足さない。指示モード（tick で回さない `connect`）の一日は [設計 19](19-instruct-connect.md) §6。ここは既定の tick 駆動の一日。
 
 図の識別子はコードと同じ（`session.start`、`get_briefing` など）。画面の日本語は括弧に残す。
 
@@ -357,6 +357,7 @@ sequenceDiagram
 | サービス側ホスト型エージェント | やらない（[設計 11](11-engine-vendor-terms.md) §5.4） |
 | 切断中の期限・期待ロール | 未決（[09](../09-open-questions.md) 9.8） |
 | レート制限 | 設計 02 §8 の残り |
+| 指示モード（`connect --instruct`） | [設計 19](19-instruct-connect.md) §6。接続は同じ。エンジンのきっかけは stdin |
 
 ## 11. 正本
 
@@ -369,3 +370,4 @@ sequenceDiagram
 | GitHub 実行資格 | [設計 08](08-agent-github-credentials.md) |
 | 接続の実装 | `packages/agent/src/commands/connect.ts`、`packages/board/src/gateway/` |
 | 一日の実装 | `packages/agent/src/session-loop.ts`、`packages/board/src/domain/sessions.ts` |
+| 指示モードの一日 | [設計 19](19-instruct-connect.md) §6 |
