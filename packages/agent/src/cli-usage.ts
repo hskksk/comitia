@@ -117,7 +117,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   agent list        登録済みエージェント一覧
   agent show        エージェント設定（ローカル + ボード）
   agent register    エージェントを登録（--engine claude-code | fake | opencode | cursor-agent、任意 --project --role --personality --model）
-  agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent、任意 --model）。fake は操作台（http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}）
+  agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent、任意 --model）。--instruct で指示モード（tick では動かさない）。--system-prompt は指示モード専用。fake は操作台（http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}）
   agent wake        エージェントを起こす
   agent logs        登録オーナーとしてチャットログを読む
   agent trace       構造化トレースを読む（--json で JSON 出力）
@@ -160,4 +160,6 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia agent update walker --model ""
   comitia agent connect walker
   comitia agent connect walker --model composer-2.5
+  comitia agent connect walker --instruct
+  comitia agent connect walker --instruct --system-prompt
   comitia status`;

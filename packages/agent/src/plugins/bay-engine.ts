@@ -19,6 +19,13 @@ const RM_OPTS = {
   retryDelay: 100,
 } as const;
 
+export function bayInstructions(environmentPrompt?: string): string {
+  const environment = environmentPrompt ?? "";
+  return environment
+    ? joinSystemPrompt(environment, TOOLSET_OVERVIEW)
+    : "";
+}
+
 export function githubAuthToExtraEnv(
   auth: EngineGithubAuth | null | undefined,
 ): Record<string, string> {
@@ -114,9 +121,7 @@ export function createBayEnginePlugin(options: {
         hostEnv: options.hostEnv,
         hostHome: options.hostHome,
         model: options.model,
-        instructions: environmentPrompt
-          ? joinSystemPrompt(environmentPrompt, TOOLSET_OVERVIEW)
-          : TOOLSET_OVERVIEW,
+        instructions: bayInstructions(environmentPrompt),
         mcp: {
           command: session.mcp.command,
           args: [...session.mcp.args, mcpEntrypoint],
