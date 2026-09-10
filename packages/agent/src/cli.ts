@@ -6,6 +6,7 @@ import { agentTraceCommand } from "./commands/agent-trace.js";
 import { agentListCommand } from "./commands/agent-list.js";
 import { agentShowCommand } from "./commands/agent-show.js";
 import { connectCommand } from "./commands/connect.js";
+import { instructConnectBanner } from "./instruct-loop.js";
 import {
   personalityListCommand,
   personalityShowCommand,
@@ -88,6 +89,8 @@ type ParsedCommand =
       command: "agent-connect";
       name: string;
       model?: string;
+      instruct: boolean;
+      systemPrompt: boolean;
     }
   | {
       command: "agent-wake";
@@ -254,28 +257,51 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     };
   }
   if (args[0] === "agent" && args[1] === "connect") {
-    const usage = "Usage: comitia agent connect <name> [--model <id>]";
+    const usage =
+      "Usage: comitia agent connect <name> [--model <id>] [--instruct] [--system-prompt]";
     if (!args[2] || args[2].startsWith("-")) {
       throw new UsageError(usage);
     }
     const name = args[2];
     const rest = args.slice(3);
-    if (rest.length === 0) {
-      return { command: "agent-connect", name };
-    }
-    let options: Map<string, string>;
-    try {
-      options = parseOptions(rest);
-    } catch {
+    let model: string | undefined;
+    let instruct = false;
+    let systemPrompt = false;
+    for (let index = 0; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--help" || token === "-h") {
+        throw new UsageError(USAGE_TEXT);
+      }
+      if (token === "--instruct") {
+        instruct = true;
+        continue;
+      }
+      if (token === "--system-prompt") {
+        systemPrompt = true;
+        continue;
+      }
+      if (token === "--model") {
+        const value = rest[index + 1];
+        if (value === undefined) {
+          throw new UsageError(usage);
+        }
+        model = value;
+        index += 1;
+        continue;
+      }
       throw new UsageError(usage);
     }
-    if (![...options.keys()].every((key) => key === "model")) {
-      throw new UsageError(usage);
+    if (systemPrompt && !instruct) {
+      throw new UsageError(
+        `--system-prompt は --instruct と一緒に使います。\n${usage}`,
+      );
     }
     return {
       command: "agent-connect",
       name,
-      model: options.has("model") ? (options.get("model") ?? "") : undefined,
+      ...(model !== undefined ? { model } : {}),
+      instruct,
+      systemPrompt,
     };
   }
   if (args[0] === "agent" && args[1] === "wake") {
@@ -528,6 +554,11 @@ export async function runCli(
     throw new Error(`Unknown agent: ${command.name}`);
   }
   assertSupportedEngine(agent.engine);
+  if (command.instruct && agent.engine === "fake") {
+    throw new UsageError(
+      "指示モードは fake では使えません。fake は操作台で人間がエンジン役です。",
+    );
+  }
 
   const stdout = options.stdout ?? process.stdout;
   const runtime = createMcpProxyRuntime({
@@ -548,7 +579,9 @@ export async function runCli(
     },
   });
   const consoleUrl = await plugin.ensureConsole?.();
-  if (consoleUrl) {
+  if (command.instruct) {
+    stdout.write(instructConnectBanner(command.name, command.systemPrompt));
+  } else if (consoleUrl) {
     stdout.write(
       `${command.name} を fake エンジンで接続します。操作台: ${consoleUrl}\nブラウザでツールを選べます。Ctrl-C で切断します。\n`,
     );
@@ -566,6 +599,10 @@ export async function runCli(
     name: command.name,
     plugin,
     configDir: options.configDir,
+    instruct: command.instruct,
+    systemPrompt: command.systemPrompt,
+    stdin: process.stdin,
+    stdout,
   });
   if (options.stdout === undefined) {
     let shuttingDown = false;

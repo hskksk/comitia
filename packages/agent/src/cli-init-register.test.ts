@@ -117,6 +117,8 @@ describe("init and agent register commands", () => {
     expect(parseCliArgs(["agent", "connect", "mika"])).toEqual({
       command: "agent-connect",
       name: "mika",
+      instruct: false,
+      systemPrompt: false,
     });
     expect(
       parseCliArgs(["agent", "connect", "mika", "--model", "composer-2.5"]),
@@ -124,6 +126,8 @@ describe("init and agent register commands", () => {
       command: "agent-connect",
       name: "mika",
       model: "composer-2.5",
+      instruct: false,
+      systemPrompt: false,
     });
     expect(
       parseCliArgs(["agent", "connect", "mika", "--model", ""]),
@@ -131,6 +135,33 @@ describe("init and agent register commands", () => {
       command: "agent-connect",
       name: "mika",
       model: "",
+      instruct: false,
+      systemPrompt: false,
+    });
+    expect(
+      parseCliArgs(["agent", "connect", "mika", "--instruct"]),
+    ).toEqual({
+      command: "agent-connect",
+      name: "mika",
+      instruct: true,
+      systemPrompt: false,
+    });
+    expect(
+      parseCliArgs([
+        "agent",
+        "connect",
+        "mika",
+        "--instruct",
+        "--system-prompt",
+        "--model",
+        "composer-2.5",
+      ]),
+    ).toEqual({
+      command: "agent-connect",
+      name: "mika",
+      model: "composer-2.5",
+      instruct: true,
+      systemPrompt: true,
     });
   });
 
@@ -261,11 +292,16 @@ describe("init and agent register commands", () => {
 
   it("rejects missing agent connect name with usage", () => {
     expect(() => parseCliArgs(["agent", "connect"])).toThrow(
-      "Usage: comitia agent connect <name> [--model <id>]",
+      "Usage: comitia agent connect <name> [--model <id>] [--instruct] [--system-prompt]",
     );
     expect(() =>
       parseCliArgs(["agent", "connect", "mika", "--engine", "fake"]),
-    ).toThrow("Usage: comitia agent connect <name> [--model <id>]");
+    ).toThrow(
+      "Usage: comitia agent connect <name> [--model <id>] [--instruct] [--system-prompt]",
+    );
+    expect(() =>
+      parseCliArgs(["agent", "connect", "mika", "--system-prompt"]),
+    ).toThrow("--system-prompt は --instruct と一緒に使います。");
   });
 
   it("rejects unknown subcommands with usage", () => {
@@ -555,6 +591,33 @@ describe("operator commands", () => {
     await tokenCommand({ configDir, stdout, stderr });
     expect(out.join("")).toBe("comt_owner_test\n");
     expect(err.join("")).toContain("秘密");
+  });
+
+  it("rejects connect --instruct when the agent engine is fake", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "comitia-agent-"));
+    cleanups.push(() => rm(configDir, { recursive: true }));
+    await writeFile(
+      join(configDir, "config.json"),
+      `${JSON.stringify(
+        {
+          boardUrl: "http://127.0.0.1:8787",
+          agents: {
+            walker: {
+              agentId: "agent-fake",
+              token: "comt_agent_test",
+              engine: "fake",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+
+    await expect(
+      runCli(["agent", "connect", "walker", "--instruct"], { configDir }),
+    ).rejects.toThrow("指示モードは fake では使えません。fake は操作台で人間がエンジン役です。");
   });
 
   it("prints agent list without tokens", async () => {
