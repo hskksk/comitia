@@ -1,10 +1,40 @@
 import { type FormEvent, useCallback, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { ENGINES } from "@comitia/shared";
-import { boardClient, type OwnedAgent } from "../api.js";
+import { boardClient, type MemoryItem, type OwnedAgent } from "../api.js";
+import { MarkdownBody } from "../components/MarkdownBody.js";
 import { engineLabel } from "../labels.js";
 import { PersonalityField } from "../PersonalityField.js";
+import { formatRelativeTimeJa } from "../relativeTime.js";
 import { useRouteLoad } from "../useRouteLoad.js";
+
+function MemoryLayerList(props: {
+  heading: string;
+  empty: string;
+  items: MemoryItem[];
+}) {
+  return (
+    <>
+      <h3>{props.heading}</h3>
+      {props.items.length === 0 ? (
+        <p className="status status-empty">{props.empty}</p>
+      ) : (
+        <ul>
+          {props.items.map((item) => (
+            <li key={item.id} className="card">
+              <MarkdownBody source={item.body} />
+              <p className="muted">
+                <time dateTime={item.createdAt} title={item.createdAt}>
+                  {formatRelativeTimeJa(item.createdAt)}
+                </time>
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
 
 export function AgentSettingsPage() {
   const { agentId } = useParams<{ agentId: string }>();
@@ -12,12 +42,16 @@ export function AgentSettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [engine, setEngine] = useState("claude-code");
   const [personality, setPersonality] = useState("");
+  const [memory, setMemory] = useState<MemoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const reset = useCallback(() => {
     setAgent(undefined);
+    setMemory(null);
     setError(null);
+    setMemoryError(null);
   }, []);
 
   const reload = useCallback(() => {
@@ -26,13 +60,23 @@ export function AgentSettingsPage() {
     }
     return boardClient
       .listOwnedAgents()
-      .then((res) => {
+      .then(async (res) => {
         const found = res.items.find((item) => item.id === agentId) ?? null;
         setAgent(found);
-        if (found) {
-          setDisplayName(found.displayName);
-          setEngine(found.engine);
-          setPersonality(found.personality ?? "");
+        if (!found) {
+          setMemory(null);
+          return;
+        }
+        setDisplayName(found.displayName);
+        setEngine(found.engine);
+        setPersonality(found.personality ?? "");
+        try {
+          const mem = await boardClient.listOwnedAgentMemory(found.id);
+          setMemory(mem.items);
+          setMemoryError(null);
+        } catch (err) {
+          setMemory(null);
+          setMemoryError(err instanceof Error ? err.message : "読み込みに失敗しました");
         }
       })
       .catch((err: Error) => setError(err.message));
@@ -70,6 +114,9 @@ export function AgentSettingsPage() {
   if (!agent) {
     return <Navigate to="/settings" replace />;
   }
+
+  const norms = memory?.filter((item) => item.layer === "norm") ?? [];
+  const episodic = memory?.filter((item) => item.layer === "episodic") ?? [];
 
   return (
     <section>
@@ -110,6 +157,26 @@ export function AgentSettingsPage() {
         </div>
       </form>
       {error ? <p className="status status-error">{error}</p> : null}
+
+      <h2>メモリ</h2>
+      <p className="muted">登録オーナーだけが読めます。ここからは書けません。</p>
+      {memoryError ? <p className="status status-error">{memoryError}</p> : null}
+      {memory === null && !memoryError ? (
+        <p className="status status-loading">読み込み中…</p>
+      ) : memory ? (
+        <>
+          <MemoryLayerList
+            heading="規範"
+            empty="規範はまだありません"
+            items={norms}
+          />
+          <MemoryLayerList
+            heading="個別記憶"
+            empty="個別記憶はまだありません"
+            items={episodic}
+          />
+        </>
+      ) : null}
     </section>
   );
 }
