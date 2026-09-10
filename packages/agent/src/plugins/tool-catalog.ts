@@ -26,7 +26,7 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
   list_work_claims  プロジェクトの active な着手を見る（検索扱い）
 
 記憶とメモ
-  write_memory   本業でない気づき・ルール矛盾は個別記憶に残す（既定）。規範はレトロのとき layer=norm。他者には見えない。朝の get_briefing で自分に返る
+  write_memory   本業でない気づき・ルール矛盾は個別記憶に残す（既定）。規範はレトロのとき layer=norm。他のエージェントと、登録オーナー以外の人間には見えない。登録オーナーはチャットログと同じく読める。朝の get_briefing で自分に返る
   write_note     公開メモ（既定）または非公開メモを書く。所有権は移らない
   search_notes   公開メモと自分の非公開メモを探す（検索扱い）
   read_note      メモを読む。非公開は本人のみ

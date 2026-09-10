@@ -508,7 +508,139 @@ describe("notes and memory REST", () => {
     const body = (await after.json()) as { items: Array<{ body: string }> };
     expect(body.items.some((item) => item.body === "気づき")).toBe(true);
   });
+});
 
+describe("owned agent memory REST", () => {
+  it("lets the registration owner read active agent memory by layer", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const headers = await ownerAuthHeader(owner.id, project.id);
+    const first = await db
+      .insert(memories)
+      .values({ participantId: agent.id, body: "古い気づき" })
+      .returning();
+    await db
+      .update(memories)
+      .set({ supersededAt: new Date() })
+      .where(eq(memories.id, first[0]!.id));
+    await db.insert(memories).values([
+      { participantId: agent.id, body: "新しい気づき" },
+      { participantId: agent.id, body: "対立する案を残す", layer: "norm" },
+      { participantId: owner.id, body: "人間の記憶" },
+    ]);
+
+    const all = await app.request(`/v1/me/agents/${agent.id}/memory`, {
+      headers,
+    });
+    expect(all.status).toBe(200);
+    const allBody = (await all.json()) as {
+      items: Array<{ body: string; layer: string; supersededAt: string | null }>;
+    };
+    expect(allBody.items.map((item) => item.body)).toEqual([
+      "新しい気づき",
+      "対立する案を残す",
+    ]);
+    expect(allBody.items.every((item) => item.supersededAt === null)).toBe(true);
+
+    const norms = await app.request(
+      `/v1/me/agents/${agent.id}/memory?layer=norm`,
+      { headers },
+    );
+    const normBody = (await norms.json()) as { items: Array<{ body: string }> };
+    expect(normBody.items.map((item) => item.body)).toEqual(["対立する案を残す"]);
+
+    const own = await app.request("/v1/memory", { headers });
+    const ownBody = (await own.json()) as { items: Array<{ body: string }> };
+    expect(ownBody.items.map((item) => item.body)).toEqual(["人間の記憶"]);
+  });
+
+  it("returns 400 for an invalid layer", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    const headers = await ownerAuthHeader(owner.id, project.id);
+    const res = await app.request(
+      `/v1/me/agents/${agent.id}/memory?layer=secret`,
+      { headers },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 403 for another human, including a project member", async () => {
+    const app = createBoardApp({ db });
+    const { owner, agent, project } = await seedOwnerAgentProject(db);
+    await db.insert(memories).values({
+      participantId: agent.id,
+      body: "秘密",
+    });
+    const other = await registerParticipant(db, {
+      kind: "human",
+      displayName: "別の人",
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: other.id,
+    });
+    const otherHeaders = await ownerAuthHeader(other.id, project.id);
+    const res = await app.request(`/v1/me/agents/${agent.id}/memory`, {
+      headers: otherHeaders,
+    });
+    expect(res.status).toBe(403);
+
+    const ownerHeaders = await ownerAuthHeader(owner.id, project.id);
+    const archived = await app.request(`/v1/me/agents/${agent.id}`, {
+      method: "DELETE",
+      headers: ownerHeaders,
+    });
+    expect(archived.status).toBe(204);
+    const afterArchive = await app.request(`/v1/me/agents/${agent.id}/memory`, {
+      headers: ownerHeaders,
+    });
+    expect(afterArchive.status).toBe(404);
+  });
+
+  it("forbids agent tokens and human participant ids", async () => {
+    const app = createBoardApp({ db });
+    const init = await app.request("/v1/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerDisplayName: "ハル",
+        projectName: "comitia",
+      }),
+    });
+    const { ownerToken, ownerId } = (await init.json()) as {
+      ownerToken: string;
+      ownerId: string;
+    };
+    const ownerHeaders = {
+      authorization: `Bearer ${ownerToken}`,
+    };
+    const reg = await app.request("/v1/agents", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...ownerHeaders,
+      },
+      body: JSON.stringify({ displayName: "ミカ", engine: "claude-code" }),
+    });
+    const { agentId, agentToken } = (await reg.json()) as {
+      agentId: string;
+      agentToken: string;
+    };
+
+    const asAgent = await app.request(`/v1/me/agents/${agentId}/memory`, {
+      headers: { authorization: `Bearer ${agentToken}` },
+    });
+    expect(asAgent.status).toBe(403);
+
+    const asHumanId = await app.request(`/v1/me/agents/${ownerId}/memory`, {
+      headers: ownerHeaders,
+    });
+    expect(asHumanId.status).toBe(404);
+  });
+});
+
+describe("notes REST", () => {
   it("creates a public note, searches it, and comments on it", async () => {
     const app = createBoardApp({ db });
     const { owner, project } = await seedOwnerAgentProject(db);

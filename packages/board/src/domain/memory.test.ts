@@ -14,8 +14,10 @@ import { PermissionDenied, NotFoundError, GateViolation } from "./errors.js";
 import {
   isRetroDueForParticipant,
   listActiveMemory,
+  listOwnedAgentMemory,
   writeMemory,
 } from "./memory.js";
+import { archiveOwnedAgent } from "./owned-agents.js";
 
 async function insertEndedSessions(
   participantId: string,
@@ -232,6 +234,67 @@ describe("writeMemory / listActiveMemory", () => {
       .from(participants)
       .where(eq(participants.id, agent.id));
     expect(afterNorm[0]?.normReviewedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("listOwnedAgentMemory", () => {
+  it("returns the owner's agent active rows, not superseded", async () => {
+    const { owner, agent } = await seedOwnerAgentProject(db);
+    const first = await writeMemory(db, {
+      participantId: agent.id,
+      body: "古い気づき",
+    });
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "新しい気づき",
+      supersedeId: first.id,
+    });
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "対立する案を残す",
+      layer: "norm",
+    });
+
+    const items = await listOwnedAgentMemory(db, {
+      actorId: owner.id,
+      agentId: agent.id,
+    });
+    expect(items.map((row) => row.body)).toEqual([
+      "新しい気づき",
+      "対立する案を残す",
+    ]);
+
+    const norms = await listOwnedAgentMemory(db, {
+      actorId: owner.id,
+      agentId: agent.id,
+      layer: "norm",
+    });
+    expect(norms.map((row) => row.body)).toEqual(["対立する案を残す"]);
+  });
+
+  it("rejects a different human", async () => {
+    const { agent } = await seedOwnerAgentProject(db);
+    const other = await registerParticipant(db, {
+      kind: "human",
+      displayName: "別の人",
+    });
+    await writeMemory(db, { participantId: agent.id, body: "秘密" });
+
+    await expect(
+      listOwnedAgentMemory(db, { actorId: other.id, agentId: agent.id }),
+    ).rejects.toThrow(PermissionDenied);
+  });
+
+  it("rejects archived agents and human participants", async () => {
+    const { owner, agent } = await seedOwnerAgentProject(db);
+    await archiveOwnedAgent(db, { actorId: owner.id, agentId: agent.id });
+    await expect(
+      listOwnedAgentMemory(db, { actorId: owner.id, agentId: agent.id }),
+    ).rejects.toThrow(NotFoundError);
+
+    await expect(
+      listOwnedAgentMemory(db, { actorId: owner.id, agentId: owner.id }),
+    ).rejects.toThrow(NotFoundError);
   });
 });
 
