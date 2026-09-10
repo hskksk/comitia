@@ -162,6 +162,7 @@ export type MemoryItem = {
   id: string;
   participantId: string;
   body: string;
+  layer: "episodic" | "norm";
   createdAt: string;
   supersededAt: string | null;
 };
@@ -456,6 +457,12 @@ export class BoardClient {
 
   async listOwnedAgents(): Promise<{ items: OwnedAgent[] }> {
     return this.request("/v1/me/agents");
+  }
+
+  async listOwnedAgentMemory(
+    agentId: string,
+  ): Promise<{ items: MemoryItem[] }> {
+    return this.request(`/v1/me/agents/${agentId}/memory`);
   }
 
   async listIdentityCredentials(): Promise<{ items: IdentityCredential[] }> {

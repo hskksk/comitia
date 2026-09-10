@@ -5,6 +5,7 @@ import { agentLogsCommand } from "./commands/agent-logs.js";
 import { agentTraceCommand } from "./commands/agent-trace.js";
 import { agentListCommand } from "./commands/agent-list.js";
 import { agentShowCommand } from "./commands/agent-show.js";
+import { agentMemoryCommand } from "./commands/agent-memory.js";
 import { connectCommand } from "./commands/connect.js";
 import {
   personalityListCommand,
@@ -31,6 +32,7 @@ import {
   UsageError,
 } from "./cli-usage.js";
 import { loadConfig, normalizeEngineModel } from "./config.js";
+import { MEMORY_LAYERS, type MemoryLayer } from "@comitia/shared";
 import { assertSupportedEngine } from "./engines.js";
 import { createMcpProxyRuntime } from "./mcp-proxy.js";
 import { createEnginePlugin } from "./plugins/create-engine.js";
@@ -65,6 +67,11 @@ type ParsedCommand =
   | {
       command: "agent-show";
       name: string;
+    }
+  | {
+      command: "agent-memory";
+      name: string;
+      layer?: MemoryLayer;
     }
   | { command: "personality-list" }
   | { command: "personality-show"; name: string }
@@ -228,6 +235,31 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       throw new UsageError("Usage: comitia agent show <name>");
     }
     return { command: "agent-show", name: args[2] };
+  }
+  if (args[0] === "agent" && args[1] === "memory") {
+    const usage = "Usage: comitia agent memory <name> [--layer episodic|norm]";
+    if (!args[2] || args[2].startsWith("-")) {
+      throw new UsageError(usage);
+    }
+    const name = args[2];
+    const rest = args.slice(3);
+    if (rest.length === 0) {
+      return { command: "agent-memory", name };
+    }
+    let options: Map<string, string>;
+    try {
+      options = parseOptions(rest);
+    } catch {
+      throw new UsageError(usage);
+    }
+    if (![...options.keys()].every((key) => key === "layer")) {
+      throw new UsageError(usage);
+    }
+    const layer = options.get("layer");
+    if (!layer || !(MEMORY_LAYERS as readonly string[]).includes(layer)) {
+      throw new UsageError(usage);
+    }
+    return { command: "agent-memory", name, layer: layer as MemoryLayer };
   }
   if (args[0] === "personality" && args[1] === "list") {
     if (args.length !== 2) {
@@ -483,6 +515,10 @@ export async function runCli(
   }
   if (command.command === "agent-show") {
     await agentShowCommand({ ...command, ...io });
+    return;
+  }
+  if (command.command === "agent-memory") {
+    await agentMemoryCommand({ ...command, ...io });
     return;
   }
   if (command.command === "personality-list") {
