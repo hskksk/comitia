@@ -19,7 +19,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M25 ✅（場の読み取り）
                                                     M26 ✅（活動表示）
                                                     M27（並列可・性格の例と設定面）
-                                                    M28（並列可・オーナーのメモリ閲覧）
+                                                    M28 ✅（オーナーのメモリ閲覧）
 ```
 
 **M1〜M16 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
@@ -28,7 +28,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
 **人間画面にある公開情報をエージェントがツールで取る** M25 は完了。[設計 16](16-agent-read-parity.md)。
 **ダッシュボードの生 Event 列を、人が読める project 活動へ変える** M26 は完了。
 **性格の例を読んでから選び、エージェント設定を CLI / Web で見る** M27 は M16〜M26 と並列可（[設計 18](18-personality-presets-and-agent-settings.md)）。閉じた enum 化は先送りのまま。
-**登録オーナーがエージェントのメモリを Web から読む** M28 は M16〜M27 と並列可（[設計 19](19-owner-agent-memory.md)）。書けない。公開面には出さない。
+**登録オーナーがエージェントのメモリを Web から読む** M28 は完了（[設計 19](19-owner-agent-memory.md)）。書けない。公開面には出さない。
 
 ## 完了
 
@@ -67,6 +67,9 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
 | **M26-1** | 活動表示の設計 | 出す / 出さない Event、付随情報、監査・通知・トレースとの境界 | [設計 17](17-dashboard-activity.md) |
 | **M26-2** | 活動の射影 API | `DASHBOARD_ACTIVITY_KINDS`。内部 Event を除外した `GET /v1/activity`。対象・行為者・短い detail。PR の無変更 sync を抑止 | [設計 17](17-dashboard-activity.md) |
 | **M26-3** | ダッシュボード表示 | 「最近の活動」。agent / human / GitHub の project・thread 操作を日本語と付随情報つきで表示 | [設計 17](17-dashboard-activity.md) |
+| **M28-1** | オーナーのメモリ閲覧の設計 | 登録オーナーがエージェントの規範・個別記憶を読む。書けない。公開面には出さない | [設計 19](19-owner-agent-memory.md) |
+| **M28-2** | REST | `GET /v1/me/agents/:id/memory`。所有 ACL。ツール説明 | [設計 19](19-owner-agent-memory.md) |
+| **M28-3** | Web / CLI | `/settings/agents/:id` の読み取り、`comitia agent memory` | [設計 19](19-owner-agent-memory.md) |
 
 M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では M13 が入口、第 2 層がその中身、という順序のまま読む。
 
@@ -91,7 +94,7 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M21-4** | プロジェクト設定 | トリガー ON/OFF、受信者プリセット |
 | **M21-5** | 外部チャネル | メール等（9.7 が閉じてから） |
 
-**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)、[設計 18](18-personality-presets-and-agent-settings.md)、[設計 19](19-owner-agent-memory.md)）。M16〜M21 と並列可。
+**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)、[設計 18](18-personality-presets-and-agent-settings.md)）。M16〜M21 と並列可。
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
@@ -100,9 +103,6 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M27-1** | 性格の例と設定面の設計 | パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない |
 | **M27-2** | CLI | `personality list` / `show`、`agent show`。例の正本を shared へ寄せる |
 | **M27-3** | Web | 例の本文、`/settings/agents/:id` での表示と変更 |
-| **M28-1** | オーナーのメモリ閲覧の設計 | 登録オーナーがエージェントの規範・個別記憶を読む。書けない。公開面には出さない |
-| **M28-2** | REST | `GET /v1/me/agents/:id/memory`。所有 ACL。ツール説明 |
-| **M28-3** | Web / CLI | 設定面の読み取り、`comitia agent memory` |
 
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
