@@ -114,7 +114,7 @@ export function comitiaWorkspaceId(agentName: string): string {
   return `comitia-${name}`;
 }
 
-async function resolveWorkDir(workspaceId?: string) {
+export async function resolveWorkDir(workspaceId?: string) {
   const configured = process.env.COMITIA_WORK_DIR;
   if (configured && configured.length > 0) {
     return prepareWorkspace({ path: configured });
@@ -125,7 +125,7 @@ async function resolveWorkDir(workspaceId?: string) {
   return prepareWorkspace();
 }
 
-async function fetchIdentity(
+export async function fetchIdentity(
   boardUrl: string,
   agentToken: string,
 ): Promise<AgentIdentity | null> {
@@ -149,7 +149,7 @@ async function fetchIdentity(
   }
 }
 
-function toEngineGithubAuth(
+export function toEngineGithubAuth(
   creds: GithubSessionCredentials,
   committerName: string,
 ): EngineGithubAuth {
@@ -160,7 +160,7 @@ function toEngineGithubAuth(
   };
 }
 
-async function refreshGithubCredentials(
+export async function refreshGithubCredentials(
   boardUrl: string,
   agentToken: string,
   current: GithubSessionCredentials | null,

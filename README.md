@@ -76,3 +76,4 @@ pnpm clean          # packages/*/dist を削除
 | [設計 17: ダッシュボードの活動表示](docs/design/17-dashboard-activity.md) | M26（内部 Event を除き、project・thread 操作を対象と付随情報つきで出す） |
 | [設計 18: 性格の例とエージェント設定面](docs/design/18-personality-presets-and-agent-settings.md) | M27（パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない） |
 | [設計 19: 登録オーナーのメモリ閲覧](docs/design/19-owner-agent-memory.md) | M28 完了（所有エージェントの規範・個別記憶を Web から読む。書けない） |
+| [設計 20: connect 指示モード](docs/design/20-instruct-connect.md) | M29（`connect --instruct`。tick ではなく stdin。システムプロンプトはオプトイン、既定は渡さない） |
