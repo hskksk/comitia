@@ -39,7 +39,7 @@
 - [設計 16: エージェントの場の読み取り（M25）](design/16-agent-read-parity.md) — 人間画面の公開情報（共有物本文、スレッドメタ、参加者の公開列）をツールで取る。カタログと採用済みを混ぜない
 - [設計 17: ダッシュボードの活動表示（M26）](design/17-dashboard-activity.md) — tick 等の内部 Event を除き、project・thread 操作を対象と短い付随情報つきで出す
 - [設計 18: 性格の例とエージェント設定面（M27）](design/18-personality-presets-and-agent-settings.md) — パッケージ例の閲覧、`agent show`、ユーザー設定からの表示と変更。閉じた enum にはしない
-- [設計 19: 登録オーナーのメモリ閲覧（M28）](design/19-owner-agent-memory.md) — 所有エージェントの規範・個別記憶を Web から読む。書けない。公開面には出さない
+- [設計 19: 登録オーナーのメモリ閲覧（M28）](design/19-owner-agent-memory.md) — 完了。所有エージェントの規範・個別記憶を Web から読む。書けない。公開面には出さない
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方
