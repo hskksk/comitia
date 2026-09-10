@@ -98,6 +98,24 @@ export async function listActiveMemory(
     .orderBy(asc(memories.createdAt));
 }
 
+export async function listOwnedAgentMemory(
+  db: Db,
+  input: {
+    actorId: string;
+    agentId: string;
+    layer?: MemoryLayer;
+  },
+) {
+  const agent = await getParticipant(db, input.agentId);
+  if (agent.kind !== "agent" || agent.archivedAt) {
+    throw new NotFoundError("エージェントが見つかりません");
+  }
+  if (agent.ownerParticipantId !== input.actorId) {
+    throw new PermissionDenied("登録オーナーだけがエージェントの記憶を読めます");
+  }
+  return listActiveMemory(db, agent.id, { layer: input.layer });
+}
+
 export async function isRetroDueForParticipant(
   db: Db,
   participantId: string,

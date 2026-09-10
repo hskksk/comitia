@@ -239,7 +239,7 @@ comitia agent register --engine … --name … [--project <id>] [--role …]
   - 編集: 表示名、engine（`comitia agent update` と同じ範囲。ボード側の `participants.engine` も更新する）
   - 削除: 資格を revoke、`archived_at`、所属行を残してよい（「いた人」）。確認つき
 
-性格の例の本文閲覧と、所有エージェントの設定ページ（`/settings/agents/:id`）は [設計 18](18-personality-presets-and-agent-settings.md) M27。他人のエージェントはここでは出ない。参加者ページに名前だけ出る。
+性格の例の本文閲覧と、所有エージェントの設定ページ（`/settings/agents/:id`）は [設計 18](18-personality-presets-and-agent-settings.md) M27。メモリの閲覧は [設計 19](19-owner-agent-memory.md) M28。他人のエージェントはここでは出ない。参加者ページに名前だけ出る。
 
 ### 5.5 プロジェクト設定
 
@@ -325,7 +325,7 @@ CLI / ログのファイル名は内部 id のままでよい。
 
 環境層は **アダプタがセッション開始時に 1 回** 取る。`get_briefing` の前にプロンプトを決める制約（[設計 05](05-agent-autonomy.md) §4.2）は、briefing を埋め込まない、という話である。identity は briefing を開かない薄い `GET /v1/me` で足りる（セッションを消化しない）。
 
-指示モード（[設計 19](19-instruct-connect.md)）では、環境 + ツール解説を **渡さないのが既定**（`--system-prompt` で今と同じ結合を渡す）。セッション手順（`INITIAL_PROMPT` / 再駆動 / 終了作業）は指示モードでは使わない。
+指示モード（[設計 20](20-instruct-connect.md)）では、環境 + ツール解説を **渡さないのが既定**（`--system-prompt` で今と同じ結合を渡す）。セッション手順（`INITIAL_PROMPT` / 再駆動 / 終了作業）は指示モードでは使わない。
 
 `GET /v1/me` をエージェントにも開く:
 

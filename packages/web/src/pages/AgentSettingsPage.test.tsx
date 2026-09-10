@@ -7,13 +7,26 @@ import { AgentSettingsPage } from "./AgentSettingsPage.js";
 
 const listOwnedAgentsMock = vi.fn();
 const updateOwnedAgentMock = vi.fn();
+const listOwnedAgentMemoryMock = vi.fn();
 
 vi.mock("../api.js", () => ({
   boardClient: {
     listOwnedAgents: (...args: unknown[]) => listOwnedAgentsMock(...args),
     updateOwnedAgent: (...args: unknown[]) => updateOwnedAgentMock(...args),
+    listOwnedAgentMemory: (...args: unknown[]) =>
+      listOwnedAgentMemoryMock(...args),
   },
 }));
+
+function ownedWalker() {
+  return {
+    id: "a1",
+    displayName: "ウォーカー",
+    engine: "fake",
+    personality: "独自の態度",
+    ownerParticipantId: "p1",
+  };
+}
 
 function renderPage(agentId: string) {
   return render(
@@ -34,22 +47,14 @@ describe("AgentSettingsPage", () => {
     cleanup();
     listOwnedAgentsMock.mockReset();
     updateOwnedAgentMock.mockReset();
+    listOwnedAgentMemoryMock.mockReset();
   });
 
   it("shows and saves display name, engine, and personality", async () => {
     const user = userEvent.setup();
     const cautious = PERSONALITY_PRESETS.find((preset) => preset.id === "慎重");
-    listOwnedAgentsMock.mockResolvedValue({
-      items: [
-        {
-          id: "a1",
-          displayName: "ウォーカー",
-          engine: "fake",
-          personality: "独自の態度",
-          ownerParticipantId: "p1",
-        },
-      ],
-    });
+    listOwnedAgentsMock.mockResolvedValue({ items: [ownedWalker()] });
+    listOwnedAgentMemoryMock.mockResolvedValue({ items: [] });
     updateOwnedAgentMock.mockResolvedValue({
       id: "a1",
       displayName: "ウォーカー改",
@@ -63,6 +68,10 @@ describe("AgentSettingsPage", () => {
     expect(screen.getByLabelText("エンジン")).toHaveValue("fake");
     expect(screen.getByLabelText("性格（任意）")).toHaveValue("独自の態度");
     expect(screen.getByText(cautious?.body ?? "")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "メモリ" })).toBeInTheDocument();
+    expect(await screen.findByText("規範はまだありません")).toBeInTheDocument();
+    expect(screen.getByText("個別記憶はまだありません")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "記憶を書く" })).not.toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("表示名"));
     await user.type(screen.getByLabelText("表示名"), "ウォーカー改");
@@ -78,17 +87,8 @@ describe("AgentSettingsPage", () => {
 
   it("clears personality when saved empty", async () => {
     const user = userEvent.setup();
-    listOwnedAgentsMock.mockResolvedValue({
-      items: [
-        {
-          id: "a1",
-          displayName: "ウォーカー",
-          engine: "fake",
-          personality: "独自の態度",
-          ownerParticipantId: "p1",
-        },
-      ],
-    });
+    listOwnedAgentsMock.mockResolvedValue({ items: [ownedWalker()] });
+    listOwnedAgentMemoryMock.mockResolvedValue({ items: [] });
     updateOwnedAgentMock.mockResolvedValue({
       id: "a1",
       displayName: "ウォーカー",
@@ -106,20 +106,42 @@ describe("AgentSettingsPage", () => {
     });
   });
 
-  it("redirects unknown agents to user settings", async () => {
-    listOwnedAgentsMock.mockResolvedValue({
+  it("shows owned agent memories read-only", async () => {
+    listOwnedAgentsMock.mockResolvedValue({ items: [ownedWalker()] });
+    listOwnedAgentMemoryMock.mockResolvedValue({
       items: [
         {
-          id: "a1",
-          displayName: "ウォーカー",
-          engine: "fake",
-          personality: null,
-          ownerParticipantId: "p1",
+          id: "m1",
+          participantId: "a1",
+          body: "対立する案を残す",
+          layer: "norm",
+          createdAt: "2026-09-01T00:00:00.000Z",
+          supersededAt: null,
+        },
+        {
+          id: "m2",
+          participantId: "a1",
+          body: "ルール矛盾に気づいた",
+          layer: "episodic",
+          createdAt: "2026-09-02T00:00:00.000Z",
+          supersededAt: null,
         },
       ],
+    });
+    renderPage("a1");
+    expect(await screen.findByText("対立する案を残す")).toBeInTheDocument();
+    expect(screen.getByText("ルール矛盾に気づいた")).toBeInTheDocument();
+    expect(screen.queryByText("規範はまだありません")).not.toBeInTheDocument();
+    expect(listOwnedAgentMemoryMock).toHaveBeenCalledWith("a1");
+  });
+
+  it("redirects unknown agents to user settings", async () => {
+    listOwnedAgentsMock.mockResolvedValue({
+      items: [ownedWalker()],
     });
     renderPage("someone-else");
     expect(await screen.findByText("ユーザー設定")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "エージェント設定" })).not.toBeInTheDocument();
+    expect(listOwnedAgentMemoryMock).not.toHaveBeenCalled();
   });
 });

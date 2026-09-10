@@ -540,7 +540,7 @@ export const BOARD_TOOLS: BoardToolSpec[] = [
     name: "write_memory",
     summary: "個別記憶を書く（本業でない気づき・矛盾）",
     description:
-      "追記、または supersede_id を指定して同じ層の自分の記憶を置き換える。layer 省略時は個別記憶（episodic）。規範はレトロのとき layer=norm。他者には見えない。朝の get_briefing で自分に返ってくる。",
+      "追記、または supersede_id を指定して同じ層の自分の記憶を置き換える。layer 省略時は個別記憶（episodic）。規範はレトロのとき layer=norm。他のエージェントと、登録オーナー以外の人間には見えない。登録オーナーはチャットログと同じく読める。朝の get_briefing で自分に返ってくる。",
     fields: [
       {
         name: "body",

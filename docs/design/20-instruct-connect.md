@@ -1,10 +1,10 @@
-# 設計 19: connect 指示モード（M28）（たたき台）
+# 設計 20: connect 指示モード（M29）（たたき台）
 
 `comitia agent connect` は、ボードの tick（`session.start`）を待ってセッションループを回す。登録オーナーがターミナルから自分でプロンプトを渡したいときは、そのリズムが邪魔になる。
 
 本設計は要件を足さない。既定の接続モデル（tick 駆動、[04](../04-agents-and-roles.md) 4.8・[設計 02](02-agent-connection.md)）は変えない。アダプタに自前の tick スケジューラは置かない。エンジン id は増やさない。
 
-M16〜M27 と **並列可**。スキーマは足さない。ボードの tick 経路は触らない。**コードは `packages/agent` の connect 経路に足すだけ**にする。セッションループを「プロンプトの出どころ」付きに一般化しない。
+M16〜M28 と **並列可**。スキーマは足さない。ボードの tick 経路は触らない。**コードは `packages/agent` の connect 経路に足すだけ**にする。セッションループを「プロンプトの出どころ」付きに一般化しない。
 
 ## 1. なぜ今か
 
@@ -299,14 +299,14 @@ sequenceDiagram
 
 ## 8. 完了条件
 
-### M28-1（この設計）
+### M29-1（この設計）
 
 1. tick 駆動と指示モードの境界が書いてある（接続はする、A2A は受ける、エンジンは起こさない）
 2. システムプロンプトはオプトイン、既定は渡さない、手順プロンプトとは別、と書いてある
 3. ボードを触らず、セッションループも一般化せず、アダプタの connect に足すだけで足りること。未消化セッションの既知の窓
 4. 指示モードの一日（接続・run・朝の tick・終わり方）のシーケンスがある。02-sequences の複製ではない
 
-### M28-2（CLI）
+### M29-2（CLI）
 
 1. `comitia agent connect <name> --instruct` が usage に出る。`--system-prompt` は `--instruct` 無しではエラー
 2. 指示モードは `request-session` せず、`onTick` が `runSessionLoop` を呼ばない。A2A タスクは今の executor のまま完了する
@@ -321,8 +321,8 @@ sequenceDiagram
 
 ```
 main
- └── M28-1 この設計（docs）
- └── M28-2 CLI（`--instruct` / `--system-prompt`、stdin ループ。ボードは触らない）
+ └── M29-1 この設計（docs）
+ └── M29-2 CLI（`--instruct` / `--system-prompt`、stdin ループ。ボードは触らない）
 ```
 
 1 層 = 1 PR。上の base は直前のブランチ。スキーマもボードの分岐も無い。
@@ -333,8 +333,8 @@ main
 
 この文書を切った時点で直すポインタ:
 
-- [設計 00](00-milestones.md) — M28 を並列の運転 UX として足す
-- [docs/README.md](../README.md)、ルート README — 設計 19 を目次へ
+- [設計 00](00-milestones.md) — M29 を並列の運転 UX として足す
+- [docs/README.md](../README.md)、ルート README — 設計 20 を目次へ
 - [設計 02](02-agent-connection.md) — tick の主導権と CLI 例から本設計へ
 - [設計 02 のシーケンス](02-sequences.md) — 既定経路の文書であることの一行
 - [設計 07](07-accounts-and-shell.md) §6.3 — 指示モードでのシステム層の扱い
