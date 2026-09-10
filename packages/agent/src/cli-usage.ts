@@ -116,6 +116,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   project use       いまのプロジェクトを切替
   agent list        登録済みエージェント一覧
   agent show        エージェント設定（ローカル + ボード）
+  agent memory      登録オーナーとしてメモリを読む
   agent register    エージェントを登録（--engine claude-code | fake | opencode | cursor-agent、任意 --project --role --personality --model）
   agent connect     エージェントを接続（claude-code / fake / opencode / cursor-agent、任意 --model）。fake は操作台（http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}）
   agent wake        エージェントを起こす
@@ -154,6 +155,7 @@ export const USAGE_TEXT = `Comitia — 日常運転 CLI
   comitia personality list
   comitia personality show 慎重
   comitia agent show walker
+  comitia agent memory walker
   comitia agent update walker --personality ./attitude.txt
   comitia agent update walker --personality ""
   comitia agent update walker --model composer-2.5

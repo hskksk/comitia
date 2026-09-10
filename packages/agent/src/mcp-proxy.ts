@@ -315,7 +315,7 @@ function createProxyMcpServer(runtime: McpProxyRuntime): McpServer {
     "write_memory",
     {
       description:
-        "個別記憶を書く（既定は layer=episodic。規範はレトロのとき layer=norm。supersede_id で同じ層の自分の記憶を置き換え）",
+        "個別記憶を書く（既定は layer=episodic。規範はレトロのとき layer=norm。supersede_id で同じ層の自分の記憶を置き換え。他のエージェントと登録オーナー以外の人間には見えない。登録オーナーはチャットログと同じく読める）",
       inputSchema: {
         body: z.string().min(1),
         supersede_id: z.string().uuid().optional(),

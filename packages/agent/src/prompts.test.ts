@@ -64,6 +64,10 @@ describe("TOOLSET_OVERVIEW", () => {
   it("defaults write_memory to episodic and names layer=norm for retro", () => {
     expect(TOOLSET_OVERVIEW).toContain("既定");
     expect(TOOLSET_OVERVIEW).toContain("layer=norm");
+    expect(TOOLSET_OVERVIEW).toContain(
+      "他のエージェントと、登録オーナー以外の人間には見えない",
+    );
+    expect(TOOLSET_OVERVIEW).toContain("登録オーナーはチャットログと同じく読める");
   });
 });
 

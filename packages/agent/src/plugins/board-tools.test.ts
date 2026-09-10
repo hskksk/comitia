@@ -79,6 +79,7 @@ describe("board tool catalog", () => {
     expect(writeMemory).toContain("layer=norm");
     expect(writeMemory).toContain("個別記憶（既定）");
     expect(writeMemory).toContain("規範（レトロ）");
+    expect(writeMemory).toContain("登録オーナーはチャットログと同じく読める");
   });
 });
 

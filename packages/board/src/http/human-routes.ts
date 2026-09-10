@@ -1,5 +1,6 @@
 import {
   AGREEMENT_STATES,
+  MEMORY_LAYERS,
   PROJECT_ID_HEADER,
   declarationPayloadSchema,
   engineDiversitySchema,
@@ -10,6 +11,7 @@ import {
   sharedArtifactKindSchema,
   foundingArtifactInputSchema,
   postTypeSchema,
+  type MemoryLayer,
 } from "@comitia/shared";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -37,7 +39,7 @@ import { addPost } from "../domain/posts.js";
 import { addProposal } from "../domain/proposals.js";
 import { createThread, searchThreads } from "../domain/threads.js";
 import { linkPullRequest, refreshStalePullRequests } from "../domain/pull-requests.js";
-import { listActiveMemory } from "../domain/memory.js";
+import { listActiveMemory, listOwnedAgentMemory } from "../domain/memory.js";
 import { maybeFinalizeUnanimous } from "../domain/timed-consensus.js";
 import { commentNote, readNote, searchNotes, writeNote } from "../domain/notes.js";
 import { claimWork, releaseWork } from "../domain/work-claims.js";
@@ -234,6 +236,40 @@ export function registerHumanRoutes(
         agentId: c.req.param("agentId"),
       });
       return c.body(null, 204);
+    } catch (error) {
+      const mapped = jsonErrorStatus(error);
+      if (mapped) {
+        return c.json({ error: mapped.message }, mapped.status);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/v1/me/agents/:agentId/memory", auth, human, async (c) => {
+    const layerRaw = c.req.query("layer");
+    let layer: MemoryLayer | undefined;
+    if (layerRaw) {
+      if (!(MEMORY_LAYERS as readonly string[]).includes(layerRaw)) {
+        return c.json({ error: "layer は episodic または norm です" }, 400);
+      }
+      layer = layerRaw as MemoryLayer;
+    }
+    try {
+      const items = await listOwnedAgentMemory(db, {
+        actorId: c.get("participant").id,
+        agentId: c.req.param("agentId"),
+        layer,
+      });
+      return c.json({
+        items: items.map((row) => ({
+          id: row.id,
+          participantId: row.participantId,
+          body: row.body,
+          layer: row.layer,
+          createdAt: row.createdAt.toISOString(),
+          supersededAt: row.supersededAt ? row.supersededAt.toISOString() : null,
+        })),
+      });
     } catch (error) {
       const mapped = jsonErrorStatus(error);
       if (mapped) {
