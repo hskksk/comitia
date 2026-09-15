@@ -11,6 +11,7 @@ export async function addMembership(
     projectId: string;
     participantId: string;
     actorId?: string | null;
+    eventCause?: "project_created";
   },
 ) {
   const [existing] = await db
@@ -42,6 +43,7 @@ export async function addMembership(
     payload: {
       projectId: input.projectId,
       participantId: input.participantId,
+      ...(input.eventCause ? { cause: input.eventCause } : {}),
     },
   });
   return row!;
@@ -134,6 +136,8 @@ export async function removeHumanMember(
     payload: {
       projectId: input.projectId,
       participantId: input.participantId,
+      displayName: target.displayName,
+      participantKind: target.kind,
     },
   });
 }

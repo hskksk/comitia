@@ -1,38 +1,24 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync } from "node:fs";
+import { extname, isAbsolute, resolve } from "node:path";
+import { PERSONALITY_PRESETS } from "@comitia/shared";
 
-export function resolveAgentPackageRoot(fromUrl = import.meta.url): string {
-  let dir = dirname(fileURLToPath(fromUrl));
-  for (;;) {
-    const pkgFile = join(dir, "package.json");
-    if (existsSync(pkgFile)) {
-      const pkg = JSON.parse(readFileSync(pkgFile, "utf8")) as { name?: string };
-      if (pkg.name === "@comitia/agent") {
-        return dir;
-      }
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new Error("Could not locate @comitia/agent package.json");
-    }
-    dir = parent;
-  }
+export function listPackagedPersonalityNames(): string[] {
+  return PERSONALITY_PRESETS.map((preset) => preset.id);
 }
 
-export function personalityResourcesDir(
-  packageRoot = resolveAgentPackageRoot(),
-): string {
-  return join(packageRoot, "resources", "personality");
+export function formatPersonalityList(): string {
+  return `${PERSONALITY_PRESETS.map((preset) => `${preset.id}\n${preset.body}`).join("\n\n")}\n`;
 }
 
-export function listPackagedPersonalityNames(
-  dir = personalityResourcesDir(),
-): string[] {
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".txt"))
-    .map((name) => name.slice(0, -".txt".length))
-    .sort((a, b) => a.localeCompare(b, "ja"));
+export function findPackagedPersonality(
+  name: string,
+): (typeof PERSONALITY_PRESETS)[number] | undefined {
+  return PERSONALITY_PRESETS.find((preset) => preset.id === name);
+}
+
+export function unknownPersonalityMessage(spec: string): string {
+  const names = listPackagedPersonalityNames().join("、");
+  return `不明な性格: ${spec}。パッケージの例: ${names}。本文は \`comitia personality list\` で見られます。ファイルならパスと拡張子を指定してください。`;
 }
 
 function looksLikePath(spec: string): boolean {
@@ -56,7 +42,7 @@ function readUtf8Text(filePath: string): string {
  */
 export function resolvePersonalitySpec(
   spec: string,
-  options: { cwd?: string; packageRoot?: string } = {},
+  options: { cwd?: string } = {},
 ): string | null {
   if (spec === "") {
     return null;
@@ -64,7 +50,7 @@ export function resolvePersonalitySpec(
   if (looksLikePath(spec)) {
     if (!extname(spec)) {
       throw new Error(
-        "性格ファイルは拡張子を省略できません（例: ./attitude.txt）。パッケージ資源なら名前だけ指定してください",
+        "性格ファイルは拡張子を省略できません（例: ./attitude.txt）。パッケージの例なら名前だけ指定してください",
       );
     }
     const cwd = options.cwd ?? process.cwd();
@@ -79,19 +65,9 @@ export function resolvePersonalitySpec(
       "パッケージの性格は名前だけ指定してください（拡張子なし）。ファイルならパスと拡張子を付けてください",
     );
   }
-  const dir = resolve(
-    personalityResourcesDir(options.packageRoot ?? resolveAgentPackageRoot()),
-  );
-  const filePath = resolve(dir, `${spec}.txt`);
-  const prefix = dir.endsWith(sep) ? dir : `${dir}${sep}`;
-  if (filePath !== dir && !filePath.startsWith(prefix)) {
-    throw new Error("不正な性格名です");
+  const preset = findPackagedPersonality(spec);
+  if (!preset) {
+    throw new Error(unknownPersonalityMessage(spec));
   }
-  if (!existsSync(filePath)) {
-    const names = listPackagedPersonalityNames(dir).join("、");
-    throw new Error(
-      `不明な性格: ${spec}。パッケージ資源: ${names}。ファイルならパスと拡張子を指定してください。`,
-    );
-  }
-  return readUtf8Text(filePath);
+  return preset.body;
 }

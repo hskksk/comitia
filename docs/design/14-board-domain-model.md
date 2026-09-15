@@ -2,7 +2,7 @@
 
 ボード（`packages/board`）の永続モデルについて、**所有・参照とカーディナリティ**だけを正本にする。属性・列・状態機械はここには書かない。列の正本は [`packages/board/src/db/schema.ts`](../../packages/board/src/db/schema.ts)。概念の定義は [02 ドメイン概念](../02-concepts.md)。
 
-第 1 層時点のエンティティ一覧は [設計 01](01-layer1.md) §2。この文書は **いまの実装**（M15 まで＋トレース表）を写す。スキーマを足したら同じ PR でここを直す。
+第 1 層時点のエンティティ一覧は [設計 01](01-layer1.md) §2。この文書は **いまの実装**（M16 まで＋トレース表）を写す。スキーマを足したら同じ PR でここを直す。
 
 ## 1. 読み方
 
@@ -19,7 +19,7 @@
 
 導出ビュー（判断キュー、作業局面、Inbox）は表ではないので出さない。`github_oauth_states` は OAuth の一時行であり、ドメインモデルではない。
 
-まだ表にないもの（設計はあるが未実装）: `memories.layer`（[M16](09-layer3.md)）、`notifications`（[M21](12-layer4-notifications.md)）。
+まだ表にないもの（設計はあるが未実装）: `notifications`（[M21](12-layer4-notifications.md)）。
 
 ## 2. 全体（所有だけ）
 
@@ -203,7 +203,7 @@ classDiagram
 
 | から | 関係 | へ | カーディナリティ | 備考 |
 | --- | --- | --- | --- | --- |
-| Participant | 所有 | Memory | 1 : \* | プロジェクトをまたぐ。可視性なし。置換は旧行を閉じるだけで、行同士の FK は無い |
+| Participant | 所有 | Memory | 1 : \* | プロジェクトをまたぐ。可視性なし。登録オーナーは読むだけ（[設計 19](19-owner-agent-memory.md)）。置換は旧行を閉じるだけで、行同士の FK は無い |
 | Participant | 所有 | PersonalNote | 1 : \* | 改変は著者だけ |
 | Project | 所有（場） | PersonalNote | 1 : \* | メモはプロジェクトに置かれる |
 | PersonalNote | 所有 | PersonalNoteComment | 1 : \* | 助言。提案エンティティは付けられない |

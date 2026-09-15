@@ -2,6 +2,10 @@ import { GATEWAY, type Tick } from "@comitia/shared";
 import { startLocalA2aServer } from "../a2a-server.js";
 import { postAuthorized, postAuthorizedWithRetry } from "../board-upload.js";
 import { loadConfig } from "../config.js";
+import {
+  startInstructLoop,
+  type InstructLoopHandle,
+} from "../instruct-loop.js";
 import { createMcpProxyRuntime } from "../mcp-proxy.js";
 import type { EnginePlugin } from "../plugins/types.js";
 import { comitiaWorkspaceId, runSessionLoop } from "../session-loop.js";
@@ -11,6 +15,10 @@ export interface ConnectCommandOptions {
   name: string;
   configDir?: string;
   plugin?: EnginePlugin;
+  instruct?: boolean;
+  systemPrompt?: boolean;
+  stdin?: NodeJS.ReadableStream;
+  stdout?: NodeJS.WritableStream;
 }
 
 export interface ConnectCommandHandle {
@@ -51,6 +59,7 @@ export async function connectCommand(
   let runningSessionId: string | undefined;
   let loopChain = Promise.resolve();
   let adapter: Awaited<ReturnType<typeof startLocalA2aServer>>;
+  let instructLoop: InstructLoopHandle | undefined;
 
   const proxy = createMcpProxyRuntime({
     boardUrl: config.boardUrl,
@@ -62,6 +71,9 @@ export async function connectCommand(
     relayBaseUrl: config.boardUrl,
     onTick: (tick) => {
       ticks.push(tick);
+      if (options.instruct) {
+        return;
+      }
       if (tick.type === "session.end_warning") {
         if (runningSessionId === undefined) {
           return;
@@ -147,37 +159,53 @@ export async function connectCommand(
     throw error;
   }
 
+  const teardown = async () => {
+    instructLoop?.stop();
+    await instructLoop?.done.catch(() => undefined);
+    tunnel.disconnect();
+    await loopChain.catch(() => undefined);
+    await adapter.close();
+    await options.plugin?.dispose();
+  };
+
   try {
-    const gotStart = await waitForTick(
-      ticks,
-      (tick) => tick.type === "session.start",
-      SESSION_START_WAIT_MS,
-    );
-    if (!gotStart) {
-      const requested = await postAuthorized(
-        config.boardUrl,
-        agent.token,
-        "/v1/me/request-session",
-        {},
+    if (options.instruct) {
+      if (plugin) {
+        instructLoop = await startInstructLoop({
+          plugin,
+          boardUrl: config.boardUrl,
+          agentToken: agent.token,
+          workspaceId: comitiaWorkspaceId(options.name),
+          systemPrompt: options.systemPrompt === true,
+          stdin: options.stdin ?? process.stdin,
+          stdout: options.stdout ?? process.stdout,
+        });
+      }
+    } else {
+      const gotStart = await waitForTick(
+        ticks,
+        (tick) => tick.type === "session.start",
+        SESSION_START_WAIT_MS,
       );
-      if (!requested.ok) {
-        throw new Error(`request-session failed: ${requested.status}`);
+      if (!gotStart) {
+        const requested = await postAuthorized(
+          config.boardUrl,
+          agent.token,
+          "/v1/me/request-session",
+          {},
+        );
+        if (!requested.ok) {
+          throw new Error(`request-session failed: ${requested.status}`);
+        }
       }
     }
   } catch (error) {
-    tunnel.disconnect();
-    await adapter.close();
-    await options.plugin?.dispose();
+    await teardown();
     throw error;
   }
 
   return {
     ticks,
-    close: async () => {
-      tunnel.disconnect();
-      await loopChain.catch(() => undefined);
-      await adapter.close();
-      await options.plugin?.dispose();
-    },
+    close: teardown,
   };
 }

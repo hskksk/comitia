@@ -1,4 +1,7 @@
 import { clearToken, getToken } from "./auth.js";
+import type { ActivityItem, ActivitySubject } from "@comitia/shared";
+
+export type { ActivityItem, ActivitySubject };
 
 export const UNAUTHORIZED_EVENT = "comitia:unauthorized";
 const PROJECT_ID_HEADER = "x-comitia-project-id";
@@ -159,6 +162,7 @@ export type MemoryItem = {
   id: string;
   participantId: string;
   body: string;
+  layer: "episodic" | "norm";
   createdAt: string;
   supersededAt: string | null;
 };
@@ -451,6 +455,12 @@ export class BoardClient {
     return this.request("/v1/me/agents");
   }
 
+  async listOwnedAgentMemory(
+    agentId: string,
+  ): Promise<{ items: MemoryItem[] }> {
+    return this.request(`/v1/me/agents/${agentId}/memory`);
+  }
+
   async listIdentityCredentials(): Promise<{ items: IdentityCredential[] }> {
     return this.request("/v1/me/credentials");
   }
@@ -508,6 +518,11 @@ export class BoardClient {
   async events(limit = 10): Promise<{ items: EventItem[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
     return this.request(`/v1/events?${params.toString()}`);
+  }
+
+  async activity(limit = 12): Promise<{ items: ActivityItem[] }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return this.request(`/v1/activity?${params.toString()}`);
   }
 
   async queue(): Promise<{ items: QueueItem[] }> {

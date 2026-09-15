@@ -144,6 +144,8 @@ export async function syncPullRequest(
   });
 
   const now = new Date();
+  const stateChanged = row.state !== snapshot.state;
+  const titleChanged = row.title !== snapshot.title;
   const [updated] = await db
     .update(threadPullRequests)
     .set({
@@ -154,16 +156,21 @@ export async function syncPullRequest(
     .where(eq(threadPullRequests.id, row.id))
     .returning();
 
-  await recordEvent(db, {
-    projectId: input.projectId,
-    threadId: row.threadId,
-    kind: "pull_request_synced",
-    payload: {
-      number: input.number,
-      state: snapshot.state,
-      title: snapshot.title,
-    },
-  });
+  if (stateChanged || titleChanged) {
+    await recordEvent(db, {
+      projectId: input.projectId,
+      threadId: row.threadId,
+      kind: "pull_request_synced",
+      payload: {
+        number: input.number,
+        fromState: row.state,
+        toState: snapshot.state,
+        state: snapshot.state,
+        title: snapshot.title,
+        titleChanged,
+      },
+    });
+  }
 
   return updated!;
 }

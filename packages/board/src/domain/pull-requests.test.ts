@@ -1,7 +1,7 @@
 import "../test/helpers.js";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { projects, threadPullRequests } from "../db/schema.js";
+import { events, projects, threadPullRequests } from "../db/schema.js";
 import { db } from "../test/helpers.js";
 import {
   seedDecidedImplementation,
@@ -178,6 +178,56 @@ describe("syncPullRequest", () => {
       number: 101,
     });
     expect(updated?.state).toBe("merged");
+    const [syncEvent] = await db
+      .select()
+      .from(events)
+      .where(eq(events.kind, "pull_request_synced"));
+    expect(syncEvent?.payload).toMatchObject({
+      number: 101,
+      fromState: "open",
+      toState: "merged",
+      title: "Fix typo",
+      titleChanged: false,
+    });
+  });
+
+  it("updates freshness without recording an unchanged sync", async () => {
+    const { agent, project } = await seedOwnerAgentProject(db);
+    await connectProject(project.id);
+    const { thread } = await seedDecidedImplementation(db, {
+      agentId: agent.id,
+      projectId: project.id,
+    });
+    const github = createFakeGitHubClient({
+      pullRequests: [
+        {
+          owner: "hskksk",
+          repo: "comitia",
+          number: 101,
+          url: PR_URL,
+          title: "Fix typo",
+          state: "open",
+        },
+      ],
+    });
+    const linked = await linkPullRequest(db, github, {
+      threadId: thread.id,
+      actorId: agent.id,
+      url: PR_URL,
+    });
+
+    const updated = await syncPullRequest(db, github, {
+      projectId: project.id,
+      number: 101,
+    });
+    expect(updated?.syncedAt.getTime()).toBeGreaterThanOrEqual(
+      linked.syncedAt.getTime(),
+    );
+    const syncEvents = await db
+      .select()
+      .from(events)
+      .where(eq(events.kind, "pull_request_synced"));
+    expect(syncEvents).toHaveLength(0);
   });
 
   it("no-ops for unlinked PR numbers", async () => {

@@ -4,9 +4,9 @@ import { threads, type HandoverProjectNote } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { computeRemaining } from "./activity.js";
 import { searchAgreements } from "./agreements.js";
-import { getProjectSetup } from "./constitution.js";
+import { getBriefingSharedArtifacts, getProjectSetup } from "./constitution.js";
 import { getParticipant, getProject } from "./helpers.js";
-import { listProjectParticipants } from "./human-ops.js";
+import { listProjectParticipants, type ConnectionStatus } from "./human-ops.js";
 import { listMembershipsForParticipant, resolveUniqueMembershipProjectId } from "./memberships.js";
 import {
   getLatestPreviousHandover,
@@ -17,7 +17,7 @@ import {
   wasLatestPreviousSessionInterrupted,
 } from "./sessions.js";
 import { searchThreads } from "./threads.js";
-import { listActiveMemory } from "./memory.js";
+import { listActiveMemory, isRetroDueForParticipant } from "./memory.js";
 import {
   listActiveProjectClaims,
   listUnclaimedDecidedImplementations,
@@ -53,6 +53,33 @@ function withPullRequests<T extends { id: string }>(
   }));
 }
 
+type BriefingParticipant = {
+  id: string;
+  displayName: string;
+  roles: string[];
+  kind: string;
+  personality?: string;
+  engine: string | null;
+  connection: { status: ConnectionStatus } | null;
+};
+
+function toBriefingParticipant(
+  row: Awaited<ReturnType<typeof listProjectParticipants>>[number],
+): BriefingParticipant {
+  const isAgent = row.kind === "agent";
+  return {
+    id: row.id,
+    displayName: row.label,
+    roles: row.roles,
+    kind: row.kind,
+    ...(isAgent && row.personality ? { personality: row.personality } : {}),
+    engine: isAgent ? row.engine : null,
+    connection: isAgent
+      ? { status: row.connection?.status ?? "never" }
+      : null,
+  };
+}
+
 function withWorkPhase<
   T extends {
     id: string;
@@ -83,16 +110,13 @@ export type ProjectBriefingSlice = {
   githubRepo: string | null;
   roles: string[];
   rules: string;
+  shared_artifacts: Awaited<ReturnType<typeof getBriefingSharedArtifacts>>;
   situation: {
     threads: BriefingThreadRow[];
     open_threads: BriefingThreadRow[];
     work_claims: Awaited<ReturnType<typeof listActiveProjectClaims>>;
     unclaimed_decided: Awaited<ReturnType<typeof listUnclaimedDecidedImplementations>>;
-    participants: Array<{
-      displayName: string;
-      roles: string[];
-      kind: string;
-    }>;
+    participants: Array<BriefingParticipant>;
     gates: {
       conflict_citations_required: boolean;
       setup: Awaited<ReturnType<typeof getProjectSetup>>;
@@ -125,7 +149,7 @@ async function loadProjectSlice(
     (thread) => thread.state === "awaiting_decision",
   );
 
-  const [project, bindingAgreements, allThreads, participants, workClaims, unclaimedDecided, setup] =
+  const [project, bindingAgreements, allThreads, participants, workClaims, unclaimedDecided, setup, sharedArtifacts] =
     await Promise.all([
       getProject(db, input.projectId),
       searchAgreements(db, {
@@ -137,6 +161,7 @@ async function loadProjectSlice(
       listActiveProjectClaims(db, input.projectId),
       listUnclaimedDecidedImplementations(db, input.projectId),
       getProjectSetup(db, input.projectId),
+      getBriefingSharedArtifacts(db, input.projectId),
     ]);
 
   const you = participants.find((row) => row.id === input.participantId);
@@ -176,16 +201,13 @@ async function loadProjectSlice(
     githubRepo: project.githubRepo,
     roles: you?.roles ?? [],
     rules: bindingAgreements.map((agreement) => agreement.summary).join("\n"),
+    shared_artifacts: sharedArtifacts,
     situation: {
       threads: ownedWithPrs,
       open_threads: openThreads,
       work_claims: workClaims,
       unclaimed_decided: unclaimedDecided,
-      participants: participants.map((row) => ({
-        displayName: row.label,
-        roles: row.roles,
-        kind: row.kind,
-      })),
+      participants: participants.map(toBriefingParticipant),
       gates: {
         conflict_citations_required: bindingAgreements.length > 0,
         setup,
@@ -250,11 +272,12 @@ export async function getBriefing(
     }));
 
   const participant = await getParticipant(db, input.participantId);
-  const [activeMemory, owner] = await Promise.all([
+  const [activeMemory, owner, retroDue] = await Promise.all([
     listActiveMemory(db, input.participantId),
     participant.ownerParticipantId
       ? getParticipant(db, participant.ownerParticipantId)
       : Promise.resolve(null),
+    isRetroDueForParticipant(db, input.participantId),
   ]);
 
   const sole = projectSlices.length === 1 ? projectSlices[0]! : null;
@@ -267,11 +290,21 @@ export async function getBriefing(
     ...(previousInterrupted ? { previous_interrupted: true } : {}),
   };
 
+  const norms = activeMemory
+    .filter((row) => row.layer === "norm")
+    .map((row) => row.body)
+    .join("\n");
+  const episodic = activeMemory
+    .filter((row) => row.layer === "episodic")
+    .map((row) => row.body)
+    .join("\n");
+
   return {
     sessionId: digestedSession.id,
     handover: previousHandover.body,
     previous_projects: previousHandover.projects,
-    memory: activeMemory.map((m) => m.body).join("\n"),
+    norms,
+    memory: episodic,
     you: {
       displayName: formatParticipantLabel({
         kind: participant.kind,
@@ -283,6 +316,7 @@ export async function getBriefing(
       ...(participant.personality
         ? { personality: participant.personality }
         : {}),
+      retro_due: retroDue,
     },
     project: sole
       ? {
@@ -297,6 +331,11 @@ export async function getBriefing(
       ? { id: focused.id, name: focused.name }
       : null,
     rules: sole?.rules ?? "",
+    shared_artifacts: sole?.shared_artifacts ?? {
+      project_rule: null,
+      thread_template: null,
+      skills: [],
+    },
     situation: {
       threads: sole?.situation.threads ?? [],
       open_threads: sole?.situation.open_threads ?? [],

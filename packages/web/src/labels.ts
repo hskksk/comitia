@@ -73,6 +73,36 @@ export function pullRequestStateLabel(value: string): string {
   return labelOf(pullRequestStateLabels, value);
 }
 
+const declarationKindLabels: Record<string, string> = {
+  select_candidate: "候補選定",
+  declare_rough: "概略合意",
+  owner_decide: "オーナー決定",
+  request_ratification: "批准依頼",
+  ratify: "批准",
+  send_back: "差し戻し",
+  reject_thread: "不採用",
+  complete_thread: "完了",
+  extend_window: "判断期間延長",
+  shorten_window: "判断期間短縮",
+  clock_satisfy: "判断期間成立",
+};
+
+export function declarationKindLabel(value: string): string {
+  return labelOf(declarationKindLabels, value);
+}
+
+const roleLabels: Record<string, string> = {
+  facilitator: "進行役",
+  proposer: "提案役",
+  reviewer: "レビュー役",
+  recorder: "記録役",
+  executor: "実行役",
+};
+
+export function roleLabel(value: string): string {
+  return labelOf(roleLabels, value);
+}
+
 export function credentialClientLabel(value: string): string {
   const labels: Record<string, string> = {
     web: "Web",

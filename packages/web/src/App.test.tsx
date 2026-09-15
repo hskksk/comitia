@@ -33,7 +33,7 @@ vi.mock("./api.js", () => ({
       },
       queuePreview: [],
     }),
-    events: vi.fn().mockResolvedValue({ items: [] }),
+    activity: vi.fn().mockResolvedValue({ items: [] }),
   },
 }));
 

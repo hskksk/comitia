@@ -48,7 +48,7 @@
 
 ## 3. 状態機械と成立判定
 
-種別ごとの mermaid 図と操作者の可否は [docs/03-thread-state-machines.md](../03-thread-state-machines.md)。
+種別ごとの mermaid 図と操作者の可否は [docs/03-thread-state-machines.md](../03-thread-state-machines.md)。合意種類ごとの合意状態の遷移は [docs/03-consensus-state-machines.md](../03-consensus-state-machines.md)。
 
 - スレッドの状態遷移は **宣言型の投稿（`declaration`）だけ** から起きる。自由文からの遷移はない
 - 成立判定は純関数にする: 入力 =（合意種類、候補提案の特定版、その版に対する `approval` / `objection`（ブロッキングのみ効く）、人間批准の記録）→ 出力 =（成立 / 未成立と理由）

@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   boardClient,
   type IdentityCredential,
@@ -11,6 +11,7 @@ import { clearToken } from "../auth.js";
 import { ENGINES, FAKE_CONSOLE_DEFAULT_PORT } from "@comitia/shared";
 import { credentialClientLabel, engineLabel } from "../labels.js";
 import { useRouteLoad } from "../useRouteLoad.js";
+import { PersonalityExamples } from "../PersonalityExamples.js";
 import { PersonalityField } from "../PersonalityField.js";
 
 export function SettingsPage() {
@@ -33,10 +34,6 @@ export function SettingsPage() {
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const tokenRevealRef = useRef<HTMLDivElement>(null);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editEngine, setEditEngine] = useState("claude-code");
-  const [editPersonality, setEditPersonality] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
 
@@ -132,24 +129,6 @@ export function SettingsPage() {
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "登録に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function onSaveAgent(agentId: string) {
-    setSaving(true);
-    setError(null);
-    try {
-      await boardClient.updateOwnedAgent(agentId, {
-        displayName: editName.trim() || undefined,
-        engine: editEngine,
-        personality: editPersonality.trim() ? editPersonality.trim() : null,
-      });
-      setEditingId(null);
-      await reloadAgents();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
       setSaving(false);
     }
@@ -293,6 +272,10 @@ export function SettingsPage() {
       </section>
 
       <section className="composer">
+        <PersonalityExamples heading="性格の例" headingLevel="h2" />
+      </section>
+
+      <section className="composer">
         <h2>登録したエージェント</h2>
         {createdToken ? (
           <div className="token-reveal" role="status" ref={tokenRevealRef}>
@@ -311,117 +294,65 @@ export function SettingsPage() {
           <ul className="agent-settings-list">
             {agents.map((agent) => (
               <li key={agent.id} className="agent-settings-item">
-                {editingId === agent.id ? (
-                  <div>
-                    <label>
-                      表示名
-                      <input
-                        value={editName}
-                        onChange={(event) => setEditName(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      エンジン
-                      <select
-                        value={editEngine}
-                        onChange={(event) => setEditEngine(event.target.value)}
+                <div>
+                  <p>
+                    <strong>{agent.displayName}</strong>{" "}
+                    <span className="muted">· {engineLabel(agent.engine)}</span>
+                  </p>
+                  {agent.engine === "fake" ? (
+                    <p className="muted">
+                      <a
+                        href={`http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}`}
+                        target="_blank"
+                        rel="noreferrer"
                       >
-                        {ENGINES.map((engine) => (
-                          <option key={engine} value={engine}>
-                            {engineLabel(engine)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <PersonalityField
-                      value={editPersonality}
-                      onChange={setEditPersonality}
-                    />
-                    <div className="actions">
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        disabled={saving}
-                        onClick={() => void onSaveAgent(agent.id)}
-                      >
-                        保存
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => setEditingId(null)}
-                      >
-                        キャンセル
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <p>
-                      <strong>{agent.displayName}</strong>{" "}
-                      <span className="muted">· {engineLabel(agent.engine)}</span>
+                        操作台を開く
+                      </a>
+                      {" · "}
+                      先に <code>comitia agent connect</code>
                     </p>
-                    {agent.engine === "fake" ? (
-                      <p className="muted">
-                        <a
-                          href={`http://127.0.0.1:${FAKE_CONSOLE_DEFAULT_PORT}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          操作台を開く
-                        </a>
-                        {" · "}
-                        先に <code>comitia agent connect</code>
-                      </p>
-                    ) : null}
-                    {agent.personality ? (
-                      <p className="muted">態度: {agent.personality}</p>
-                    ) : null}
-                    <div className="actions">
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => {
-                          setEditingId(agent.id);
-                          setEditName(agent.displayName);
-                          setEditEngine(agent.engine);
-                          setEditPersonality(agent.personality ?? "");
-                        }}
-                      >
-                        編集
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-danger"
-                        onClick={() => setDeleteConfirmId(agent.id)}
-                      >
-                        削除
-                      </button>
-                    </div>
-                    {deleteConfirmId === agent.id ? (
-                      <div className="decision-confirm" role="group">
-                        <p>このエージェントを削除します。資格は無効になります。</p>
-                        <div className="actions">
-                          <button
-                            type="button"
-                            className="btn-danger"
-                            disabled={saving}
-                            onClick={() => void onDeleteAgent(agent.id)}
-                          >
-                            削除を確定
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={() => setDeleteConfirmId(null)}
-                          >
-                            キャンセル
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
+                  ) : null}
+                  <p className="muted">
+                    性格: {agent.personality?.trim() ? agent.personality : "未設定"}
+                  </p>
+                  <div className="actions">
+                    <Link
+                      to={`/settings/agents/${agent.id}`}
+                      className="btn-secondary"
+                    >
+                      設定
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={() => setDeleteConfirmId(agent.id)}
+                    >
+                      削除
+                    </button>
                   </div>
-                )}
+                  {deleteConfirmId === agent.id ? (
+                    <div className="decision-confirm" role="group">
+                      <p>このエージェントを削除します。資格は無効になります。</p>
+                      <div className="actions">
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          disabled={saving}
+                          onClick={() => void onDeleteAgent(agent.id)}
+                        >
+                          削除を確定
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setDeleteConfirmId(null)}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>

@@ -27,6 +27,7 @@ export async function adoptFoundingArtifact(
     content: string;
     title?: string;
     summary?: string;
+    eventCause?: "project_created";
   },
 ) {
   if (await hasActiveSharedArtifact(db, input.projectId, input.kind)) {
@@ -48,11 +49,13 @@ export async function adoptFoundingArtifact(
     trigger: "プロジェクト創設時の指定",
     duplicateSearchQuery: input.kind,
     conflictCitationsChecked: true,
+    eventCause: input.eventCause,
   });
   const { proposal, version } = await addProposal(db, {
     threadId: thread.id,
     authorId: input.ownerId,
     content: input.content,
+    eventCause: input.eventCause,
   });
 
   const now = new Date();
@@ -118,6 +121,7 @@ export async function adoptFoundingFromInput(
     kind: SystemTemplateKind;
     templateId?: string;
     content?: string;
+    eventCause?: "project_created";
   },
 ) {
   const content = resolveTemplateContent({
@@ -130,6 +134,7 @@ export async function adoptFoundingFromInput(
     ownerId: input.ownerId,
     kind: input.kind,
     content,
+    eventCause: input.eventCause,
   });
 }
 

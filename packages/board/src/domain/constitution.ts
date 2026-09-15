@@ -1,5 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
-import type { SharedArtifactKind, ThreadType, ProposalTarget } from "@comitia/shared";
+import { and, asc, desc, eq } from "drizzle-orm";
+import {
+  SHARED_ARTIFACT_KINDS,
+  type SharedArtifactKind,
+  type ThreadType,
+  type ProposalTarget,
+} from "@comitia/shared";
 import { agreements, proposalVersions, threads } from "../db/schema.js";
 import type { Db } from "../db/test-setup.js";
 import { GateViolation } from "./errors.js";
@@ -21,21 +26,52 @@ export function isConstitutionKind(
 }
 
 export type ActiveSharedArtifact = {
+  agreementId: string;
   threadId: string;
   summary: string;
   content: string;
+  createdAt: string;
 };
 
-export async function getActiveSharedArtifact(
+export type SharedArtifactListItem = {
+  kind: SharedArtifactKind;
+  threadId: string;
+  agreementId: string;
+  summary: string;
+  content: string;
+  createdAt: string;
+};
+
+export type BriefingSharedArtifacts = {
+  project_rule: { threadId: string; summary: string; content: string } | null;
+  thread_template: { threadId: string; summary: string; content: string } | null;
+  skills: Array<{ threadId: string; summary: string }>;
+};
+
+function toConstitutionPointer(row: ActiveSharedArtifact | null) {
+  if (!row) {
+    return null;
+  }
+  return {
+    threadId: row.threadId,
+    summary: row.summary,
+    content: row.content,
+  };
+}
+
+async function listActiveAdoptedArtifacts(
   db: Db,
   projectId: string,
-  kind: ConstitutionKind,
-): Promise<ActiveSharedArtifact | null> {
-  const rows = await db
+  kind: SharedArtifactKind,
+  options?: { latestOnly?: boolean },
+): Promise<SharedArtifactListItem[]> {
+  const query = db
     .select({
+      agreementId: agreements.id,
       threadId: agreements.threadId,
       summary: agreements.summary,
       content: proposalVersions.content,
+      createdAt: agreements.createdAt,
     })
     .from(agreements)
     .innerJoin(threads, eq(agreements.threadId, threads.id))
@@ -51,16 +87,73 @@ export async function getActiveSharedArtifact(
         eq(threads.sharedArtifactKind, kind),
       ),
     )
-    .orderBy(desc(agreements.createdAt))
-    .limit(1);
-  const row = rows[0];
+    .orderBy(
+      options?.latestOnly ? desc(agreements.createdAt) : asc(agreements.createdAt),
+    );
+  const rows = options?.latestOnly ? await query.limit(1) : await query;
+  return rows.map((row) => ({
+    kind,
+    agreementId: row.agreementId,
+    threadId: row.threadId,
+    summary: row.summary,
+    content: row.content,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
+export async function getActiveSharedArtifact(
+  db: Db,
+  projectId: string,
+  kind: ConstitutionKind,
+): Promise<ActiveSharedArtifact | null> {
+  const [row] = await listActiveAdoptedArtifacts(db, projectId, kind, {
+    latestOnly: true,
+  });
   if (!row) {
     return null;
   }
   return {
+    agreementId: row.agreementId,
     threadId: row.threadId,
     summary: row.summary,
     content: row.content,
+    createdAt: row.createdAt,
+  };
+}
+
+export async function listSharedArtifacts(
+  db: Db,
+  input: { projectId: string; kind?: SharedArtifactKind },
+): Promise<SharedArtifactListItem[]> {
+  const kinds = input.kind ? [input.kind] : [...SHARED_ARTIFACT_KINDS];
+  const groups = await Promise.all(
+    kinds.map((kind) =>
+      isConstitutionKind(kind)
+        ? listActiveAdoptedArtifacts(db, input.projectId, kind, {
+            latestOnly: true,
+          })
+        : listActiveAdoptedArtifacts(db, input.projectId, kind),
+    ),
+  );
+  return groups.flat();
+}
+
+export async function getBriefingSharedArtifacts(
+  db: Db,
+  projectId: string,
+): Promise<BriefingSharedArtifacts> {
+  const [projectRule, threadTemplate, skills] = await Promise.all([
+    getActiveSharedArtifact(db, projectId, "project_rule"),
+    getActiveSharedArtifact(db, projectId, "thread_template"),
+    listActiveAdoptedArtifacts(db, projectId, "skill"),
+  ]);
+  return {
+    project_rule: toConstitutionPointer(projectRule),
+    thread_template: toConstitutionPointer(threadTemplate),
+    skills: skills.map((row) => ({
+      threadId: row.threadId,
+      summary: row.summary,
+    })),
   };
 }
 

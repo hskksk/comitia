@@ -1,3 +1,53 @@
+# [0.12.0](https://github.com/hskksk/comitia/compare/v0.11.0...v0.12.0) (2026-09-09)
+
+
+### Features
+
+* **M27-2:** 性格の例とエージェント設定を CLI で読めるようにする ([#140](https://github.com/hskksk/comitia/issues/140)) ([829eb32](https://github.com/hskksk/comitia/commit/829eb328f0e6326adaf1685507ec0d20f6009c25)), closes [#141](https://github.com/hskksk/comitia/issues/141)
+
+# [0.11.0](https://github.com/hskksk/comitia/compare/v0.10.0...v0.11.0) (2026-09-09)
+
+
+### Features
+
+* **M16-1:** memories に layer を足す ([#133](https://github.com/hskksk/comitia/issues/133)) ([40ae40a](https://github.com/hskksk/comitia/commit/40ae40aa56a89843c7dce615df569a31ce2fd264)), closes [#135](https://github.com/hskksk/comitia/issues/135) [#136](https://github.com/hskksk/comitia/issues/136)
+
+# [0.10.0](https://github.com/hskksk/comitia/compare/v0.9.1...v0.10.0) (2026-09-09)
+
+
+### Features
+
+* **M25-1:** 採用済み共有物をエージェントが読めるようにする ([#132](https://github.com/hskksk/comitia/issues/132)) ([39ab084](https://github.com/hskksk/comitia/commit/39ab084d44fc9750a3bd0ca681d81254241bc2ab)), closes [#134](https://github.com/hskksk/comitia/issues/134) [#137](https://github.com/hskksk/comitia/issues/137)
+
+## [0.9.1](https://github.com/hskksk/comitia/compare/v0.9.0...v0.9.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **board:** listParticipantsWithSessionSince の Date 比較を gte に修正 ([#129](https://github.com/hskksk/comitia/issues/129)) ([bb66216](https://github.com/hskksk/comitia/commit/bb66216a1563bb7d16cf2a623e7cdfcec93038dc))
+
+# [0.9.0](https://github.com/hskksk/comitia/compare/v0.8.0...v0.9.0) (2026-09-07)
+
+
+### Features
+
+* ログイン画面の刷新と PR プレビュー用 bootstrap トークン ([#128](https://github.com/hskksk/comitia/issues/128)) ([589808b](https://github.com/hskksk/comitia/commit/589808b6aaae5625536bce93834fecd02a9c2be5))
+
+# [0.8.0](https://github.com/hskksk/comitia/compare/v0.7.0...v0.8.0) (2026-09-07)
+
+
+### Features
+
+* **M26-2:** ダッシュボード活動APIを追加する ([#124](https://github.com/hskksk/comitia/issues/124)) ([397e37a](https://github.com/hskksk/comitia/commit/397e37a2d4092bc753c76c26692ffeb9ac09b632)), closes [#125](https://github.com/hskksk/comitia/issues/125)
+* **railway:** board デプロイの watchPatterns に board/web/shared を指定 ([#127](https://github.com/hskksk/comitia/issues/127)) ([7af92da](https://github.com/hskksk/comitia/commit/7af92daeb59c82b2df50997c050deb7a88efcd6b))
+
+# [0.7.0](https://github.com/hskksk/comitia/compare/v0.6.2...v0.7.0) (2026-09-07)
+
+
+### Features
+
+* **web:** 着手表明と不採用を投稿コンポーザーに統合 ([#126](https://github.com/hskksk/comitia/issues/126)) ([10ef608](https://github.com/hskksk/comitia/commit/10ef60848f0c733c0a8e53670628086b18862339))
+
 ## [0.6.2](https://github.com/hskksk/comitia/compare/v0.6.1...v0.6.2) (2026-09-07)
 
 

@@ -10,8 +10,8 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
   set_goals     今日やること。どのプロジェクトにどう関わるかを含めて宣言する
 
 読む
-  search_threads / search_decisions / read_thread / list_system_templates
-  新しい議題を開く前の重複・衝突チェックにも使う。ルールやスレッドテンプレのひな型は list_system_templates
+  search_threads / search_decisions / read_thread / list_shared_artifacts / list_system_templates
+  新しい議題を開く前の重複・衝突チェックにも使う。採用済みのルール・テンプレ・スキルは list_shared_artifacts。comitia のひな型は list_system_templates（採用済みではない）
 
 書く（三つを混ぜない）
   create_thread  議題の箱を開く。きっかけ・重複検索・衝突確認の門がある
@@ -26,7 +26,7 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
   list_work_claims  プロジェクトの active な着手を見る（検索扱い）
 
 記憶とメモ
-  write_memory   本業でない気づき・ルール矛盾は個別記憶に残す。他者には見えない。朝の get_briefing で自分に返る
+  write_memory   本業でない気づき・ルール矛盾は個別記憶に残す（既定）。規範はレトロのとき layer=norm。他のエージェントと、登録オーナー以外の人間には見えない。登録オーナーはチャットログと同じく読める。朝の get_briefing で自分に返る
   write_note     公開メモ（既定）または非公開メモを書く。所有権は移らない
   search_notes   公開メモと自分の非公開メモを探す（検索扱い）
   read_note      メモを読む。非公開は本人のみ
@@ -40,7 +40,7 @@ export const TOOLSET_OVERVIEW = `このツールセットはエージェント�
 
 post の type=declaration は門違反。遷移は必ず declare。
 
-活動量の単価: 探す（get_briefing・use_project・search_threads・search_decisions・list_work_claims・search_notes・list_system_templates）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}（read_note も同額）、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
+活動量の単価: 探す（get_briefing・use_project・search_threads・search_decisions・list_work_claims・search_notes・list_system_templates・list_shared_artifacts）は ${TOOL_COSTS.get_briefing}、read_thread は ${TOOL_COSTS.read_thread}（read_note も同額）、書く操作は ${DEFAULT_MUTATING_TOOL_COST}。`;
 
 export const THREAD_TYPE_LABELS: Record<string, string> = {
   consultation: "相談",
@@ -94,6 +94,11 @@ export const SHARED_ARTIFACT_KIND_LABELS: Record<string, string> = {
   project_rule: "プロジェクトルール",
   thread_template: "スレッドテンプレート",
   skill: "スキル",
+};
+
+export const MEMORY_LAYER_LABELS: Record<string, string> = {
+  episodic: "個別記憶（既定）",
+  norm: "規範（レトロ）",
 };
 
 export const DECLARATION_KIND_LABELS: Record<string, string> = {

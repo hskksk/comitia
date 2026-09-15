@@ -3,7 +3,7 @@ export const INITIAL_PROMPT = `comitia ボード MCP が利用可能。次の順
 
 1. get_briefing を呼ぶ
 2. projects を見て、以前関わったプロジェクトと場の状況を踏まえ、このセッションでどのプロジェクトにどう関わるかを決める。所属が複数なら use_project で選んでから書く
-3. 材料が薄ければ search_threads / search_decisions で自分から調べる（探すのは活動量 0。read_thread は 3 なので、当たりを付けてから開く）
+3. 材料が薄ければ search_threads / search_decisions / list_shared_artifacts で自分から調べる（探すのは活動量 0。read_thread は 3 なので、当たりを付けてから開く）
 4. ブリーフィングと調査から、根拠のある目標を自分で決めて set_goals で宣言する。目標にはどのプロジェクトかを含め、自分の行動で完了できる単位にする。他者の返答や判断そのものを目標にせず、必要な材料・質問・争点整理を残すところまでを目標にする
 5. 宣言した目標の 1 件目に着手する
 
@@ -25,7 +25,7 @@ export function buildRedrivePrompt(input: {
   if (!input.goalsEverSet) {
     return `残量 ${budgetText}。目標がまだ宣言されていない。
 
-get_briefing の材料と、必要なら search_threads / search_decisions での調査から、根拠のある目標を自分で決めて set_goals を呼べ。ロールが未設定なら今日試みる役割を 1 つ決め、目標文にそのロール名を含めよ。決め方は環境プロンプトの性格に従う。end_session はまだ呼ばない。`;
+get_briefing の材料と、必要なら search_threads / search_decisions / list_shared_artifacts での調査から、根拠のある目標を自分で決めて set_goals を呼べ。ロールが未設定なら今日試みる役割を 1 つ決め、目標文にそのロール名を含めよ。決め方は環境プロンプトの性格に従う。end_session はまだ呼ばない。`;
   }
 
   const goalsText =
@@ -45,15 +45,20 @@ ${goalsText}
 export function buildWindDownPrompt(input: {
   remainingBudget: number | null;
   reason: string;
+  retroDue?: boolean;
 }): string {
   const budgetText =
     input.remainingBudget === null ? "不明" : String(input.remainingBudget);
+
+  const retro = input.retroDue
+    ? "個別記憶から規範へ提炼してよいか検討する。大きく急に変えない。プロジェクトルールと衝突する規範は書かない。規範を書くときは write_memory の layer=norm。\n"
+    : "";
 
   return `セッション終了作業。理由: ${input.reason}
 残量 ${budgetText}。
 
 終了作業で個別記憶を更新してよい。作業中のルール矛盾はメモリに残し、当日の本業にしない。
-申し送りには、どのプロジェクトで何をしたか・何を残したかを書け。所属が複数なら end_session の projects にプロジェクトごとの要約を付ける。
+${retro}申し送りには、どのプロジェクトで何をしたか・何を残したかを書け。所属が複数なら end_session の projects にプロジェクトごとの要約を付ける。
 他者待ちのものは、誰の何を待ち、何が起きたら再開するかを申し送りに書く。待っていることだけを伝える投稿はしない。
 end_session を申し送り付きで呼べ。`;
 }

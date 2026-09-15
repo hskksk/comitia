@@ -209,7 +209,7 @@ textarea {
 
 .dashboard-preview,
 .dashboard-stats-list,
-.event-list,
+.activity-list,
 .project-list,
 .member-list,
 .agent-settings-list {
@@ -219,20 +219,63 @@ textarea {
 }
 
 .dashboard-preview li,
-.event-item,
+.activity-item,
 .member-item,
 .agent-settings-item,
 .project-list li {
   margin: 0.35rem 0;
 }
 
-.event-item {
+.dashboard-activity {
+  margin-top: 2rem;
+}
+
+.activity-item {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  align-items: baseline;
-  padding: 0.35rem 0;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.65rem 0;
   border-bottom: 1px solid var(--color-border-thin);
+}
+
+.activity-copy {
+  min-width: 0;
+}
+
+.activity-main,
+.activity-detail {
+  margin: 0;
+}
+
+.activity-main {
+  line-height: 1.55;
+}
+
+.activity-detail {
+  display: -webkit-box;
+  margin-top: 0.2rem;
+  overflow: hidden;
+  color: var(--color-muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.activity-item time {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.activity-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.activity-error .status {
+  margin: 0;
 }
 
 .token-reveal {
@@ -883,21 +926,47 @@ label textarea {
   margin: 0;
 }
 
-.personality-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.5rem;
+.personality-examples {
+  margin-top: 0.75rem;
 }
 
-.personality-presets button {
-  min-height: var(--tap-min);
-  padding: 0.25rem 0.7rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+.personality-examples h2,
+.personality-examples h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
 }
 
-.personality-presets button[aria-pressed="true"] {
+.personality-example-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.personality-example-item {
+  margin: 0.75rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border-thin);
+}
+
+.personality-example-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.personality-example-item p {
+  margin: 0.2rem 0;
+}
+
+.personality-example-body {
+  color: var(--color-ink-muted);
+  white-space: pre-wrap;
+}
+
+.personality-example-item .btn-secondary {
+  margin-top: 0.35rem;
+}
+
+.personality-example-item button[aria-pressed="true"] {
   border-color: var(--color-accent);
   color: var(--color-accent);
 }

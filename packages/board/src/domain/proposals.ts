@@ -16,6 +16,7 @@ export async function addProposal(
     threadId: string;
     authorId: string;
     content: string;
+    eventCause?: "project_created";
   },
 ) {
   return db.transaction(async (tx) => addProposalInTx(tx, input));
@@ -27,6 +28,7 @@ async function addProposalInTx(
     threadId: string;
     authorId: string;
     content: string;
+    eventCause?: "project_created";
   },
 ) {
   const thread = await getThreadRow(db, input.threadId);
@@ -70,6 +72,7 @@ async function addProposalInTx(
       proposalId: proposal!.id,
       proposalVersionId: version!.id,
       number: nextNumber,
+      ...(input.eventCause ? { cause: input.eventCause } : {}),
     },
   });
 

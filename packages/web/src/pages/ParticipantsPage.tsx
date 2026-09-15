@@ -139,6 +139,14 @@ export function ParticipantsPage() {
                       操作台
                     </a>
                   ) : null}
+                  {item.ownerParticipantId === me?.participant.id ? (
+                    <Link
+                      to={`/settings/agents/${item.id}`}
+                      className="btn-secondary"
+                    >
+                      設定
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     className="btn-primary"

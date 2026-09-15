@@ -1,11 +1,14 @@
-import { PERSONALITY_MAX_LENGTH, PERSONALITY_PRESETS } from "@comitia/shared/constants";
+import { PERSONALITY_MAX_LENGTH } from "@comitia/shared/constants";
+import { PersonalityExamples } from "./PersonalityExamples.js";
 
 export function PersonalityField({
   value,
   onChange,
+  showExamples = true,
 }: {
   value: string;
   onChange: (value: string) => void;
+  showExamples?: boolean;
 }) {
   return (
     <div className="personality-field">
@@ -19,19 +22,14 @@ export function PersonalityField({
           placeholder="例: 慎重にリスクを先に出す"
         />
       </label>
-      <div className="personality-presets" role="group" aria-label="性格の例">
-        {PERSONALITY_PRESETS.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            className="btn-secondary"
-            aria-pressed={value === preset.body}
-            onClick={() => onChange(preset.body)}
-          >
-            {preset.id}
-          </button>
-        ))}
-      </div>
+      {showExamples ? (
+        <PersonalityExamples
+          heading="性格の例"
+          headingLevel="h3"
+          onApply={onChange}
+          appliedBody={value}
+        />
+      ) : null}
     </div>
   );
 }

@@ -59,6 +59,22 @@ function hasEndSession(entries: ToolLogEntry[]): boolean {
   );
 }
 
+function latestRetroDue(entries: ToolLogEntry[]): boolean {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry?.tool !== "get_briefing" || entry.isError) {
+      continue;
+    }
+    const result = entry.result;
+    if (result === null || typeof result !== "object") {
+      continue;
+    }
+    const you = (result as { you?: { retro_due?: unknown } }).you;
+    return you?.retro_due === true;
+  }
+  return false;
+}
+
 async function postSessionJson(
   boardUrl: string,
   agentToken: string,
@@ -98,7 +114,7 @@ export function comitiaWorkspaceId(agentName: string): string {
   return `comitia-${name}`;
 }
 
-async function resolveWorkDir(workspaceId?: string) {
+export async function resolveWorkDir(workspaceId?: string) {
   const configured = process.env.COMITIA_WORK_DIR;
   if (configured && configured.length > 0) {
     return prepareWorkspace({ path: configured });
@@ -109,7 +125,7 @@ async function resolveWorkDir(workspaceId?: string) {
   return prepareWorkspace();
 }
 
-async function fetchIdentity(
+export async function fetchIdentity(
   boardUrl: string,
   agentToken: string,
 ): Promise<AgentIdentity | null> {
@@ -133,7 +149,7 @@ async function fetchIdentity(
   }
 }
 
-function toEngineGithubAuth(
+export function toEngineGithubAuth(
   creds: GithubSessionCredentials,
   committerName: string,
 ): EngineGithubAuth {
@@ -144,7 +160,7 @@ function toEngineGithubAuth(
   };
 }
 
-async function refreshGithubCredentials(
+export async function refreshGithubCredentials(
   boardUrl: string,
   agentToken: string,
   current: GithubSessionCredentials | null,
@@ -331,6 +347,7 @@ export async function runSessionLoop(
         prompt = buildWindDownPrompt({
           remainingBudget: priorDecision?.remainingBudget ?? null,
           reason: stopReason,
+          retroDue: latestRetroDue(entries),
         });
       } else {
         prompt = buildRedrivePrompt({

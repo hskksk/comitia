@@ -14,6 +14,7 @@ import { createProject } from "./projects.js";
 import { assignRole } from "./roles.js";
 import { createThread } from "./threads.js";
 import { adoptDefaultFounding } from "./founding.js";
+import { addMembership } from "./memberships.js";
 
 describe("イベント記録", () => {
   it("主要操作がイベントに残る", async () => {
@@ -35,6 +36,11 @@ describe("イベント記録", () => {
     await adoptDefaultFounding(db, {
       projectId: project.id,
       ownerId: owner.id,
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: agent.id,
+      actorId: owner.id,
     });
 
     await assignRole(db, {

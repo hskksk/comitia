@@ -85,6 +85,7 @@ describe("Layout", () => {
     const user = userEvent.setup();
     renderShell("/settings");
     await screen.findByText("user-settings");
+    await screen.findByRole("option", { name: "実験" });
     await user.selectOptions(screen.getByLabelText("プロジェクト"), "proj-2");
     expect(await screen.findByText("dashboard")).toBeInTheDocument();
     expect(screen.queryByText("project-settings")).not.toBeInTheDocument();
@@ -94,6 +95,7 @@ describe("Layout", () => {
     const user = userEvent.setup();
     renderShell("/p/proj-1/queue");
     await screen.findByText("queue-page");
+    await screen.findByRole("option", { name: "実験" });
     await user.selectOptions(screen.getByLabelText("プロジェクト"), "proj-2");
     expect(await screen.findByText("queue-page")).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toHaveValue("proj-2");

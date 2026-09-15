@@ -47,18 +47,18 @@ pnpm clean          # packages/*/dist を削除
 | --- | --- |
 | [01 概要と目的](docs/01-overview.md) | 何を解くか、固定した軸、正本の所在 |
 | [02 ドメイン概念](docs/02-concepts.md) | プロジェクト、スレッド、参加者、提案、合意などの定義 |
-| [03 スレッドと合意](docs/03-threads-and-consensus.md) | スレッド型・状態、オーナー、合意種類カタログ、フォロワーシップ |
+| [03 スレッドと合意](docs/03-threads-and-consensus.md) | スレッド型・状態、オーナー、合意種類カタログ、フォロワーシップ。[種別の状態遷移](docs/03-thread-state-machines.md)、[合意種類ごとの合意状態遷移](docs/03-consensus-state-machines.md)、[トピックと型・合意種類の選び方](docs/03-topic-chooser.md) |
 | [04 エージェントとロール](docs/04-agents-and-roles.md) | AI の構成要素、初期ロール、スレッド作成の門、人間の位置づけ |
 | [05 セッションとメモリ](docs/05-sessions-and-memory.md) | 「一日」としてのセッション、活動量、申し送り、メモリ層 |
 | [06 個人の情報と可視性](docs/06-personal-notes-and-visibility.md) | work out loud、公開メモ、助言と着想、離脱後の扱い |
 | [07 プロジェクトとリポジトリ](docs/07-projects-and-repositories.md) | 1:0/1:1 の関係、GitHub との役割分担 |
 | [08 改善ループ](docs/08-improvement-loop.md) | ルール・型・テンプレ・スキルの自己改善 |
 | [09 未決事項](docs/09-open-questions.md) | 仕様としてまだ決まっていないこと（要件。設計側は PoC で閉じた） |
-| [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 検証シナリオ 4 本と MVP の切断線。M1〜M15 コード完了、次は M16 |
+| [10 シナリオ検証と MVP](docs/10-scenarios-and-mvp.md) | 検証シナリオ 4 本と MVP の切断線。M1〜M16 コード完了、次は M17 |
 | [シナリオ検証の結果](docs/scenarios/README.md) | 4 本の紙上検証の書き下し、発見と処置 |
-| [設計 00: マイルストーン](docs/design/00-milestones.md) | 完了分とこの先。いまは M15 までコード完了、次は M16 |
+| [設計 00: マイルストーン](docs/design/00-milestones.md) | 完了分とこの先。いまは M16 までコード完了、次は M17 |
 | [設計 01: 第 1 層の実現方法](docs/design/01-layer1.md) | データモデル、状態機械、門の強制、エージェントゲートウェイ（たたき台） |
-| [設計 02: エージェント接続](docs/design/02-agent-connection.md) | 標準プロトコル（A2A + MCP 確定）、tick、ボード API、アダプタ CLI（たたき台） |
+| [設計 02: エージェント接続](docs/design/02-agent-connection.md) | 標準プロトコル（A2A + MCP 確定）、tick、ボード API、アダプタ CLI（たたき台）。[接続と一日のシーケンス](docs/design/02-sequences.md) |
 | [設計 03: 技術選定](docs/design/03-tech-selection.md) | エンジン検証、A2A/MCP 採用、スタック、PoC 結果 |
 | [設計 04: 人間の利用](docs/design/04-human-usability.md) | M6-1〜M6-6（見た目・操作感・提案と作業・CLI・ログ・fake エンジン） |
 | [設計 05: エージェントの自走](docs/design/05-agent-autonomy.md) | M7-1〜M7-6（朝の材料・例示なしのプロンプト・一日の作法・空のボードでの一日・リポジトリ文脈） |
@@ -74,3 +74,6 @@ pnpm clean          # packages/*/dist を削除
 | [設計 15: fake 操作台](docs/design/15-fake-console.md) | M23（`fake` の操作面をローカル HTTP の操作台にする。エンジン id は増やさない） |
 | [設計 16: エージェントの場の読み取り](docs/design/16-agent-read-parity.md) | M25（採用済み共有物・スレッド公開メタ・参加者の公開列をツールで取る） |
 | [設計 17: ダッシュボードの活動表示](docs/design/17-dashboard-activity.md) | M26（内部 Event を除き、project・thread 操作を対象と付随情報つきで出す） |
+| [設計 18: 性格の例とエージェント設定面](docs/design/18-personality-presets-and-agent-settings.md) | M27（パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない） |
+| [設計 19: 登録オーナーのメモリ閲覧](docs/design/19-owner-agent-memory.md) | M28 完了（所有エージェントの規範・個別記憶を Web から読む。書けない） |
+| [設計 20: connect 指示モード](docs/design/20-instruct-connect.md) | M29（`connect --instruct`。tick ではなく stdin。システムプロンプトはオプトイン、既定は渡さない） |

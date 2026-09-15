@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   DEFAULT_SESSION_BUDGET,
   TRACE_VERSION,
@@ -479,7 +479,6 @@ export async function endSession(
     payload: {
       sessionId: input.sessionId,
       endedAt: endedAt.toISOString(),
-      projects: notes,
     },
   });
 
@@ -635,7 +634,7 @@ export async function listParticipantsWithSessionSince(
           .where(
             and(
               inArray(sessions.participantId, memberIds),
-              sql`${sessions.startedAt} >= ${input.since}`,
+              gte(sessions.startedAt, input.since),
             ),
           );
   const viaSession = await db
@@ -644,7 +643,7 @@ export async function listParticipantsWithSessionSince(
     .where(
       and(
         eq(sessions.projectId, input.projectId),
-        sql`${sessions.startedAt} >= ${input.since}`,
+        gte(sessions.startedAt, input.since),
       ),
     );
   const viaEngagement = await db
@@ -657,7 +656,7 @@ export async function listParticipantsWithSessionSince(
     .where(
       and(
         eq(sessionProjectEngagements.projectId, input.projectId),
-        sql`${sessions.startedAt} >= ${input.since}`,
+        gte(sessions.startedAt, input.since),
       ),
     );
   return [

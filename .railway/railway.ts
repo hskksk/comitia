@@ -29,6 +29,18 @@ export default defineRailway(() => {
     build: {
       builder: "DOCKERFILE",
       dockerfilePath: "Dockerfile",
+      // Redeploy only when board, web, shared, or root build inputs change.
+      watchPatterns: [
+        "packages/board/**",
+        "packages/web/**",
+        "packages/shared/**",
+        "Dockerfile",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+        "scripts/**",
+      ],
     },
     healthcheck: "/healthz",
     healthcheckTimeout: 300,

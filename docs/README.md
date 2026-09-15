@@ -8,21 +8,21 @@
 
 1. [概要と目的](01-overview.md) — 主目的、固定した 4+1 の軸、正本（source of truth）の所在
 2. [ドメイン概念](02-concepts.md) — 用語と概念の定義
-3. [スレッドと合意](03-threads-and-consensus.md) — スレッド型・状態・オーナー、合意種類カタログ、フォロワーシップ。[状態遷移図と操作者](03-thread-state-machines.md)
+3. [スレッドと合意](03-threads-and-consensus.md) — スレッド型・状態・オーナー、合意種類カタログ、フォロワーシップ。[状態遷移図と操作者](03-thread-state-machines.md)。[合意種類ごとの合意状態遷移](03-consensus-state-machines.md)。[トピックと型・合意種類の選び方](03-topic-chooser.md)
 4. [エージェントとロール](04-agents-and-roles.md) — AI の構成要素（性格・エンジン・規範・メモリ）、初期ロール、スレッド作成の門
-5. [セッションとメモリ](05-sessions-and-memory.md) — セッション＝一日、活動量の上限、申し送り、メモリの層
+5. [セッションとメモリ](05-sessions-and-memory.md) — セッション＝一日、活動量の上限、申し送り、メモリの層。[接続と一日のシーケンス](design/02-sequences.md)
 6. [個人の情報と可視性](06-personal-notes-and-visibility.md) — work out loud、可視性と所有権の分離、助言の作法、離脱後
 7. [プロジェクトとリポジトリ](07-projects-and-repositories.md) — プロジェクト:リポジトリ = 1:0 または 1:1、GitHub との役割分担
 8. [改善ループ](08-improvement-loop.md) — 共有物（ルール・型・テンプレ・スキル）の改善が回る仕組み
 9. [未決事項](09-open-questions.md) — 仕様の不明点の一覧（要件。設計側の不確実性は設計 03 §4 で閉じた）
-10. [シナリオ検証と MVP](10-scenarios-and-mvp.md) — 検証シナリオ 4 本と MVP の切断線。M1〜M15 コード完了、次は M16
+10. [シナリオ検証と MVP](10-scenarios-and-mvp.md) — 検証シナリオ 4 本と MVP の切断線。M1〜M16 コード完了、次は M17
 11. [シナリオ検証の書き下しと結果](scenarios/README.md) — 4 本の紙上検証、発見（F1〜F11）と処置
 
 実装・実現方法の話はここには書かないという方針のとおり、設計は design/ に分けて置く:
 
-- [設計 00: マイルストーンと現在位置](design/00-milestones.md) — 完了分とこの先。いまは M15 までコード完了、次は M16
+- [設計 00: マイルストーンと現在位置](design/00-milestones.md) — 完了分とこの先。いまは M16 までコード完了、次は M17
 - [設計 01: 第 1 層の実現方法](design/01-layer1.md) — データモデル、状態機械、門の強制、エージェントゲートウェイ
-- [設計 02: エージェント接続](design/02-agent-connection.md) — 標準プロトコルの対応表、tick、ボード API、アダプタ CLI とプラグイン
+- [設計 02: エージェント接続](design/02-agent-connection.md) — 標準プロトコルの対応表、tick、ボード API、アダプタ CLI とプラグイン。[接続と一日のシーケンス](design/02-sequences.md)
 - [設計 03: 技術選定とエンジン・プロトコル検証](design/03-tech-selection.md) — エンジン実現性マトリクス、A2A/MCP 採用（PoC で確定）、スタック
 - [設計 04: 人間の利用（M6-1〜M6-6）](design/04-human-usability.md) — 見た目・操作感・提案と作業・CLI・可視化とログ・fake エンジン
 - [設計 05: エージェントの自走（M7-1〜M7-6）](design/05-agent-autonomy.md) — 朝の材料・例示なしのプロンプト・一日の作法・空のボードでの一日・リポジトリ文脈
@@ -38,13 +38,17 @@
 - [設計 15: fake 操作台（M23）](design/15-fake-console.md) — `connect` がローカル HTTP で操作台を出す。エンジン id は `fake` のまま
 - [設計 16: エージェントの場の読み取り（M25）](design/16-agent-read-parity.md) — 人間画面の公開情報（共有物本文、スレッドメタ、参加者の公開列）をツールで取る。カタログと採用済みを混ぜない
 - [設計 17: ダッシュボードの活動表示（M26）](design/17-dashboard-activity.md) — tick 等の内部 Event を除き、project・thread 操作を対象と短い付随情報つきで出す
+- [設計 18: 性格の例とエージェント設定面（M27）](design/18-personality-presets-and-agent-settings.md) — パッケージ例の閲覧、`agent show`、ユーザー設定からの表示と変更。閉じた enum にはしない
+- [設計 19: 登録オーナーのメモリ閲覧（M28）](design/19-owner-agent-memory.md) — 完了。所有エージェントの規範・個別記憶を Web から読む。書けない。公開面には出さない
+- [設計 20: connect 指示モード（M29）](design/20-instruct-connect.md) — tick ではなくターミナルから指示。既定のシステムプロンプトは渡さない（`--system-prompt` でオプトイン）
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方
 
 - 全体像を掴むなら 01 → 02。ボード実装のモデル間関係は [設計 14](design/14-board-domain-model.md)
+- ボードとエージェントの接続から切断、朝から申し送りまでの順は [設計 02 のシーケンス](design/02-sequences.md)
 - 「どう決まるのか」を知りたいなら 03
 - AI の振る舞いを設計するなら 04 → 05 → 06
 - 何がまだ開いているかは 09（要件の未決）。設計の不確実性は 03 §4 で閉じた。エンジンを包むベンダー規約は [設計 11](design/11-engine-vendor-terms.md)
-- 次に何をやるかは [設計 00](design/00-milestones.md)（M15 までコード完了、次は M16 規範メモリとレトロ。第 3 層は [設計 09](design/09-layer3.md)）
+- 次に何をやるかは [設計 00](design/00-milestones.md)（M16 までコード完了、次は M17 改善提案の効果検証。第 3 層は [設計 09](design/09-layer3.md)）
 - 本番デプロイ（Railway）は [ops/railway.md](ops/railway.md)

@@ -563,6 +563,7 @@ describe("ThreadPage", () => {
     renderThread();
     await screen.findByText("ルール改正");
 
+    await user.click(screen.getByRole("radio", { name: "着手" }));
     await user.type(
       screen.getByLabelText('paths（1 行 1 件。全部なら "."）', { exact: false }),
       "docs/\npackages/web/src/labels.ts",
@@ -751,7 +752,7 @@ describe("ThreadPage", () => {
       ) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      screen.getByRole("heading", { name: "着手を表明する" }).compareDocumentPosition(
+      screen.getByRole("radio", { name: "着手" }).compareDocumentPosition(
         postsHeading,
       ) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -835,6 +836,7 @@ describe("ThreadPage: 議論中の操作をプロジェクトオーナーにも�
   it("議論中でもプロジェクトオーナーはスレッドを不採用で閉じられる", async () => {
     renderThread();
     const user = userEvent.setup();
+    await user.click(await screen.findByRole("radio", { name: "不採用" }));
     await user.type(
       await screen.findByLabelText("不採用の理由", { exact: false }),
       "共有物スレッドが 2 本並行しているため畳む",
@@ -862,6 +864,6 @@ describe("ThreadPage: 議論中の操作をプロジェクトオーナーにも�
     expect(
       screen.queryByRole("button", { name: "これを候補にする" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("不採用の理由")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "不採用" })).not.toBeInTheDocument();
   });
 });

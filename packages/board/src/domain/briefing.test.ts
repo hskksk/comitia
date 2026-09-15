@@ -1,7 +1,12 @@
 import "../test/helpers.js";
 import { describe, expect, it } from "vitest";
+import {
+  DEFAULT_SESSION_BUDGET,
+  RETRO_DUE_ENDED_SESSION_COUNT,
+  WIND_DOWN_RESERVE,
+} from "@comitia/shared";
 import { db } from "../test/helpers.js";
-import { agreements, projects } from "../db/schema.js";
+import { agreements, agentConnections, participants, projects, sessions } from "../db/schema.js";
 import { addProposal } from "./proposals.js";
 import { getBriefing } from "./briefing.js";
 import { writeMemory } from "./memory.js";
@@ -142,6 +147,7 @@ describe("getBriefing (M7-1 material)", () => {
       displayName: "ソウ@ハル",
       roles: [],
       engine: "claude-code",
+      retro_due: false,
     });
     expect(briefing.project).toEqual({
       name: "comitia-web",
@@ -277,6 +283,8 @@ describe("getBriefing (M7-1 material)", () => {
     });
 
     expect(briefing.memory).toBe("");
+    expect(briefing.norms).toBe("");
+    expect(briefing.you.retro_due).toBe(false);
   });
 
   it("round-trips an active memory into briefing.memory and hides superseded ones", async () => {
@@ -292,6 +300,7 @@ describe("getBriefing (M7-1 material)", () => {
       projectId: project.id,
     });
     expect(withFirst.memory).toBe("気づいたこと1");
+    expect(withFirst.norms).toBe("");
 
     await writeMemory(db, {
       participantId: agent.id,
@@ -304,6 +313,73 @@ describe("getBriefing (M7-1 material)", () => {
       projectId: project.id,
     });
     expect(withSecond.memory).toBe("気づいたこと2（更新）");
+    expect(withSecond.norms).toBe("");
+  });
+
+  it("puts norms in briefing.norms and keeps them out of memory", async () => {
+    const { agent, project } = await setupParticipants();
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "個別の気づき",
+    });
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "古い規範",
+      layer: "norm",
+    });
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "新しい規範",
+      layer: "norm",
+    });
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+
+    expect(briefing.memory).toBe("個別の気づき");
+    expect(briefing.norms).toBe("古い規範\n新しい規範");
+  });
+
+  it("sets you.retro_due after 7 ended sessions and clears it after writing a norm", async () => {
+    const { agent, project } = await setupParticipants();
+    const [row] = await db
+      .select()
+      .from(participants)
+      .where(eq(participants.id, agent.id));
+    await db.insert(sessions).values(
+      Array.from({ length: RETRO_DUE_ENDED_SESSION_COUNT }, (_, index) => {
+        const started = new Date(row!.createdAt.getTime() + 1 + index * 2);
+        return {
+          participantId: agent.id,
+          budgetLimit: DEFAULT_SESSION_BUDGET,
+          windDownReserved: WIND_DOWN_RESERVE,
+          startedAt: started,
+          endedAt: new Date(started.getTime() + 1),
+          endedReason: "completed" as const,
+        };
+      }),
+    );
+
+    const due = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(due.you.retro_due).toBe(true);
+
+    await writeMemory(db, {
+      participantId: agent.id,
+      body: "提炼した規範",
+      layer: "norm",
+    });
+    const cleared = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    expect(cleared.you.retro_due).toBe(false);
+    expect(cleared.norms).toBe("提炼した規範");
+    expect(cleared.memory).toBe("");
   });
 
   it("surfaces active work_claims from another agent in situation.work_claims", async () => {
@@ -475,5 +551,85 @@ describe("getBriefing (M7-1 material)", () => {
         },
       ]),
     );
+  });
+});
+
+describe("briefing participants public columns (M25-3)", () => {
+  it("shows another agent's personality, engine, and connection without fabricating human rows", async () => {
+    const { owner, agent, project } = await setupParticipants();
+    const other = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "リン",
+      ownerParticipantId: owner.id,
+      engine: "opencode",
+      personality: "対立する案を残す",
+    });
+    const neverConnected = await registerParticipant(db, {
+      kind: "agent",
+      displayName: "ナオ",
+      ownerParticipantId: owner.id,
+      engine: "claude-code",
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: other.id,
+      actorId: owner.id,
+    });
+    await addMembership(db, {
+      projectId: project.id,
+      participantId: neverConnected.id,
+      actorId: owner.id,
+    });
+    await db.insert(agentConnections).values([
+      { participantId: agent.id, status: "connected" },
+      { participantId: other.id, status: "disconnected" },
+    ]);
+
+    const briefing = await getBriefing(db, {
+      participantId: agent.id,
+      projectId: project.id,
+    });
+    const byName = new Map(
+      briefing.situation.participants.map((row) => [row.displayName, row]),
+    );
+
+    expect(byName.get("ハル")).toEqual({
+      id: owner.id,
+      displayName: "ハル",
+      roles: [],
+      kind: "human",
+      engine: null,
+      connection: null,
+    });
+    expect(byName.get("ハル")).not.toHaveProperty("personality");
+
+    expect(byName.get("ソウ@ハル")).toEqual({
+      id: agent.id,
+      displayName: "ソウ@ハル",
+      roles: [],
+      kind: "agent",
+      engine: "claude-code",
+      connection: { status: "connected" },
+    });
+    expect(byName.get("ソウ@ハル")).not.toHaveProperty("personality");
+
+    expect(byName.get("リン@ハル")).toEqual({
+      id: other.id,
+      displayName: "リン@ハル",
+      roles: [],
+      kind: "agent",
+      personality: "対立する案を残す",
+      engine: "opencode",
+      connection: { status: "disconnected" },
+    });
+
+    expect(byName.get("ナオ@ハル")).toEqual({
+      id: neverConnected.id,
+      displayName: "ナオ@ハル",
+      roles: [],
+      kind: "agent",
+      engine: "claude-code",
+      connection: { status: "never" },
+    });
   });
 });

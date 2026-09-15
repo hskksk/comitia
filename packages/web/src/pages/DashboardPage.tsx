@@ -1,52 +1,57 @@
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { boardClient, type EventItem, type ProjectSummary } from "../api.js";
+import {
+  boardClient,
+  type ActivityItem,
+  type ProjectSummary,
+} from "../api.js";
+import { ActivityList } from "../components/ActivityList.js";
 import { CollapsibleMarkdown } from "../components/CollapsibleMarkdown.js";
 import { judgmentNeedLabel, threadStateLabel } from "../labels.js";
 import { projectPath } from "../projectContext.js";
-import { formatRelativeTimeJa } from "../relativeTime.js";
 import { useFocusPoll } from "../useFocusPoll.js";
 import { useRouteLoad } from "../useRouteLoad.js";
-
-function eventKindLabel(kind: string): string {
-  const labels: Record<string, string> = {
-    thread_created: "スレッド作成",
-    post_added: "投稿",
-    thread_declaration: "宣言",
-    agreement_recorded: "合意",
-    project_membership_added: "メンバー追加",
-    project_membership_removed: "メンバー削除",
-    thread_archived: "スレッド削除",
-    proposal_archived: "提案削除",
-    project_created: "プロジェクト作成",
-    participant_registered: "参加者登録",
-  };
-  return labels[kind] ?? kind;
-}
 
 export function DashboardPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
-  const [events, setEvents] = useState<EventItem[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [activities, setActivities] = useState<ActivityItem[] | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     setSummary(null);
-    setEvents(null);
-    setError(null);
+    setActivities(null);
+    setSummaryError(null);
+    setActivityError(null);
   }, []);
+
+  const loadActivity = useCallback(() => {
+    if (!projectId) {
+      return;
+    }
+    boardClient
+      .activity(12)
+      .then((response) => {
+        setActivities(response.items);
+        setActivityError(null);
+      })
+      .catch((err: Error) => setActivityError(err.message));
+  }, [projectId]);
 
   const load = useCallback(() => {
     if (!projectId) {
       return;
     }
-    Promise.all([boardClient.getProject(projectId), boardClient.events(8)])
-      .then(([project, eventRes]) => {
+    boardClient
+      .getProject(projectId)
+      .then((project) => {
         setSummary(project);
-        setEvents(eventRes.items);
+        setSummaryError(null);
       })
-      .catch((err: Error) => setError(err.message));
-  }, [projectId]);
+      .catch((err: Error) => setSummaryError(err.message));
+    loadActivity();
+  }, [loadActivity, projectId]);
 
   useRouteLoad(load, [projectId], reset);
   useFocusPoll(load, 15_000);
@@ -54,8 +59,8 @@ export function DashboardPage() {
   if (!projectId) {
     return null;
   }
-  if (error && !summary) {
-    return <p className="status status-error">{error}</p>;
+  if (summaryError && !summary) {
+    return <p className="status status-error">{summaryError}</p>;
   }
   if (!summary) {
     return <p className="status status-loading">読み込み中…</p>;
@@ -195,41 +200,29 @@ export function DashboardPage() {
         ) : null}
       </div>
 
-      {events && events.length > 0 ? (
-        <section className="dashboard-events">
-          <h2>直近の出来事</h2>
-          <ul className="event-list">
-            {events.map((event) => (
-              <li key={event.id} className="event-item">
-                <span className="event-kind">{eventKindLabel(event.kind)}</span>
-                {event.actorDisplayName ? (
-                  <span className="event-actor muted">
-                    by {event.actorDisplayName}
-                  </span>
-                ) : null}
-                {event.targetDisplayName ? (
-                  <span className="event-target muted">
-                    → 対象: {event.targetDisplayName}
-                  </span>
-                ) : null}
-                <time className="muted" dateTime={event.createdAt}>
-                  {formatRelativeTimeJa(event.createdAt)}
-                </time>
-                {event.threadId ? (
-                  <Link
-                    to={projectPath(projectId, `threads/${event.threadId}`)}
-                    className="event-thread"
-                  >
-                    スレッドへ
-                  </Link>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <section className="dashboard-activity" aria-labelledby="activity-heading">
+        <h2 id="activity-heading">最近の活動</h2>
+        {activityError ? (
+          <div className="activity-error">
+            <p className="status status-error">
+              活動を読み込めませんでした: {activityError}
+            </p>
+            <button type="button" onClick={loadActivity}>
+              再取得
+            </button>
+          </div>
+        ) : activities === null ? (
+          <p className="status status-loading">活動を読み込み中…</p>
+        ) : activities.length === 0 ? (
+          <p className="muted">まだ活動はありません</p>
+        ) : (
+          <ActivityList items={activities} />
+        )}
+      </section>
 
-      {error ? <p className="status status-error">{error}</p> : null}
+      {summaryError ? (
+        <p className="status status-error">{summaryError}</p>
+      ) : null}
     </section>
   );
 }
