@@ -1,43 +1,53 @@
-import { getRequestListener } from "@hono/node-server";
 import { createPostgresDb } from "../db/postgres.js";
 import { createBoardApp } from "./app.js";
-import { registerCronRoutes } from "./cron-routes.js";
 import { readGitHubConfig } from "../github/config.js";
+import { readPreviewAuthConfig } from "../preview-auth/config.js";
 import { createOctokitGitHubClient } from "../github/octokit-client.js";
 
 /**
- * Railway Serverless (Functions) handler for comitia board.
+ * Railway Serverless Handler
  *
- * This handler processes HTTP requests in a serverless environment.
- * Background tasks (loops, scheduler) should be triggered via scheduled HTTP requests.
+ * Stateless HTTP request handler for serverless (Functions) execution.
+ * Background tasks are triggered via external cron service calling HTTP endpoints.
  */
 
-let requestListener: ReturnType<typeof getRequestListener> | null = null;
+let app: ReturnType<typeof createBoardApp> | null = null;
 
 async function initializeApp() {
-  if (requestListener) {
-    return requestListener;
+  if (app) {
+    return app;
   }
 
-  const db = await createPostgresDb();
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL environment variable is required");
+  }
+
+  const { db } = createPostgresDb(databaseUrl);
   const githubConfig = readGitHubConfig();
   const github = githubConfig
     ? createOctokitGitHubClient(githubConfig)
     : undefined;
+  const previewAuthConfig = readPreviewAuthConfig();
 
-  const app = createBoardApp({
+  app = createBoardApp({
     db,
     github,
+    githubOAuth: {
+      enabled: !!githubConfig,
+      appSlug: githubConfig?.appSlug,
+      clientId: githubConfig?.clientId,
+    },
+    previewAuth: {
+      enabled: !!previewAuthConfig,
+      bootstrapToken: previewAuthConfig?.bootstrapToken,
+    },
   });
 
-  // Register cron job endpoints for background tasks in serverless environment
-  registerCronRoutes(app, { db });
-
-  requestListener = getRequestListener(app);
-  return requestListener;
+  return app;
 }
 
 export default async (req: Request): Promise<Response> => {
-  const listener = await initializeApp();
-  return listener(req);
+  const application = await initializeApp();
+  return application.fetch(req);
 };
