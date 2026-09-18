@@ -6,6 +6,9 @@
 設定の正本は **Infrastructure as Code**（[`.railway/railway.ts`](../../.railway/railway.ts)）。
 非推奨の Config as Code（`railway.toml` / `railway.json`）は使わない。同じサービスを両方で管理できない。
 
+リージョンは `asia-southeast1-eqsg3a`（シンガポール）。Postgres にはボリュームが付いているため、
+リージョンを変える `railway config apply` の実行中は DB が一時的にダウンする（ボリューム移行）。
+
 デプロイの流れ:
 
 ```

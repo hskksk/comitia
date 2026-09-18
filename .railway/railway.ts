@@ -17,8 +17,11 @@ import {
  * Config as Code (`railway.toml` / `railway.json`) cannot manage the same
  * service. That file is removed from this repo on purpose.
  */
+// Singapore. https://docs.railway.com/deployments/regions#region-options
+const ASIA_REGION = "asia-southeast1-eqsg3a";
+
 export default defineRailway(() => {
-  const db = postgres("Postgres");
+  const db = postgres("Postgres", { region: ASIA_REGION });
 
   const board = service("board", {
     source: github("hskksk/comitia", {
@@ -44,7 +47,8 @@ export default defineRailway(() => {
     },
     healthcheck: "/healthz",
     healthcheckTimeout: 300,
-    replicas: 1,
+    // Replicas stay at 1 (in-process tick loop + WS relay); region only.
+    replicas: { [ASIA_REGION]: 1 },
     deploy: {
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 10,

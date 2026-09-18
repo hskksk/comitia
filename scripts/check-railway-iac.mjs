@@ -37,8 +37,10 @@ if (board.deploy?.healthcheckPath !== "/healthz") {
 if (board.deploy?.healthcheckTimeout !== 300) {
   fail(`expected healthcheckTimeout 300, got ${board.deploy?.healthcheckTimeout}`);
 }
-if (board.deploy?.numReplicas !== 1) {
-  fail(`expected 1 replica, got ${board.deploy?.numReplicas}`);
+const ASIA_REGION = "asia-southeast1-eqsg3a";
+const boardRegionReplicas = board.deploy?.multiRegionConfig?.[ASIA_REGION]?.numReplicas;
+if (boardRegionReplicas !== 1) {
+  fail(`expected 1 replica in ${ASIA_REGION}, got ${JSON.stringify(board.deploy?.multiRegionConfig)}`);
 }
 if (board.source?.checkSuites !== true) {
   fail("expected GitHub checkSuites (Wait for CI)");
@@ -60,6 +62,14 @@ if (board.variables?.BOARD_PUBLIC_URL?.value !== "https://${{RAILWAY_PUBLIC_DOMA
 const graphBoard = graph?.resources?.find((resource) => resource.name === "board");
 if (graphBoard?.source?.repo !== "hskksk/comitia") {
   fail(`expected github.com/hskksk/comitia, got ${graphBoard?.source?.repo}`);
+}
+
+const postgres = desiredConfig?.services?.Postgres;
+const postgresRegionReplicas = postgres?.deploy?.multiRegionConfig?.[ASIA_REGION]?.numReplicas;
+if (postgresRegionReplicas !== 1) {
+  fail(
+    `expected Postgres in ${ASIA_REGION}, got ${JSON.stringify(postgres?.deploy?.multiRegionConfig)}`,
+  );
 }
 
 console.log("railway iac graph ok");
