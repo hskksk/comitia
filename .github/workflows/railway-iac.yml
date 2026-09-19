@@ -1,6 +1,11 @@
 name: Railway IaC
 
+# 破壊的な IaC 変更は PR の plan コメントでレビューする。main へのマージ時は
+# レビュー済みの plan を --confirm-destructive 付きでそのまま適用する。
+# 詳細は docs/ops/railway.md。
+
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - ".railway/**"
@@ -19,8 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  plan:
-    if: github.event_name == 'pull_request'
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,36 +41,67 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
+  plan:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: typecheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
+      id-token: write
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Preview Railway infrastructure changes
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway config plan
+      # Railway bot 名義でコメントするには github.com/apps/railway-app を
+      # このリポジトリにインストールする（未インストールなら github-actions 名義）。
+      - name: Plan and comment on pull request
+        if: env.RAILWAY_TOKEN != ''
+        uses: railwayapp/config@v1
+        with:
+          command: plan
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Skip plan without RAILWAY_TOKEN
+        if: env.RAILWAY_TOKEN == ''
+        run: echo "RAILWAY_TOKEN is not set; skipping railway config plan and PR comment"
 
   apply:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: typecheck
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Apply pinned plan from merged pull request
+        if: github.event_name == 'push' && env.RAILWAY_TOKEN != ''
+        uses: railwayapp/config@v1
         with:
-          version: 10.33.3
+          command: apply
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+          confirm-destructive: true
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - name: Apply without pinned plan (manual recovery)
+        if: github.event_name == 'workflow_dispatch' && env.RAILWAY_TOKEN != ''
+        run: |
+          set -euo pipefail
+          npm install -g @railway/cli
+          railway config apply --yes --confirm-destructive
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Apply Railway infrastructure
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway config apply --yes
+      - name: Fail without RAILWAY_TOKEN
+        if: env.RAILWAY_TOKEN == ''
+        run: |
+          echo "::error::RAILWAY_TOKEN is not set in GitHub Actions secrets."
+          echo "Without railway config apply, deploys use Railpack and fail with 'No start command detected'."
+          echo "Add a Railway Project Token (production) as RAILWAY_TOKEN, then re-run this workflow."
+          exit 1
