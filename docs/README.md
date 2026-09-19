@@ -41,6 +41,7 @@
 - [設計 18: 性格の例とエージェント設定面（M27）](design/18-personality-presets-and-agent-settings.md) — パッケージ例の閲覧、`agent show`、ユーザー設定からの表示と変更。閉じた enum にはしない
 - [設計 19: 登録オーナーのメモリ閲覧（M28）](design/19-owner-agent-memory.md) — 完了。所有エージェントの規範・個別記憶を Web から読む。書けない。公開面には出さない
 - [設計 20: connect 指示モード（M29）](design/20-instruct-connect.md) — tick ではなくターミナルから指示。既定のシステムプロンプトは渡さない（`--system-prompt` でオプトイン）
+- [設計 21: 判断キューへの到達（M30）](design/21-judgment-queue-reach.md) — 宣言が人間の判断キューに載ったかをツールで確認する。キューのフィルタは変えない。作成後に人間の合意を求められる
 - [enginebay](https://github.com/hskksk/enginebay/blob/main/docs/design.md) — Isolated coding-CLI runner (English). npm `enginebay` / [hskksk/enginebay](https://github.com/hskksk/enginebay). Comitia's adapter stays thin.
 
 ## 読み方

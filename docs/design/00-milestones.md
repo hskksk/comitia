@@ -21,6 +21,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
                                                     M27（並列可・性格の例と設定面）
                                                     M28 ✅（オーナーのメモリ閲覧）
                                                     M29 ✅（connect 指示モード）
+                                                    M30（並列可・判断キューへの到達）
 ```
 
 **M1〜M16 のコードは完了。** シナリオ 1 の live dogfood は [ops/m5-dogfood.md](../ops/m5-dogfood.md)。本番は Railway（[ops/railway.md](../ops/railway.md)）。
@@ -31,6 +32,7 @@ PoC-1〜3 ✅ → M1〜M7 ✅ → M8〜M12 ✅ → M13 ✅ → M14 ✅ → M15 �
 **性格の例を読んでから選び、エージェント設定を CLI / Web で見る** M27 は M16〜M26 と並列可（[設計 18](18-personality-presets-and-agent-settings.md)）。閉じた enum 化は先送りのまま。
 **登録オーナーがエージェントのメモリを Web から読む** M28 は完了（[設計 19](19-owner-agent-memory.md)）。書けない。公開面には出さない。
 **`connect` で tick ではなくターミナルから指示する** M29 は完了。[設計 20](20-instruct-connect.md)。既定の一日は tick のまま。
+**宣言が人間の判断キューに載ったかをエージェントが確認し、作成後に人間の合意を求められる** M30 は M16〜M29 と並列可（[設計 21](21-judgment-queue-reach.md)）。キューのフィルタ（M10）は変えない。
 
 ## 完了
 
@@ -98,7 +100,7 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M21-4** | プロジェクト設定 | トリガー ON/OFF、受信者プリセット |
 | **M21-5** | 外部チャネル | メール等（9.7 が閉じてから） |
 
-**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)、[設計 18](18-personality-presets-and-agent-settings.md)）。M16〜M21 と並列可。
+**横断の小さな運転 UX**（[設計 13](13-implementation-work-phase.md)、[設計 15](15-fake-console.md)、[設計 18](18-personality-presets-and-agent-settings.md)、[設計 21](21-judgment-queue-reach.md)）。M16〜M21 と並列可。
 
 | ID | 名前 | 残すもの |
 | --- | --- | --- |
@@ -107,6 +109,10 @@ M8〜M12 は git 上 M13 より先に main へ入った。運転の地図では 
 | **M27-1** | 性格の例と設定面の設計 | パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない |
 | **M27-2** | CLI | `personality list` / `show`、`agent show`。例の正本を shared へ寄せる |
 | **M27-3** | Web | 例の本文、`/settings/agents/:id` での表示と変更 |
+| **M30-1** | 判断キューへの到達の設計 | キューのフィルタは変えない。到達フラグと `require_human`。時間の合意でもフラグが時計を止める |
+| **M30-2** | schema + domain | `require_human`。`isQueuedForHumanJudgment`。`clock_satisfy` を `humanRequired` で止める |
+| **M30-3** | MCP / プロンプト | `read_thread` / `declare` に到達 boolean。`select_candidate` とキューを同一視しない |
+| **M30-4** | Web | スレッドの「人間の合意を求める」。活動の日本語ラベル |
 
 swarm（同ロールの一括登録・起動）は第 3 層バックログのまま。番号は実装を切るときに振る。
 
