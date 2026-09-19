@@ -12,8 +12,11 @@
 デプロイの流れ:
 
 ```
-railway config apply   … プロジェクトの形（Postgres / board / 変数 / ヘルスチェック）
+PR で .railway/** を変更
+  → railway-iac.yml が plan して PR にコメント（破壊的なら WARNING）
+  → コメントを確認してから Approve / マージ
 main へマージ
+  → railway-iac.yml が pin 済み plan を --confirm-destructive 付きで apply
   → GitHub Actions（test / typecheck / Docker ビルド）
   → 成功後、Railway が Dockerfile から本番をビルド（Wait for CI = checkSuites）
   → /healthz が 200 になってから切替
@@ -98,8 +101,9 @@ mise exec -- pnpm railway:push-secrets -- --deploy    # 設定後に redeploy
 ## CI との関係
 
 - PR と `main` への push で `.github/workflows/ci.yml` が test / typecheck / Docker イメージビルドを回す
-- `.railway/**` を変えた PR では `.github/workflows/railway-iac.yml` が `railway config plan` を実行（適用はしない）
-- `main` へマージされ `.railway/**` に差分があると、同ワークフローが `railway config apply --yes` でインフラを更新する
+- `.railway/**` を変えた PR では `.github/workflows/railway-iac.yml` が [railwayapp/config@v1](https://github.com/railwayapp/config) で `plan` し、**PR に diff コメント**を付ける。破壊的変更があるときはコメントに WARNING が出る
+- `main` へマージされ `.railway/**` に差分があると、同ワークフローが PR で pin した plan を `apply` する（**破壊的変更も含め** `--confirm-destructive` 付き。plan コメントを確認してからマージするのが承認）
+- plan artifact が無い・古いときは apply が失敗する。PR を reopen して plan を取り直すか、Actions → **Railway IaC** → **Run workflow**（pin なしの緊急 apply。手元で `plan` 済みであること）
 - アプリの本番デプロイは引き続き Railway の GitHub 連携 + Wait for CI（Actions から `railway up` はしない）
 - `main` の CI が赤いときは、Wait for CI によりアプリのデプロイは SKIPPED になり、直前の本番が残る
 
@@ -107,7 +111,21 @@ mise exec -- pnpm railway:push-secrets -- --deploy    # 設定後に redeploy
 
 Railway ダッシュボード → Project Settings → Tokens で **Project Token**（`production` 環境向け）を作り、GitHub リポジトリの `RAILWAY_TOKEN` に登録する。トークンは環境にスコープされるので `railway link` は不要。
 
-破壊的変更（サービス削除など）は CI の `apply` では `--confirm-destructive` を付けないため失敗する。意図した削除は手元で `railway config apply --yes --confirm-destructive` を実行する。
+PR の plan コメントを **Railway 公式 bot**（プレビュー環境コメントと同じ表示名）で出すには、リポジトリに [Railway GitHub App](https://github.com/apps/railway-app) をインストールする。`railway-iac.yml` の `plan` job は `id-token: write` を付けて OIDC を Railway に渡す。App が無い／OIDC が取れないときだけ `github-actions` 名義にフォールバックする。
+
+[railwayapp/config](https://github.com/railwayapp/config) は plan 時にリポジトリルートで `npm install` する。`.railway/railway.ts` の `railway/iac` 解決のため、ルート `package.json` の devDependency に `railway` が入っている（既存）。
+
+### 破壊的変更のポリシー
+
+以前は「CI の `apply` では `--confirm-destructive` を付けず、破壊的 diff は手元 CLI のみ」としていた。PR に plan コメント（破壊的なら WARNING）が付くようになったので、**通常フローでは CI が破壊的変更も含めて apply する**。
+
+| 段階 | やること |
+| --- | --- |
+| PR | `plan` + コメント。破壊的なら WARNING を読んでから Approve / マージ |
+| `main` マージ | pin 済み plan を `railwayapp/config` が `confirm-destructive: true` で apply |
+| 例外 | artifact が無い・ダッシュボードだけ触ったあとなど — 手元で `railway config plan` → `railway config apply --yes --confirm-destructive`、または **Railway IaC** の workflow_dispatch（同じく `--confirm-destructive`） |
+
+破壊的とはサービス削除、volume 縮小、変数削除など Railway CLI が plan で destructive とマークする操作。`.railway/**` の変更は PR 経由を正とし、plan なしの dispatch は復旧用に限る。
 
 ## ロールバック
 
