@@ -55,6 +55,7 @@ GitHub App 用の変数は `preserve()` なので、ダッシュボードに既�
 - Healthcheck: `/healthz`（タイムアウト 300s）
 - Replicas = **1**
 - 失敗時再起動（最大 10 回）
+- Serverless（`deploy.sleepApplication: true`）。アウトバウンド通信が 5〜10 分無いと停止し、次のリクエストで起床する。tick ループや Postgres 接続の通信があると眠らない。反映には再デプロイが必要
 - GitHub `main` + **Wait for CI**（`checkSuites: true`）
 
 初回デプロイ後、`https://<domain>/healthz` が `{ "ok": true }` なら成功。
