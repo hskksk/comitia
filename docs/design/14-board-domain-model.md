@@ -19,7 +19,7 @@
 
 導出ビュー（判断キュー、作業局面、Inbox）は表ではないので出さない。`github_oauth_states` は OAuth の一時行であり、ドメインモデルではない。
 
-まだ表にないもの（設計はあるが未実装）: `notifications`（[M21](12-layer4-notifications.md)）。
+まだ表にないもの（設計はあるが未実装）: `notifications`（[M21](12-layer4-notifications.md)）、`shared_artifacts`（[M30](21-shared-artifacts.md)）。
 
 ## 2. 全体（所有だけ）
 
