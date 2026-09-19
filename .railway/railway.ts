@@ -50,6 +50,8 @@ export default defineRailway(() => {
     // Replicas stay at 1 (in-process tick loop + WS relay); region only.
     replicas: { [ASIA_REGION]: 1 },
     deploy: {
+      // Serverless (formerly App Sleeping). https://docs.railway.com/deployments/serverless
+      sleepApplication: true,
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 10,
     },
