@@ -1,3 +1,10 @@
+## [0.12.1](https://github.com/hskksk/comitia/compare/v0.12.0...v0.12.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **ci:** review Railway IaC plan on PR, apply pinned plan on merge ([#155](https://github.com/hskksk/comitia/issues/155)) ([20ecc92](https://github.com/hskksk/comitia/commit/20ecc92a765d139ad0c3e325e99a3bbe495c2bb1))
+
 # [0.12.0](https://github.com/hskksk/comitia/compare/v0.11.0...v0.12.0) (2026-09-09)
 
 
