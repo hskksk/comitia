@@ -1,3 +1,10 @@
+# [0.13.0](https://github.com/hskksk/comitia/compare/v0.12.1...v0.13.0) (2026-09-19)
+
+
+### Features
+
+* **railway:** board の Serverless (sleepApplication) を有効化 ([#156](https://github.com/hskksk/comitia/issues/156)) ([f1bda8e](https://github.com/hskksk/comitia/commit/f1bda8ecd147a5fcdaf973dbae1f940088af9b90))
+
 ## [0.12.1](https://github.com/hskksk/comitia/compare/v0.12.0...v0.12.1) (2026-09-19)
 
 
