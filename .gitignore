@@ -2,7 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
-.mise.toml
+.mise.local.toml
 .env
 .env.*
 !.env.example

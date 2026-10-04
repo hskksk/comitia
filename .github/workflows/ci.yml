@@ -16,14 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.3
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - uses: hskksk/gh-actions/setup-mise@v1
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -38,14 +31,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.3
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - uses: hskksk/gh-actions/setup-mise@v1
 
       - run: pnpm install --frozen-lockfile
 
@@ -59,6 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: hskksk/gh-actions/setup-mise@v1
 
       - name: Read package version
         id: version
