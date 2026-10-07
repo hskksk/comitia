@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: hskksk/gh-actions/setup-mise@v1
+      - uses: hskksk/gh-actions/actions/setup-mise@v1
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: hskksk/gh-actions/setup-mise@v1
+      - uses: hskksk/gh-actions/actions/setup-mise@v1
 
       - run: pnpm install --frozen-lockfile
 
@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: hskksk/gh-actions/setup-mise@v1
+      - uses: hskksk/gh-actions/actions/setup-mise@v1
 
       - name: Read package version
         id: version

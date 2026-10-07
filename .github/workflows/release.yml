@@ -28,7 +28,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - uses: hskksk/gh-actions/setup-mise@v1
+      - uses: hskksk/gh-actions/actions/setup-mise@v1
 
       - run: pnpm install --frozen-lockfile
 
