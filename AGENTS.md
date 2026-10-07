@@ -140,10 +140,26 @@ Stack（下 → 上）:
 
 下からマージする。上を先に `main` へ入れない。エージェントはマージしない（レビューとマージは人間）。CI は `pull_request` 全般で走るので、base が `main` でなくても層ごとに緑を確認する。
 
+## Commits とリリース
+
+`main` へのマージ後、CI が通れば [semantic-release](https://semantic-release.gitbook.io/) が GitHub Release と `CHANGELOG.md` / パッケージバージョンを更新する（[`.releaserc.json`](.releaserc.json)）。ルールは [hskksk/gh-actions](https://github.com/hskksk/gh-actions) と同じ commit-analyzer 設定。
+
+**`main` へのマージ:** **merge commit** または **rebase and merge** を使う。**squash は使わない。** semantic-release は `main` 上の各コミットを読む。squash すると PR 内だけにあった `feat` / `fix` が本文に隠れ、バージョン判定が PR タイトルだけに依存する。
+
+コミットメッセージは [Conventional Commits](https://www.conventionalcommits.org/)。summary は日本語でもよい（例: `feat(M16-1): memories に layer を足す`）。
+
+| プレフィックス / シグナル | リリース |
+| --- | --- |
+| `feat:` | **minor** |
+| それ以外の conventional コミット（`fix:`, `perf:`, `refactor:`, `chore:`, `docs:`, `ci:`, `test:` など） | **patch**（catch-all） |
+| `BREAKING CHANGE:` フッター、または `!`（例: `feat!:`） | **major** |
+
+破壊的変更は `feat!:` または本文の `BREAKING CHANGE:` で明示する。
+
 ## コーディング
 
 - TypeScript strict。既存の置き場所・関数・テストの形を再利用し、並行の抽象を増やさない。
-- **コードコメントは英語。UI 表示文言は日本語。** コミットメッセージは Conventional Commits。日本語の summary でよい（例: `feat(M16-1): memories に layer を足す`）。
+- **コードコメントは英語。UI 表示文言は日本語。** コミットは上記 [Commits とリリース](#commits-とリリース) に従う。
 - Web に UI ライブラリ（shadcn 等）を足さない。素の React + `packages/web/src/index.css` の CSS 変数。
 - エンジンプラグインは Claude Code、OpenCode、Cursor Agent（いずれも `enginebay` 経由）、`fake` 以外を足さない（設計 03 §6）。Gemini / Antigravity はまだ。足す・同梱する・ホストする前に [設計 11](docs/design/11-engine-vendor-terms.md) の灰色ゾーンを読む。
 - ボードから GitHub PR を作らない・マージしない・GitHub に議論コメントしない。

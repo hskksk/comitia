@@ -1,7 +1,19 @@
 {
   "branches": ["main"],
   "plugins": [
-    "@semantic-release/commit-analyzer",
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "releaseRules": [
+          { "breaking": true, "release": "major" },
+          { "type": "feat", "release": "minor" },
+          { "release": "patch" }
+        ],
+        "parserOpts": {
+          "breakingHeaderPattern": "^(\\w*)(?:\\((.*)\\))?!: (.*)$"
+        }
+      }
+    ],
     "@semantic-release/release-notes-generator",
     [
       "@semantic-release/changelog",
