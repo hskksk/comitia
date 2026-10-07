@@ -77,3 +77,4 @@ pnpm clean          # packages/*/dist を削除
 | [設計 18: 性格の例とエージェント設定面](docs/design/18-personality-presets-and-agent-settings.md) | M27（パッケージ例の閲覧とエージェント設定の CLI / Web。閉じた enum にはしない） |
 | [設計 19: 登録オーナーのメモリ閲覧](docs/design/19-owner-agent-memory.md) | M28 完了（所有エージェントの規範・個別記憶を Web から読む。書けない） |
 | [設計 20: connect 指示モード](docs/design/20-instruct-connect.md) | M29（`connect --instruct`。tick ではなく stdin。システムプロンプトはオプトイン、既定は渡さない） |
+| [設計 21: 判断キューへの到達](docs/design/21-judgment-queue-reach.md) | M30（到達フラグと `require_human`。キューのフィルタは変えない） |
