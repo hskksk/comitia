@@ -98,11 +98,13 @@ M16〜M23 と **並列可**。スキーマは足さない。
 
 | kind | cardinality | 朝のパック | 探すツール |
 | --- | --- | --- | --- |
-| `project_rule` | 0 または 1（最新の有効採用） | **本文** | 一覧にも出る |
+| `project_rule` | 0 または 1（現行ポインタ） | **本文** | 一覧にも出る |
 | `thread_template` | 0 または 1 | **本文** | 同上 |
-| `skill` | 0 件以上 | **ポインタ**（threadId / summary）。本文はツール | 全文 |
+| `skill` | 0 件以上（識別名ごと 1 文書） | **ポインタ**（threadId / summary）。本文はツール | 全文 |
 
-1 件制約は憲法層だけ（既存の `getActiveSharedArtifact`）。スキルは改善ループの「共有の手順」なので、複数の有効合意が並んでよい。最新 1 件に畳まない。
+1 件制約は憲法層だけ。スキルは改善ループの「共有の手順」なので、複数の有効文書が並んでよい。最新 1 件に畳まない。
+
+現行の取り方は、M25 時点では `createdAt desc limit 1`（憲法）と active 全件（スキル）だった。改正の置換が空なのは [#148](https://github.com/hskksk/comitia/issues/148)。**文書 identity と現行ポインタは [設計 21](21-shared-artifacts.md) M30。** M25 の読み取り口と JSON 形は維持し、現行の決め方だけ M30-2 が差し替える。
 
 ### 4.2 ツール
 
@@ -451,7 +453,7 @@ flowchart TB
 }
 ```
 
-並び: `project_rule`、`thread_template`、そのあと `skill` を `createdAt` 昇順。憲法は各 kind 最大 1 件（最新の有効採用）。skill は有効採用をすべて。0 件の kind は行を出さない。
+並び: `project_rule`、`thread_template`、そのあと `skill` を `createdAt` 昇順。憲法は各 kind 最大 1 件（現行ポインタ。[設計 21](21-shared-artifacts.md)）。skill は有効な文書をすべて。0 件の kind は行を出さない。M30 以降は各行に `id`（SharedArtifact）と `key` を足してよい。
 
 #### `list_system_templates`（いまのまま）
 

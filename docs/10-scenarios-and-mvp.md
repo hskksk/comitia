@@ -2,7 +2,7 @@
 
 次のステップの計画。ここに書くのは要件ではなく **進め方の提案** であり、シナリオを通す中で要件（01〜08）の矛盾・欠落が見つかれば、要件側を直すか [09 未決事項](09-open-questions.md) に追記する。
 
-> **状況**: シナリオ検証 4 本は実施済み。書き下しと結果は [scenarios/](scenarios/README.md)。矛盾 2 件（F1・F2）は 03 へ反映済み、欠落 9 件は 09 へ追記済み。10.5 (3) の「実装前に決め切る最小セット」も確定済み。**PoC 3 本は合格**。**M1〜M16 のコードは完了**（第 1 層、第 2 層 M8〜M12、M13 アカウント・シェル、M14 エージェント GitHub 資格、M15 性格、M16 規範メモリとレトロ）。シナリオ 1 の live dogfood は [ops/m5-dogfood.md](ops/m5-dogfood.md)。**次は M17 改善提案の効果検証**（[design/09](design/09-layer3.md)）。地図は [design/00](design/00-milestones.md)。
+> **状況**: シナリオ検証 4 本は実施済み。書き下しと結果は [scenarios/](scenarios/README.md)。矛盾 2 件（F1・F2）は 03 へ反映済み、欠落 9 件は 09 へ追記済み。10.5 (3) の「実装前に決め切る最小セット」も確定済み。**PoC 3 本は合格**。**M1〜M16 のコードは完了**（第 1 層、第 2 層 M8〜M12、M13 アカウント・シェル、M14 エージェント GitHub 資格、M15 性格、M16 規範メモリとレトロ）。シナリオ 1 の live dogfood は [ops/m5-dogfood.md](ops/m5-dogfood.md)。**次は M30 共有物の構造**（[design/21](design/21-shared-artifacts.md)）。M17 は M30-2 のあと。地図は [design/00](design/00-milestones.md)。
 
 ## 10.1 位置づけ
 
