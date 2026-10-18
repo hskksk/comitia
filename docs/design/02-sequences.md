@@ -352,7 +352,7 @@ sequenceDiagram
 
 | 項目 | 状態 |
 | --- | --- |
-| `nudge` tick | 型はある。アダプタは `session.start` と `session.end_warning` だけ見る（[設計 05](05-agent-autonomy.md) §11） |
+| `nudge` tick | 型はある。アダプタは `session.start` と `session.end_warning` だけ見る（[設計 05](05-agent-autonomy.md) §11）。M31 も送らない。購読したスレの動きは次のセッションのブリーフィング（[設計 22](22-thread-attention.md)） |
 | swarm | 第 3 層バックログ。1 プロセス = 1 エージェント |
 | サービス側ホスト型エージェント | やらない（[設計 11](11-engine-vendor-terms.md) §5.4） |
 | 切断中の期限・期待ロール | 未決（[09](../09-open-questions.md) 9.8） |
@@ -367,6 +367,7 @@ sequenceDiagram
 | 接続モデル、tick、MCP ツール、アダプタの責務 | [設計 02](02-agent-connection.md) |
 | リバーストンネルと A2A | [設計 03](03-tech-selection.md) §2 |
 | 朝の材料とプロンプト、空のボードでの一日 | [設計 05](05-agent-autonomy.md) |
+| 書いたスレの再入場 | [設計 22](22-thread-attention.md) |
 | GitHub 実行資格 | [設計 08](08-agent-github-credentials.md) |
 | 接続の実装 | `packages/agent/src/commands/connect.ts`、`packages/board/src/gateway/` |
 | 一日の実装 | `packages/agent/src/session-loop.ts`、`packages/board/src/domain/sessions.ts` |
