@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import express from "express";
+import helmet from "helmet";
 import { FAKE_CONSOLE_DEFAULT_PORT } from "@comitia/shared";
 import type { McpProxyToolResult } from "../mcp-proxy.js";
 import { toolLogToTraceEvents } from "../trace-format.js";
@@ -160,6 +161,7 @@ export class FakeConsole {
       return this.url;
     }
     const app = express();
+    app.use(helmet());
     app.disable("x-powered-by");
     app.use(express.json({ limit: "1mb" }));
     app.get("/", (_req, res) => {
