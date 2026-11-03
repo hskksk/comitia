@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import express from "express";
+import helmet from "helmet";
 import { TaskState, type AgentCard } from "@a2a-js/sdk";
 import {
   AgentEvent,
@@ -155,6 +156,7 @@ export async function startLocalA2aServer(
   );
 
   const app = express();
+  app.use(helmet());
   app.use(
     "/.well-known/agent-card.json",
     agentCardHandler({ agentCardProvider: requestHandler }),
