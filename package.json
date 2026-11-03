@@ -20,7 +20,8 @@
     "release:dry-run": "semantic-release --dry-run"
   },
   "dependencies": {
-    "enginebay": "^1.1.0"
+    "enginebay": "^1.1.0",
+    "helmet": "^8.3.0"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
