@@ -23,16 +23,16 @@
   "dependencies": {
     "@a2a-js/sdk": "1.0.0",
     "@comitia/shared": "workspace:*",
-    "@hono/node-server": "^2.1.1",
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@hono/node-server": "^2.1.6",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@octokit/app": "^16.1.4",
     "@octokit/webhooks": "^14.2.0",
     "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
-    "hono": "^4.13.2",
+    "hono": "^4.13.16",
     "postgres": "^3.4.9",
     "ws": "^8.18.3",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.5",
