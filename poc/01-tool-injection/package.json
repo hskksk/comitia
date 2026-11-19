@@ -15,11 +15,11 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^4.4.3"
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.233",
+    "@anthropic-ai/claude-code": "2.1.251",
     "@types/node": "^26.2.0",
     "opencode-ai": "1.18.18",
     "tsx": "^4.23.12",
